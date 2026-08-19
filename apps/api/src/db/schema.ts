@@ -85,6 +85,10 @@ export const investorProfiles = sqliteTable("investor_profiles", {
 
 export const financingFacilities = sqliteTable("financing_facilities", {
   id: id(), // e.g. 'MBIBG-26070005'
+  // Nullable: facilities seeded before an issuer had a real login are
+  // only identified by issuerName. New applications set this to the
+  // real issuer user (Phase 4).
+  issuerUserId: text("issuer_user_id").references(() => users.id),
   productGroup: text("product_group").notNull(),
   financingType: text("financing_type").notNull(),
   riskTier: text("risk_tier").notNull(),
@@ -97,9 +101,10 @@ export const financingFacilities = sqliteTable("financing_facilities", {
   principalAmount: real("principal_amount").notNull(),
   serviceFeePct: real("service_fee_pct").notNull().default(0),
   issuerName: text("issuer_name").notNull(),
-  status: text("status", { enum: ["Open", "Ongoing", "Completed", "Default"] })
+  status: text("status", { enum: ["Pending Review", "Open", "Ongoing", "Completed", "Default", "Rejected"] })
     .notNull()
     .default("Open"),
+  purpose: text("purpose"),
   firstPaymentDate: text("first_payment_date"),
   lastPaymentDate: text("last_payment_date"),
   ...timestamps,
@@ -326,4 +331,21 @@ export const orders = sqliteTable("orders", {
   approvedBy: text("approved_by").references(() => corporateUsers.id),
   ...timestamps,
   decidedAt: integer("decided_at", { mode: "timestamp" }),
+});
+
+// ---- Issuer accounts (Phase 4) ----
+
+export const issuerProfiles = sqliteTable("issuer_profiles", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => users.id),
+  companyName: text("company_name").notNull(),
+  registrationNumber: text("registration_number"),
+  sector: text("sector"),
+  contactPerson: text("contact_person"),
+  contactEmail: text("contact_email"),
+  registeredAddress: text("registered_address"),
+  kybStatus: text("kyb_status").notNull().default("Pending"),
+  availableLine: real("available_line").notNull().default(0),
+  onTimeRate: real("on_time_rate").notNull().default(100),
 });

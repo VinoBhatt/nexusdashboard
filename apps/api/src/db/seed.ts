@@ -50,30 +50,46 @@ async function main() {
   );
 
   // ---- Financing facilities (from legacy state.notes + facilities only referenced by holdings) ----
+  // MBIBG-26070005 and MBIBG-26080001 belong to the seeded issuer demo
+  // account (Sunway Business Solutions) - the legacy prototype showed
+  // these under a placeholder "Issuer ID - ..." name in the retail
+  // portfolio while separately claiming them as the issuer persona's
+  // own facilities under the real company name. Now that both views
+  // read the same row, they get one consistent, correct issuer name.
+  const issuerUserId = "user-issuer-demo";
   const facilities = [
     { id: "MBSG-25080014", group: "Guaranteed Investment Note", type: "Invoice Financing", tier: "B+", rate: 6, tenor: 30, min: 100, max: 2700, progress: 100, amount: 27300, service: 30, issuer: "Sunway Business Solutions", status: "Completed" },
     { id: "MBSG-25080015", group: "Guaranteed Investment Note", type: "Contract Financing", tier: "B+", rate: 6, tenor: 30, min: 100, max: 1400, progress: 100, amount: 14000, service: 30, issuer: "Evergreen Capital Sdn Bhd", status: "Completed" },
     { id: "MBSG-25080016", group: "Guaranteed Investment Note", type: "Working Capital", tier: "A", rate: 8, tenor: 30, min: 100, max: 4000, progress: 100, amount: 40200, service: 30, issuer: "Growth Ventures MY", status: "Completed" },
     { id: "MBSG-25080017", group: "Guaranteed Investment Note", type: "Invoice Financing", tier: "A", rate: 6, tenor: 30, min: 100, max: 1200, progress: 100, amount: 12700, service: 30, issuer: "KMT Jaya Sdn Bhd", status: "Completed" },
-    { id: "MBIBG-26070005", group: "Invoice Financing", type: "Invoice Financing", tier: "B+", rate: 7, tenor: 540, min: 100, max: 5000, progress: 74, amount: 620000, service: 8, issuer: "Issuer ID - 1933891", status: "Ongoing", first: "2026-08-08", last: "2028-01-08" },
-    { id: "MBIBG-26080001", group: "Contract Financing", type: "Contract Financing", tier: "A", rate: 8.5, tenor: 90, min: 500, max: 20000, progress: 62, amount: 245000, service: 5, issuer: "Issuer ID - 1645911", status: "Ongoing", first: "2026-09-08", last: "2026-11-30" },
+    { id: "MBIBG-26070005", group: "Invoice Financing", type: "Invoice Financing", tier: "B+", rate: 7, tenor: 540, min: 100, max: 5000, progress: 74, amount: 620000, service: 8, issuer: "Sunway Business Solutions", status: "Ongoing", first: "2026-08-08", last: "2028-01-08", issuerUserId },
+    { id: "MBIBG-26080001", group: "Contract Financing", type: "Contract Financing", tier: "A", rate: 8.5, tenor: 90, min: 500, max: 20000, progress: 62, amount: 245000, service: 5, issuer: "Sunway Business Solutions", status: "Ongoing", first: "2026-09-08", last: "2026-11-30", issuerUserId },
     { id: "MBIBG-26070003", group: "Invoice Financing", type: "Invoice Financing", tier: "B+", rate: 7, tenor: 540, min: 100, max: 5000, progress: 100, amount: 500000, service: 8, issuer: "Issuer ID - 1932340", status: "Ongoing" },
     { id: "MBIDG-26070001", group: "Invoice Financing", type: "Invoice Financing", tier: "C+", rate: 7, tenor: 540, min: 100, max: 5000, progress: 100, amount: 300000, service: 8, issuer: "Issuer ID - 1933227", status: "Default" },
     { id: "WC1881-08082024", group: "Working Capital", type: "Working Capital", tier: "C+", rate: 10, tenor: 120, min: 100, max: 5000, progress: 100, amount: 50000, service: 10, issuer: "The Livestock & Meat Supplier", status: "Default" },
   ];
   for (const f of facilities) {
     statements.push(
-      `INSERT INTO financing_facilities (id, product_group, financing_type, risk_tier, rate_pct, tenor_days, days_elapsed, min_investment, max_investment, funding_progress_pct, principal_amount, service_fee_pct, issuer_name, status, first_payment_date, last_payment_date, created_at) VALUES (${sqlStr(f.id)}, ${sqlStr(f.group)}, ${sqlStr(f.type)}, ${sqlStr(f.tier)}, ${sqlNum(f.rate)}, ${sqlNum(f.tenor)}, 0, ${sqlNum(f.min)}, ${sqlNum(f.max)}, ${sqlNum(f.progress)}, ${sqlNum(f.amount)}, ${sqlNum(f.service)}, ${sqlStr(f.issuer)}, ${sqlStr(f.status)}, ${sqlStr(f.first ?? null)}, ${sqlStr(f.last ?? null)}, ${sqlTs(now)});`
+      `INSERT INTO financing_facilities (id, issuer_user_id, product_group, financing_type, risk_tier, rate_pct, tenor_days, days_elapsed, min_investment, max_investment, funding_progress_pct, principal_amount, service_fee_pct, issuer_name, status, first_payment_date, last_payment_date, created_at) VALUES (${sqlStr(f.id)}, ${sqlStr(f.issuerUserId ?? null)}, ${sqlStr(f.group)}, ${sqlStr(f.type)}, ${sqlStr(f.tier)}, ${sqlNum(f.rate)}, ${sqlNum(f.tenor)}, 0, ${sqlNum(f.min)}, ${sqlNum(f.max)}, ${sqlNum(f.progress)}, ${sqlNum(f.amount)}, ${sqlNum(f.service)}, ${sqlStr(f.issuer)}, ${sqlStr(f.status)}, ${sqlStr(f.first ?? null)}, ${sqlStr(f.last ?? null)}, ${sqlTs(now)});`
     );
   }
 
-  // 18-installment schedule for the facility the demo investor holds (mirrors legacy buildSchedule()).
+  // Repayment schedules (mirrors legacy buildSchedule()): 18 monthly
+  // installments for the 18-month facility, 3 for the 90-day one.
   const scheduleFacilityId = "MBIBG-26070005";
   for (let i = 0; i < 18; i++) {
     const dueDate = new Date(2026, 7 + i, 8).toISOString().slice(0, 10);
     const isLast = i === 17;
     statements.push(
       `INSERT INTO repayment_installments (id, facility_id, installment_no, due_date, principal_due, profit_due, fee_due, status) VALUES (${sqlStr(`${scheduleFacilityId}-${i + 1}`)}, ${sqlStr(scheduleFacilityId)}, ${i + 1}, ${sqlStr(dueDate)}, ${isLast ? 100 : 0}, ${isLast ? 0.64 : 0.58}, ${isLast ? 0.09 : 0.08}, ${sqlStr(i === 0 ? "Paid" : "Upcoming")});`
+    );
+  }
+  const shortFacilityId = "MBIBG-26080001";
+  for (let i = 0; i < 3; i++) {
+    const dueDate = new Date(2026, 8 + i, 8).toISOString().slice(0, 10);
+    const isLast = i === 2;
+    statements.push(
+      `INSERT INTO repayment_installments (id, facility_id, installment_no, due_date, principal_due, profit_due, fee_due, status) VALUES (${sqlStr(`${shortFacilityId}-${i + 1}`)}, ${sqlStr(shortFacilityId)}, ${i + 1}, ${sqlStr(dueDate)}, ${isLast ? 245000 : 0}, ${sqlNum(1735.42)}, ${sqlNum(208.25)}, ${sqlStr("Upcoming")});`
     );
   }
 
@@ -202,6 +218,47 @@ async function main() {
     const snapshotDate = new Date(2025, 8 + i, 1).toISOString().slice(0, 10);
     statements.push(
       `INSERT INTO metrics_snapshots (id, account_id, metric_key, snapshot_date, value) VALUES (${sqlStr(`snap-corp-${i + 1}`)}, ${sqlStr(corpAccountId)}, 'nav_trend', ${sqlStr(snapshotDate)}, ${sqlNum(v * 1_000_000)});`
+    );
+  }
+
+  // ---- Issuer profile: Sunway Business Solutions (from legacy state.issuerAccount) ----
+  statements.push(
+    `INSERT INTO issuer_profiles (user_id, company_name, registration_number, sector, contact_person, contact_email, registered_address, kyb_status, available_line, on_time_rate) VALUES (${sqlStr(issuerUserId)}, 'Sunway Business Solutions', 'SSM 201501234567', 'Trading & Distribution', 'Aiman Rahman (Finance Director)', 'finance@sunwaybiz.demo', 'Petaling Jaya, Selangor', 'Verified', 400000, 96.4);`
+  );
+
+  const issuerDocs = [
+    { type: "Certificate of Incorporation", status: "Verified", file: "certificate-of-incorporation.pdf" },
+    { type: "Latest Audited Financials", status: "Verified", file: "audited-financials-fy2025.pdf" },
+    { type: "Bank Statements (6 months)", status: "Verified", file: "bank-statements-6mo.pdf" },
+    { type: "Director IC / Passport", status: "Pending", file: "director-ic.pdf" },
+    { type: "Board Resolution", status: "Action required", file: null },
+  ];
+  for (const [i, d] of issuerDocs.entries()) {
+    if (!d.file) continue;
+    statements.push(
+      `INSERT INTO documents (id, owner_id, doc_type, file_name, status, uploaded_at) VALUES (${sqlStr(`doc-issuer-${i + 1}`)}, ${sqlStr(issuerUserId)}, ${sqlStr(d.type)}, ${sqlStr(d.file)}, ${sqlStr(d.status)}, ${sqlTs(now)});`
+    );
+  }
+
+  const issuerActivity = [
+    { type: "Repayment received", amount: 110.5, status: "Confirmed", date: "2026-08-08 10:00" },
+    { type: "Repayment received", amount: 110.5, status: "Confirmed", date: "2026-07-08 10:00" },
+    { type: "Disbursement", amount: 245000, status: "Confirmed", date: "2026-06-15 14:20" },
+    { type: "Facility approved", amount: 245000, status: "Confirmed", date: "2026-06-10 09:05" },
+  ];
+  for (const [i, a] of issuerActivity.entries()) {
+    const occurredAt = Math.floor(new Date(a.date.replace(" ", "T") + ":00Z").getTime() / 1000);
+    statements.push(
+      `INSERT INTO transactions (id, account_id, type, amount, status, occurred_at) VALUES (${sqlStr(`txn-issuer-${i + 1}`)}, ${sqlStr(issuerUserId)}, ${sqlStr(a.type)}, ${sqlNum(a.amount)}, ${sqlStr(a.status)}, ${occurredAt});`
+    );
+  }
+
+  // ---- Issuer outstanding-balance trend chart ----
+  const lineOutstanding = [540, 560, 580, 595, 605, 612, 618, 620, 620, 620, 620, 620];
+  for (const [i, v] of lineOutstanding.entries()) {
+    const snapshotDate = new Date(2025, 8 + i, 1).toISOString().slice(0, 10);
+    statements.push(
+      `INSERT INTO metrics_snapshots (id, account_id, metric_key, snapshot_date, value) VALUES (${sqlStr(`snap-issuer-${i + 1}`)}, ${sqlStr(issuerUserId)}, 'issuer_outstanding', ${sqlStr(snapshotDate)}, ${sqlNum(v * 1000)});`
     );
   }
 

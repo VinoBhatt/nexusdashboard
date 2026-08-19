@@ -6,6 +6,8 @@ import {
   investorProfiles,
   corporateAccounts,
   financingFacilities,
+  repaymentInstallments,
+  issuerProfiles,
   approvals,
   metricsSnapshots,
 } from "../db/schema";
@@ -139,6 +141,31 @@ admin.get("/approvals", async (c) => {
   return c.json({ approvals: rows });
 });
 
+/** 18-installment-style schedule (or fewer for a short tenor), one
+ * per elapsed month, interest-only until the last period repays
+ * principal too - generated server-side at approval time, replacing
+ * the legacy prototype's client-side buildSchedule(). */
+function generateSchedule(facilityId: string, principal: number, ratePct: number, tenorDays: number) {
+  const count = Math.max(1, Math.round(tenorDays / 30));
+  return Array.from({ length: count }).map((_, i) => {
+    const isLast = i === count - 1;
+    const profit = +((principal * ratePct) / 100 / 12).toFixed(2);
+    const fee = +(profit * 0.12).toFixed(2);
+    const due = new Date();
+    due.setMonth(due.getMonth() + i + 1);
+    return {
+      id: `${facilityId}-${i + 1}`,
+      facilityId,
+      installmentNo: i + 1,
+      dueDate: due.toISOString().slice(0, 10),
+      principalDue: isLast ? principal : 0,
+      profitDue: profit,
+      feeDue: fee,
+      status: "Upcoming" as const,
+    };
+  });
+}
+
 async function decideApproval(db: ReturnType<typeof drizzle>, id: string, decidedBy: string, outcome: "Approved" | "Rejected") {
   const rows = await db.select().from(approvals).where(eq(approvals.id, id)).limit(1);
   const approval = rows[0];
@@ -156,6 +183,35 @@ async function decideApproval(db: ReturnType<typeof drizzle>, id: string, decide
       .set({ kycStatus: outcome === "Approved" ? "Verified" : "Rejected" })
       .where(eq(investorProfiles.userId, approval.subjectId));
   }
+
+  if (approval.type === "Issuer KYB" && approval.subjectType === "user") {
+    await db
+      .update(issuerProfiles)
+      .set({ kybStatus: outcome === "Approved" ? "Verified" : "Rejected" })
+      .where(eq(issuerProfiles.userId, approval.subjectId));
+  }
+
+  // Approving a financing application activates the facility (visible
+  // in the marketplace) and generates its real repayment schedule in
+  // the same transaction - the "issuer applies -> admin approves ->
+  // facility goes active with a schedule" story from the rebuild plan.
+  if (approval.type === "New Note Listing" && approval.subjectType === "facility") {
+    const facilityRows = await db.select().from(financingFacilities).where(eq(financingFacilities.id, approval.subjectId)).limit(1);
+    const facility = facilityRows[0];
+    if (facility) {
+      await db
+        .update(financingFacilities)
+        .set({ status: outcome === "Approved" ? "Open" : "Rejected" })
+        .where(eq(financingFacilities.id, facility.id));
+      if (outcome === "Approved") {
+        const schedule = generateSchedule(facility.id, facility.principalAmount, facility.ratePct, facility.tenorDays);
+        for (const installment of schedule) {
+          await db.insert(repaymentInstallments).values(installment);
+        }
+      }
+    }
+  }
+
   return { ok: true as const };
 }
 
