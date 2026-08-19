@@ -150,10 +150,65 @@ async function main() {
     );
   }
 
+  // ---- Corporate account: ABC Treasury Sdn Bhd (from legacy state.corporate) ----
+  // user-corporate-demo (the seeded demo/reviewer login) is the Maker.
+  // A second, non-demo-reviewer Checker login is seeded so the two roles
+  // are genuinely separate accounts - real maker/checker collaboration,
+  // not a client-side toggle like the legacy prototype had.
+  const corpAccountId = "corp-abc-treasury";
+  const corpMakerUserId = "user-corporate-demo";
+  const corpCheckerUserId = "user-corporate-checker-demo";
+  const corpMakerId = "corpuser-maker-1";
+  const corpCheckerId = "corpuser-checker-1";
+
+  statements.push(
+    `INSERT INTO users (id, email, password_hash, role, display_name, is_demo_reviewer, created_at, updated_at) VALUES (${sqlStr(corpCheckerUserId)}, 'checker@abctreasury.demo', ${sqlStr(passwordHash)}, 'corporate', 'ABC Treasury Checker', 0, ${sqlTs(now)}, ${sqlTs(now)});`
+  );
+  statements.push(
+    `INSERT INTO corporate_accounts (id, company_name, deployed_funds, nav, weighted_yield, collection_rate, realised, performing, overdue, defaulted, watchlist, maker_checker_enabled, approval_threshold, order_limit, created_at) VALUES (${sqlStr(corpAccountId)}, 'ABC Treasury Sdn Bhd', 8950000, 9370000, 12.45, 96.72, 471000, 8180000, 485000, 285000, 485000, 1, 50000, 150000, ${sqlTs(now)});`
+  );
+  statements.push(
+    `INSERT INTO corporate_users (id, corporate_account_id, user_id, corp_role) VALUES (${sqlStr(corpMakerId)}, ${sqlStr(corpAccountId)}, ${sqlStr(corpMakerUserId)}, 'maker');`
+  );
+  statements.push(
+    `INSERT INTO corporate_users (id, corporate_account_id, user_id, corp_role) VALUES (${sqlStr(corpCheckerId)}, ${sqlStr(corpAccountId)}, ${sqlStr(corpCheckerUserId)}, 'checker');`
+  );
+
+  const walletDefs = [
+    { id: "wallet-treasury-pool", name: "Treasury Pool", deployed: 3400000, perf: 98 },
+    { id: "wallet-client-fund-a", name: "Client Fund A", deployed: 2600000, perf: 94 },
+    { id: "wallet-client-fund-b", name: "Client Fund B", deployed: 1800000, perf: 91 },
+    { id: "wallet-high-yield", name: "High Yield Mandate", deployed: 1150000, perf: 88 },
+  ];
+  for (const w of walletDefs) {
+    statements.push(
+      `INSERT INTO subwallets (id, corporate_account_id, name, deployed_amount, performance_pct) VALUES (${sqlStr(w.id)}, ${sqlStr(corpAccountId)}, ${sqlStr(w.name)}, ${sqlNum(w.deployed)}, ${sqlNum(w.perf)});`
+    );
+  }
+
+  const orderDefs = [
+    { id: "ORD-2041", wallet: "wallet-treasury-pool", amount: 75000 },
+    { id: "ORD-2042", wallet: "wallet-client-fund-a", amount: 52000 },
+  ];
+  for (const o of orderDefs) {
+    statements.push(
+      `INSERT INTO orders (id, corporate_account_id, subwallet_id, amount, status, created_by, created_at) VALUES (${sqlStr(o.id)}, ${sqlStr(corpAccountId)}, ${sqlStr(o.wallet)}, ${sqlNum(o.amount)}, 'Pending Checker', ${sqlStr(corpMakerId)}, ${sqlTs(now)});`
+    );
+  }
+
+  // ---- Corporate NAV trend chart (from legacy state.lineCorp, in millions) ----
+  const lineCorp = [8.4, 8.5, 8.58, 8.63, 8.71, 8.76, 8.84, 8.92, 9.01, 9.12, 9.24, 9.37];
+  for (const [i, v] of lineCorp.entries()) {
+    const snapshotDate = new Date(2025, 8 + i, 1).toISOString().slice(0, 10);
+    statements.push(
+      `INSERT INTO metrics_snapshots (id, account_id, metric_key, snapshot_date, value) VALUES (${sqlStr(`snap-corp-${i + 1}`)}, ${sqlStr(corpAccountId)}, 'nav_trend', ${sqlStr(snapshotDate)}, ${sqlNum(v * 1_000_000)});`
+    );
+  }
+
   // Run from the apps/api workspace root (see the db:seed:generate script).
   writeFileSync(join(process.cwd(), "src/db/seed.sql"), statements.join("\n") + "\n");
   console.log(`Wrote ${statements.length} statements to apps/api/src/db/seed.sql`);
-  console.log(`Demo login password for all 4 seeded accounts: ${DEMO_PASSWORD}`);
+  console.log(`Demo login password for all seeded accounts: ${DEMO_PASSWORD}`);
 }
 
 main();

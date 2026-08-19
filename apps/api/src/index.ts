@@ -7,6 +7,7 @@ import wallet from "./routes/wallet";
 import statements from "./routes/statements";
 import account from "./routes/account";
 import exportRouter from "./routes/export";
+import corporate from "./routes/corporate";
 
 export interface Env {
   DB: D1Database;
@@ -23,6 +24,7 @@ app.route("/api/wallet", wallet);
 app.route("/api/statements", statements);
 app.route("/api/account", account);
 app.route("/api/export", exportRouter);
+app.route("/api/corporate", corporate);
 
 app.notFound((c) => c.json({ error: "not_found" }, 404));
 

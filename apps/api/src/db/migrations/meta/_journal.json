@@ -8,6 +8,13 @@
       "when": 1787128646728,
       "tag": "0000_vengeful_the_professor",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1787132559117,
+      "tag": "0001_bright_payback",
+      "breakpoints": true
     }
   ]
 }

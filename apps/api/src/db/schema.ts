@@ -257,11 +257,73 @@ export const statements = sqliteTable("statements", {
   readyAt: integer("ready_at", { mode: "timestamp" }),
 });
 
-// Backing data for line charts (retail cumulative profit, admin AUM, etc.)
+// Backing data for line charts (retail cumulative profit, admin AUM, etc.).
+// accountId loosely references either a users.id or a corporate_accounts.id
+// depending on metricKey - not FK-constrained since D1 doesn't enforce FKs
+// by default and this table is shared across owner types.
 export const metricsSnapshots = sqliteTable("metrics_snapshots", {
   id: id(),
-  accountId: text("account_id").references(() => users.id),
+  accountId: text("account_id"),
   metricKey: text("metric_key").notNull(),
   snapshotDate: text("snapshot_date").notNull(),
   value: real("value").notNull(),
+});
+
+// ---- Corporate accounts (Phase 2): a company with separate maker/checker logins ----
+
+export const corporateAccounts = sqliteTable("corporate_accounts", {
+  id: id(),
+  companyName: text("company_name").notNull(),
+  deployedFunds: real("deployed_funds").notNull().default(0),
+  nav: real("nav").notNull().default(0),
+  weightedYield: real("weighted_yield").notNull().default(0),
+  collectionRate: real("collection_rate").notNull().default(0),
+  realised: real("realised").notNull().default(0),
+  performing: real("performing").notNull().default(0),
+  overdue: real("overdue").notNull().default(0),
+  defaulted: real("defaulted").notNull().default(0),
+  watchlist: real("watchlist").notNull().default(0),
+  makerCheckerEnabled: integer("maker_checker_enabled", { mode: "boolean" }).notNull().default(true),
+  approvalThreshold: real("approval_threshold").notNull().default(50000),
+  orderLimit: real("order_limit").notNull().default(150000),
+  ...timestamps,
+});
+
+export const corporateUsers = sqliteTable("corporate_users", {
+  id: id(),
+  corporateAccountId: text("corporate_account_id")
+    .notNull()
+    .references(() => corporateAccounts.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
+  corpRole: text("corp_role", { enum: ["maker", "checker"] }).notNull(),
+});
+
+export const subwallets = sqliteTable("subwallets", {
+  id: id(),
+  corporateAccountId: text("corporate_account_id")
+    .notNull()
+    .references(() => corporateAccounts.id),
+  name: text("name").notNull(),
+  deployedAmount: real("deployed_amount").notNull().default(0),
+  performancePct: real("performance_pct").notNull().default(0),
+});
+
+export const orders = sqliteTable("orders", {
+  id: id(),
+  corporateAccountId: text("corporate_account_id")
+    .notNull()
+    .references(() => corporateAccounts.id),
+  subwalletId: text("subwallet_id").references(() => subwallets.id),
+  amount: real("amount").notNull(),
+  status: text("status", { enum: ["Pending Checker", "Approved", "Rejected"] })
+    .notNull()
+    .default("Pending Checker"),
+  createdBy: text("created_by")
+    .notNull()
+    .references(() => corporateUsers.id),
+  approvedBy: text("approved_by").references(() => corporateUsers.id),
+  ...timestamps,
+  decidedAt: integer("decided_at", { mode: "timestamp" }),
 });
