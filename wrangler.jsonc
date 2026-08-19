@@ -1,8 +1,19 @@
 {
   "name": "nexusdashboard",
   "compatibility_date": "2026-08-19",
+  "main": "apps/api/src/index.ts",
   "assets": {
-    "directory": "./",
-    "not_found_handling": "single-page-application"
-  }
+    "directory": "./apps/web/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "nexusdashboard-db",
+      "database_id": "28012f34-3c59-41d2-a86e-3c2a39d7bb99",
+      "migrations_dir": "apps/api/src/db/migrations"
+    }
+  ]
 }
