@@ -205,6 +205,15 @@ async function main() {
     );
   }
 
+  // ---- Platform AUM trend (admin overview chart) ----
+  const lineAUM = [36.1, 36.9, 37.6, 38.4, 39.1, 39.8, 40.6, 41.2, 41.8, 42.1, 42.4, 42.6];
+  for (const [i, v] of lineAUM.entries()) {
+    const snapshotDate = new Date(2025, 8 + i, 1).toISOString().slice(0, 10);
+    statements.push(
+      `INSERT INTO metrics_snapshots (id, account_id, metric_key, snapshot_date, value) VALUES (${sqlStr(`snap-platform-${i + 1}`)}, NULL, 'platform_aum', ${sqlStr(snapshotDate)}, ${sqlNum(v * 1_000_000)});`
+    );
+  }
+
   // Run from the apps/api workspace root (see the db:seed:generate script).
   writeFileSync(join(process.cwd(), "src/db/seed.sql"), statements.join("\n") + "\n");
   console.log(`Wrote ${statements.length} statements to apps/api/src/db/seed.sql`);

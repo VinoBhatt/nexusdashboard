@@ -53,6 +53,28 @@ const ICONS: Record<string, React.ReactNode> = {
       <path d="M6.5 18.5a6 6 0 0 1 11 0" />
     </svg>
   ),
+  investors: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="8" r="3" />
+      <path d="M2.5 20a6.5 6.5 0 0 1 13 0" />
+      <circle cx="17" cy="9" r="2.5" />
+      <path d="M15.5 13.2a5 5 0 0 1 6 4.8" />
+    </svg>
+  ),
+  issuers: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 21V8l9-5 9 5v13" />
+      <path d="M9 21v-6h6v6" />
+      <line x1="9" y1="12" x2="9" y2="12.01" />
+      <line x1="15" y1="12" x2="15" y2="12.01" />
+    </svg>
+  ),
+  risk: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2l8 4v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6z" />
+      <polyline points="9 12 11 14 15 10" />
+    </svg>
+  ),
 };
 
 const NAV_BY_ROLE: Record<Role, { to: string; label: string; icon: string }[]> = {
@@ -66,7 +88,12 @@ const NAV_BY_ROLE: Record<Role, { to: string; label: string; icon: string }[]> =
     { to: "account", label: "Account", icon: "account" },
   ],
   corporate: [{ to: "overview", label: "Overview", icon: "grid" }],
-  admin: [{ to: "overview", label: "Overview", icon: "grid" }],
+  admin: [
+    { to: "overview", label: "Overview", icon: "grid" },
+    { to: "investors", label: "Investors", icon: "investors" },
+    { to: "issuers", label: "Issuers", icon: "issuers" },
+    { to: "risk-approvals", label: "Risk & Approvals", icon: "risk" },
+  ],
   issuer: [{ to: "overview", label: "Overview", icon: "grid" }],
 };
 

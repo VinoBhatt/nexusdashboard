@@ -11,6 +11,9 @@ import Deposit from "./pages/retail/Deposit";
 import Withdrawal from "./pages/retail/Withdrawal";
 import Statements from "./pages/retail/Statements";
 import Account from "./pages/retail/Account";
+import Investors from "./pages/admin/Investors";
+import Issuers from "./pages/admin/Issuers";
+import RiskApprovals from "./pages/admin/RiskApprovals";
 
 export default function App() {
   return (
@@ -29,6 +32,9 @@ export default function App() {
             <Route path="withdrawal" element={<Withdrawal />} />
             <Route path="statements" element={<Statements />} />
             <Route path="account" element={<Account />} />
+            <Route path="investors" element={<Investors />} />
+            <Route path="issuers" element={<Issuers />} />
+            <Route path="risk-approvals" element={<RiskApprovals />} />
           </Route>
           <Route path="*" element={<Navigate to="/app/overview" replace />} />
         </Routes>
