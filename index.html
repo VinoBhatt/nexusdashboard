@@ -46,9 +46,6 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .deposit-option span{display:block;margin-top:4px;color:var(--muted);font-size:12px}
 .deposit-panel{display:none}
 .deposit-panel.active{display:block}
-.fpx-bank-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}
-.bank-pill{border:1px solid var(--line);border-radius:14px;background:#fff;padding:10px;text-align:center;font-weight:800;font-size:12px}
-.bank-pill.active{border-color:#4a65ff;background:#f1f4ff;color:#2842d9}
 
 .modal{position:fixed;inset:0;background:rgba(8,18,31,.45);backdrop-filter:blur(2px);display:none;place-items:center;padding:20px;z-index:50}.modal.show{display:grid}.modal-card{width:min(1100px,96vw);max-height:90vh;overflow:auto;background:#fff;border-radius:22px;box-shadow:0 30px 70px rgba(0,0,0,.2);padding:18px}.modal-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px}.close{background:#edf4fb;border-radius:12px;padding:9px;display:inline-flex;align-items:center;justify-content:center;color:#12385a}.close:hover{background:#dfeaf6}
 .hidden{display:none !important}
@@ -460,7 +457,12 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     <section id="portfolio" class="page">
       <div class="card" style="margin-bottom:16px">
         <div class="section-head"><div><h3>Investment Portfolio</h3><p>Track holdings, payment status and liquidation eligibility.</p></div><button class="btn small" onclick="downloadCSV('portfolio')">Export CSV</button></div>
-        <div class="row" style="margin-bottom:12px"><button class="btn small primary">All Investments</button><button class="btn small">Ongoing</button><button class="btn small">Completed</button><button class="btn small">Default</button></div>
+        <div class="row" style="margin-bottom:12px" id="portfolioFilterRow">
+          <button class="btn small primary" data-filter="All" onclick="setPortfolioFilter('All',this)">All Investments</button>
+          <button class="btn small" data-filter="Ongoing" onclick="setPortfolioFilter('Ongoing',this)">Ongoing</button>
+          <button class="btn small" data-filter="Completed" onclick="setPortfolioFilter('Completed',this)">Completed</button>
+          <button class="btn small" data-filter="Default" onclick="setPortfolioFilter('Default',this)">Default</button>
+        </div>
         <div class="table-wrap"><table class="table" id="portfolioTable"></table></div>
       </div>
       <div class="grid cols-2">
@@ -777,7 +779,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 
 <script>
 const state={
-  role:'retail', page:'overview', marketMode:'primary', corpRole:'Maker', depositMode:'fpx',
+  role:'retail', page:'overview', marketMode:'primary', corpRole:'Maker', depositMode:'fpx', portfolioFilter:'All',
   profile:{cash:57.78,deposits:29001.09,withdrawals:80.69923,invested:178780,yield:6.64,expectedReturns:1089.36,expectedThisMonth:122.22,overdueThisMonth:17.50,outstanding:2704.65,defaulted:4.65,totalPortfolio:27,numberInvestments:477},
   corporate:{deployed:8950000,nav:9370000,weightedYield:12.45,collectionRate:96.72,realised:471000,performing:8180000,overdue:485000,defaulted:285000,watchlist:485000},
   lineRetail:[13750,13920,14100,14285,14470,14680,14835,14910,14995,15040,15090,15135],
@@ -818,8 +820,9 @@ const state={
   holdings:[
     {code:'MBIBG-26070005',company:'Issuer ID - 1933891',status:'Ongoing',returns:7,dueDate:'—',tenor:'18 months',yourInvestment:100,expected:110.50,actual:0.58,defaulted:false,eligible:true},
     {code:'MBIBG-26070003',company:'Issuer ID - 1932340',status:'Ongoing',returns:7,dueDate:'—',tenor:'18 months',yourInvestment:100,expected:110.50,actual:0.58,defaulted:false,eligible:true},
-    {code:'MBIDG-26070001',company:'Issuer ID - 1933227',status:'Ongoing',returns:7,dueDate:'2026-09-08',tenor:'18 months',yourInvestment:100,expected:110.50,actual:0.00,defaulted:true,eligible:false},
-    {code:'WC1881-08082024',company:'The Livestock & Meat Supplier',status:'Default',returns:10,dueDate:'Overdue',tenor:'120 days',yourInvestment:4.65,expected:0,actual:0,defaulted:true,eligible:false}
+    {code:'MBIDG-26070001',company:'Issuer ID - 1933227',status:'Default',returns:7,dueDate:'2026-09-08',tenor:'18 months',yourInvestment:100,expected:110.50,actual:0.00,defaulted:true,eligible:false},
+    {code:'WC1881-08082024',company:'The Livestock & Meat Supplier',status:'Default',returns:10,dueDate:'Overdue',tenor:'120 days',yourInvestment:4.65,expected:0,actual:0,defaulted:true,eligible:false},
+    {code:'MBSG-25080014',company:'Sunway Business Solutions',status:'Completed',returns:6,dueDate:'2025-09-08',tenor:'30 days',yourInvestment:100,expected:100.50,actual:100.50,defaulted:false,eligible:false}
   ],
   secondaryListings:[
     {code:'SEC-1021',origin:'Investor Liquidation',issuer:'Sunway Business Solutions',tier:'A',type:'Invoice Financing',returns:7.1,tenor:42,units:2200,price:0.997,seller:'Retail Investor',status:'Open'},
@@ -1034,7 +1037,11 @@ function viewNote(code){const n=[...state.notes,...state.secondaryListings].find
 function closeModal(){document.getElementById('detailModal').classList.remove('show')}
 function investNote(code){toast(`Investment flow opened for ${code}.`); state.profile.cash=Math.max(0,state.profile.cash-100); renderAll();}
 function buySecondary(code){toast(`Secondary purchase executed for ${code}.`);}
-function renderPortfolio(){const tbl=document.getElementById('portfolioTable'); tbl.innerHTML=`<tr><th>Code</th><th>Company</th><th>Status</th><th>Returns (p.a.)</th><th>Due Date</th><th>Tenor</th><th>Your Investment</th><th>Expected Payment</th><th>Actual Payment</th><th>Action</th></tr>`+state.holdings.map(h=>`<tr><td>${h.code}</td><td>${h.company}</td><td><span class="status ${h.defaulted?'default':'pending'}">${h.status}</span></td><td>${h.returns}%</td><td>${h.dueDate}</td><td>${h.tenor}</td><td>${money(h.yourInvestment)}</td><td>${money(h.expected)}</td><td>${money(h.actual)} ${h.actual>0?'<span class="status ok">Paid</span>':'<span class="status overdue">Upcoming</span>'}</td><td><button class="btn small" onclick="viewHolding('${h.code}')">View</button></td></tr>`).join(''); const s=document.getElementById('sellSelect'); const hsel=document.getElementById('holdingSelect'); s.innerHTML=''; hsel.innerHTML=''; state.holdings.forEach(h=>{s.insertAdjacentHTML('beforeend',`<option value="${h.code}">${h.code} • ${h.company}</option>`); hsel.insertAdjacentHTML('beforeend',`<option value="${h.code}">${h.code}</option>`)}); renderHoldingDetail(); syncSellState();}
+function setPortfolioFilter(filter,el){state.portfolioFilter=filter;document.querySelectorAll('#portfolioFilterRow button').forEach(b=>b.classList.toggle('primary',b===el));renderPortfolio();}
+function renderPortfolio(){const tbl=document.getElementById('portfolioTable'); const filter=state.portfolioFilter||'All'; const rows=state.holdings.filter(h=>filter==='All'||h.status===filter);
+ const badgeClass=h=>h.status==='Completed'?'ok':h.status==='Default'?'default':'pending';
+ tbl.innerHTML=`<tr><th>Code</th><th>Company</th><th>Status</th><th>Returns (p.a.)</th><th>Due Date</th><th>Tenor</th><th>Your Investment</th><th>Expected Payment</th><th>Actual Payment</th><th>Action</th></tr>`+(rows.map(h=>`<tr><td>${h.code}</td><td>${h.company}</td><td><span class="status ${badgeClass(h)}">${h.status}</span></td><td>${h.returns}%</td><td>${h.dueDate}</td><td>${h.tenor}</td><td>${money(h.yourInvestment)}</td><td>${money(h.expected)}</td><td>${money(h.actual)} ${h.actual>0?'<span class="status ok">Paid</span>':'<span class="status overdue">Upcoming</span>'}</td><td><button class="btn small" onclick="viewHolding('${h.code}')">View</button></td></tr>`).join('')||'<tr><td colspan="10">No holdings match this filter.</td></tr>');
+ const s=document.getElementById('sellSelect'); const hsel=document.getElementById('holdingSelect'); s.innerHTML=''; hsel.innerHTML=''; state.holdings.forEach(h=>{s.insertAdjacentHTML('beforeend',`<option value="${h.code}">${h.code} • ${h.company}</option>`); hsel.insertAdjacentHTML('beforeend',`<option value="${h.code}">${h.code}</option>`)}); renderHoldingDetail(); syncSellState();}
 function viewHolding(code){viewNote(code)}
 function renderHoldingDetail(){const code=document.getElementById('holdingSelect').value||state.holdings[0].code; const h=state.holdings.find(x=>x.code===code); if(!h)return; document.getElementById('holdingDetail').innerHTML=`<div class="metric"><div class="label">Status</div><div class="value">${h.status}</div><div class="hint">${h.defaulted?'Defaulted and unsellable':'Eligible for tracking'}</div></div><div class="metric"><div class="label">Expected Payment</div><div class="value">${money(h.expected)}</div><div class="hint">Based on original schedule</div></div><div class="metric"><div class="label">Actual Payment</div><div class="value">${money(h.actual)}</div><div class="hint">Collected to date</div></div><div class="metric ${h.defaulted?'red':'green'}"><div class="label">Liquidation Eligibility</div><div class="value">${h.eligible?'Eligible':'Locked'}</div><div class="hint">${h.eligible?'Can be sold to other investors.':'Defaulted notes cannot be sold.'}</div></div>`;}
 function syncSellState(){const code=document.getElementById('sellSelect').value||state.holdings[0].code; const h=state.holdings.find(x=>x.code===code); const box=document.getElementById('sellState'); box.innerHTML=`<div><b>${h.eligible?'Eligible for sale':'Sale unavailable'}</b><span>${h.eligible?'This holding may be listed in RM1 units.':'Defaulted notes cannot be sold in the marketplace.'}</span></div><div class="pill ${h.eligible?'blue':'red'}">${h.eligible?'Eligible':'Locked'}</div>`;}
