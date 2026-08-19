@@ -1,6 +1,12 @@
 import { Hono } from "hono";
-import { drizzle } from "drizzle-orm/d1";
-import { platformStats } from "./db/schema";
+import auth from "./routes/auth";
+import investor from "./routes/investor";
+import marketplace from "./routes/marketplace";
+import portfolio from "./routes/portfolio";
+import wallet from "./routes/wallet";
+import statements from "./routes/statements";
+import account from "./routes/account";
+import exportRouter from "./routes/export";
 
 export interface Env {
   DB: D1Database;
@@ -9,12 +15,14 @@ export interface Env {
 
 const app = new Hono<{ Bindings: Env }>();
 
-// Proves the full pipeline end-to-end: Worker -> Hono -> Drizzle -> D1.
-app.get("/api/health", async (c) => {
-  const db = drizzle(c.env.DB);
-  const rows = await db.select().from(platformStats).all();
-  return c.json({ ok: true, db: "connected", platformStats: rows });
-});
+app.route("/api/auth", auth);
+app.route("/api/investor", investor);
+app.route("/api/marketplace", marketplace);
+app.route("/api/portfolio", portfolio);
+app.route("/api/wallet", wallet);
+app.route("/api/statements", statements);
+app.route("/api/account", account);
+app.route("/api/export", exportRouter);
 
 app.notFound((c) => c.json({ error: "not_found" }, 404));
 

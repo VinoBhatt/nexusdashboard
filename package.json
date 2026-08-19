@@ -1,6 +1,7 @@
 {
   "name": "nexusdashboard",
   "private": true,
+  "type": "module",
   "workspaces": [
     "apps/*",
     "packages/*"

@@ -5,4 +5,5 @@ dist/
 .env
 .env.*
 !.env.example
+apps/api/src/db/seed.sql
 .DS_Store

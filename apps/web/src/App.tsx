@@ -1,49 +1,38 @@
-import { useQuery } from "@tanstack/react-query";
-import { apiGet } from "./lib/api";
-
-interface HealthResponse {
-  ok: boolean;
-  db: string;
-  platformStats: unknown[];
-}
+import { Navigate, Route, Routes } from "react-router-dom";
+import { AuthProvider } from "./context/AuthContext";
+import { ToastProvider } from "./components/Toast";
+import AppShell from "./components/layout/AppShell";
+import Login from "./pages/auth/Login";
+import Signup from "./pages/auth/Signup";
+import RoleAwareOverview from "./pages/RoleAwareOverview";
+import Marketplace from "./pages/retail/Marketplace";
+import Portfolio from "./pages/retail/Portfolio";
+import Deposit from "./pages/retail/Deposit";
+import Withdrawal from "./pages/retail/Withdrawal";
+import Statements from "./pages/retail/Statements";
+import Account from "./pages/retail/Account";
 
 export default function App() {
-  const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["health"],
-    queryFn: () => apiGet<HealthResponse>("/api/health"),
-  });
-
   return (
-    <div className="login-wrap">
-      <div className="login-card" style={{ gridTemplateColumns: "1fr" }}>
-        <div className="login-side" style={{ alignItems: "center", textAlign: "center" }}>
-          <div className="brand" style={{ justifyContent: "center" }}>
-            <svg className="mark" width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
-              <circle cx="22" cy="22" r="21" fill="#56b4e9" />
-              <path d="M22 1a21 21 0 0 1 0 42z" fill="#f0aa34" />
-              <circle cx="16" cy="22" r="10" fill="#142b4d" />
-            </svg>
-            <div className="brand-text">
-              <h1>cofundr</h1>
-              <p>
-                Financing That Makes
-                <br />
-                Investment Sense
-              </p>
-            </div>
-          </div>
-          <h2 style={{ marginTop: 24 }}>Rebuild in progress</h2>
-          <p>
-            This is the Phase 0 scaffold: React + Vite frontend, Hono API, and Cloudflare D1,
-            deployed together as a single Worker.
-          </p>
-          <div className="login-demo" style={{ marginTop: 20 }}>
-            {isLoading && "Checking API + database connection…"}
-            {isError && `API connection failed: ${(error as Error).message}`}
-            {data?.ok && `Connected. Database reachable, ${data.platformStats.length} platform_stats row(s).`}
-          </div>
-        </div>
-      </div>
-    </div>
+    <AuthProvider>
+      <ToastProvider>
+        <Routes>
+          <Route path="/" element={<Navigate to="/app/overview" replace />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/app" element={<AppShell />}>
+            <Route index element={<Navigate to="overview" replace />} />
+            <Route path="overview" element={<RoleAwareOverview />} />
+            <Route path="marketplace" element={<Marketplace />} />
+            <Route path="portfolio" element={<Portfolio />} />
+            <Route path="deposit" element={<Deposit />} />
+            <Route path="withdrawal" element={<Withdrawal />} />
+            <Route path="statements" element={<Statements />} />
+            <Route path="account" element={<Account />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/app/overview" replace />} />
+        </Routes>
+      </ToastProvider>
+    </AuthProvider>
   );
 }

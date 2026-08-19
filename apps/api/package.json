@@ -10,7 +10,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply nexusdashboard-db --local --config ../../wrangler.jsonc",
     "db:migrate:remote": "wrangler d1 migrations apply nexusdashboard-db --remote --config ../../wrangler.jsonc",
-    "db:seed:local": "tsx src/db/seed.ts --local"
+    "db:seed:generate": "tsx src/db/seed.ts",
+    "db:seed:local": "npm run db:seed:generate && wrangler d1 execute nexusdashboard-db --local --file=src/db/seed.sql --config ../../wrangler.jsonc"
   },
   "dependencies": {
     "hono": "^4.6.14",
