@@ -51,13 +51,100 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .bank-pill.active{border-color:#4a65ff;background:#f1f4ff;color:#2842d9}
 
 .modal{position:fixed;inset:0;background:rgba(8,18,31,.45);backdrop-filter:blur(2px);display:none;place-items:center;padding:20px;z-index:50}.modal.show{display:grid}.modal-card{width:min(1100px,96vw);max-height:90vh;overflow:auto;background:#fff;border-radius:22px;box-shadow:0 30px 70px rgba(0,0,0,.2);padding:18px}.modal-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px}.close{background:#edf4fb;border-radius:12px;padding:9px;display:inline-flex;align-items:center;justify-content:center;color:#12385a}.close:hover{background:#dfeaf6}
-.corporate-only{display:none}.corp .corporate-only{display:block}.corp .retail-only{display:none}
+.hidden{display:none !important}
+.retail-only,.corporate-only,.admin-only,.issuer-only,.investor-only{display:none}
+#appRoot[data-role="retail"] .retail-only,#appRoot[data-role="retail"] .investor-only{display:block}
+#appRoot[data-role="corporate"] .corporate-only,#appRoot[data-role="corporate"] .investor-only{display:block}
+#appRoot[data-role="admin"] .admin-only{display:block}
+#appRoot[data-role="issuer"] .issuer-only{display:block}
+.nav button.retail-only,.nav button.corporate-only,.nav button.admin-only,.nav button.issuer-only,.nav button.investor-only{display:none}
+#appRoot[data-role="retail"] .nav button.retail-only,#appRoot[data-role="retail"] .nav button.investor-only{display:flex}
+#appRoot[data-role="corporate"] .nav button.corporate-only,#appRoot[data-role="corporate"] .nav button.investor-only{display:flex}
+#appRoot[data-role="admin"] .nav button.admin-only{display:flex}
+#appRoot[data-role="issuer"] .nav button.issuer-only{display:flex}
+#appRoot[data-role="retail"] .retail-only.grid,#appRoot[data-role="retail"] .investor-only.grid,#appRoot[data-role="corporate"] .corporate-only.grid,#appRoot[data-role="corporate"] .investor-only.grid,#appRoot[data-role="admin"] .admin-only.grid,#appRoot[data-role="issuer"] .issuer-only.grid{display:grid}
+#appRoot[data-role="retail"] .retail-only.quick-grid,#appRoot[data-role="corporate"] .corporate-only.quick-grid,#appRoot[data-role="admin"] .admin-only.quick-grid,#appRoot[data-role="issuer"] .issuer-only.quick-grid{display:grid}
+#appRoot[data-role="retail"] .retail-only.list-item,#appRoot[data-role="corporate"] .corporate-only.list-item,#appRoot[data-role="admin"] .admin-only.list-item,#appRoot[data-role="issuer"] .issuer-only.list-item{display:flex}
+#appRoot[data-role="retail"] .retail-only.btn,#appRoot[data-role="corporate"] .corporate-only.btn,#appRoot[data-role="admin"] .admin-only.btn,#appRoot[data-role="issuer"] .issuer-only.btn{display:inline-flex}
+#appRoot[data-role="retail"] .retail-only.banner-notice,#appRoot[data-role="corporate"] .corporate-only.banner-notice,#appRoot[data-role="admin"] .admin-only.banner-notice,#appRoot[data-role="issuer"] .issuer-only.banner-notice{display:flex}
 #toast{position:fixed;right:20px;bottom:20px;background:#12355d;color:#fff;padding:12px 14px;border-radius:14px;box-shadow:0 14px 34px rgba(0,0,0,.22);opacity:0;transform:translateY(8px);pointer-events:none;transition:.22s;z-index:80}#toast.show{opacity:1;transform:none}
 @media (max-width:1200px){.note-grid,.cols-4,.quick-grid,.cols-3,.filters,.duo,.cols-2,.banner-inner{grid-template-columns:1fr}.app{grid-template-columns:1fr}.sidebar{position:relative;height:auto}.main{padding:18px}.chart-shell{margin:0 18px 18px}.bar{grid-template-columns:110px 1fr 58px}}
+
+.login-wrap{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 20% 20%,rgba(86,180,233,.16),transparent 45%),radial-gradient(circle at 85% 80%,rgba(240,170,52,.14),transparent 45%),linear-gradient(180deg,#f7fbff,#eef5fb)}
+.login-card{width:min(920px,96vw);background:#fff;border-radius:26px;box-shadow:0 30px 70px rgba(15,45,80,.16);overflow:hidden;display:grid;grid-template-columns:1fr 1fr}
+.login-side{background:linear-gradient(160deg,#13294b,#16365d 55%,#0f2038);color:#fff;padding:34px 30px;display:flex;flex-direction:column;justify-content:space-between}
+.login-side .brand{background:rgba(0,0,0,.16)}
+.login-side h2{font-size:22px;margin:22px 0 8px;letter-spacing:-.03em}
+.login-side p{color:#b9d2e9;font-size:13px;line-height:1.6;margin:0}
+.login-side ul{list-style:none;margin:18px 0 0;padding:0;display:grid;gap:10px}
+.login-side li{display:flex;gap:10px;align-items:flex-start;font-size:12.5px;color:#cfe1f2}
+.login-side li svg{width:16px;height:16px;flex:none;margin-top:2px;color:var(--brand2)}
+.login-form{padding:34px 32px}
+.login-form h3{margin:0 0 4px;font-size:20px}
+.login-form .sub{margin-bottom:18px}
+.role-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 18px}
+.role-card{border:1.5px solid var(--line);border-radius:16px;padding:12px;text-align:left;background:#fbfdff;display:flex;gap:10px;align-items:flex-start}
+.role-card:hover{border-color:#b9d8ef}
+.role-card.active{border-color:var(--brand);background:#eef7fe;box-shadow:0 8px 18px rgba(35,149,220,.12)}
+.role-card i{width:32px;height:32px;border-radius:10px;background:#edf5ff;color:#1359a5;display:grid;place-items:center;flex:none}
+.role-card i svg{width:16px;height:16px}
+.role-card b{display:block;font-size:12.5px}
+.role-card span{display:block;font-size:11px;color:var(--muted);margin-top:2px;line-height:1.35}
+.login-demo{margin-top:14px;padding:10px 12px;border-radius:12px;background:#f3f7fb;color:#5c6f85;font-size:11.5px;line-height:1.5}
+@media (max-width:760px){.login-card{grid-template-columns:1fr}.login-side{display:none}}
+
+.role-switch-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.role-switch-grid button{padding:9px 8px;border-radius:12px;background:rgba(255,255,255,.08);color:#dceaff;font-weight:800;border:1px solid rgba(255,255,255,.08);font-size:11.5px}
+.role-switch-grid button.active{background:#fff;color:#173252}
+.logout-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:14px;padding:10px;border-radius:12px;background:rgba(255,255,255,.06);color:#dbe8f5;font-weight:800;border:1px solid rgba(255,255,255,.1)}
+.logout-btn:hover{background:rgba(255,255,255,.12)}
+.logout-btn svg{width:15px;height:15px}
+.role-tag{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.1);color:#cfe1f2;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
 </style>
 </head>
 <body>
-<div class="app" id="appRoot">
+<div class="login-wrap" id="loginScreen">
+  <div class="login-card">
+    <div class="login-side">
+      <div>
+        <div class="brand" style="margin-bottom:0">
+          <svg class="mark" width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
+            <circle cx="22" cy="22" r="21" fill="#56b4e9"/>
+            <path d="M22 1a21 21 0 0 1 0 42z" fill="#f0aa34"/>
+            <circle cx="16" cy="22" r="10" fill="#142b4d"/>
+          </svg>
+          <div class="brand-text">
+            <h1>cofundr</h1>
+            <p>Financing That Makes<br>Investment Sense</p>
+          </div>
+        </div>
+        <h2>One platform, four vantage points.</h2>
+        <p>Retail and corporate investors track returns and liquidity, issuers manage financing and repayments, and the platform team oversees risk, compliance and growth — all from a single sign-in.</p>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="8.5 12.5 11 15 16 9"/></svg> Role-based dashboards, tailored metrics and workflows</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="8.5 12.5 11 15 16 9"/></svg> Live portfolio, financing and risk data in one place</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="8.5 12.5 11 15 16 9"/></svg> Built-in maker/checker and compliance approval flows</li>
+        </ul>
+      </div>
+    </div>
+    <div class="login-form">
+      <h3>Sign in to your account</h3>
+      <div class="sub">This is a demo — pick a role below, any email and password will do.</div>
+      <div class="field"><label>Email</label><input id="loginEmail" type="email" placeholder="you@example.com" value="demo@cofundr.com"></div>
+      <div class="field" style="margin-top:10px"><label>Password</label><input id="loginPassword" type="password" placeholder="••••••••" value="demopassword"></div>
+      <div class="field" style="margin-top:14px"><label>Sign in as</label></div>
+      <div class="role-grid" id="roleGrid">
+        <button type="button" class="role-card active" data-role="retail" onclick="pickRole('retail',this)"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg></i><div><b>Retail Investor</b><span>Personal portfolio &amp; wallet</span></div></button>
+        <button type="button" class="role-card" data-role="corporate" onclick="pickRole('corporate',this)"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="3" y1="13" x2="21" y2="13"/></svg></i><div><b>Corporate Investor</b><span>Treasury &amp; maker-checker</span></div></button>
+        <button type="button" class="role-card" data-role="issuer" onclick="pickRole('issuer',this)"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></i><div><b>Issuer / Borrower</b><span>Financing &amp; repayments</span></div></button>
+        <button type="button" class="role-card" data-role="admin" onclick="pickRole('admin',this)"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6z"/><polyline points="9 12 11 14 15 10"/></svg></i><div><b>CEO / Admin</b><span>Platform oversight</span></div></button>
+      </div>
+      <button class="btn primary" style="width:100%;justify-content:center" onclick="login()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>Sign in</button>
+      <div class="login-demo">No real authentication is performed. This screen only routes you to the matching demo dashboard.</div>
+    </div>
+  </div>
+</div>
+<div class="app hidden" id="appRoot">
   <aside class="sidebar">
     <div class="brand">
       <svg class="mark" width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
@@ -71,24 +158,37 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       </div>
     </div>
     <div class="persona">
-      <label>Investor view</label>
-      <div class="switch">
-        <button id="retailBtn" class="active" onclick="switchPersona('retail')">Retail</button>
-        <button id="corpBtn" onclick="switchPersona('corporate')">Corporate</button>
-      </div>
+      <label>Signed in as</label>
+      <div style="font-weight:800;font-size:14px;margin-top:6px" id="sessionName">Joshua Kuan Chung Shearn</div>
+      <span class="role-tag" id="roleTag">Retail Investor</span>
       <small id="personaText">Simple portfolio-first view focused on cash, outstanding investment, expected returns and liquidity.</small>
     </div>
     <nav class="nav">
       <button class="active" data-page="overview" onclick="goPage('overview',this)"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></i> Overview</button>
-      <button data-page="marketplace" onclick="goPage('marketplace',this)"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></i> Marketplace</button>
-      <button data-page="portfolio" onclick="goPage('portfolio',this)"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="3" y1="13" x2="21" y2="13"/></svg></i> Portfolio</button>
-      <button data-page="deposit" onclick="goPage('deposit',this)"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></i> Deposit</button>
-      <button data-page="withdrawal" onclick="goPage('withdrawal',this)"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><polyline points="8.5 13 12 16.5 15.5 13"/></svg></i> Withdrawal</button>
+      <button class="investor-only" data-page="marketplace" onclick="goPage('marketplace',this)"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></i> Marketplace</button>
+      <button class="investor-only" data-page="portfolio" onclick="goPage('portfolio',this)"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="3" y1="13" x2="21" y2="13"/></svg></i> Portfolio</button>
+      <button class="investor-only" data-page="deposit" onclick="goPage('deposit',this)"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></i> Deposit</button>
+      <button class="investor-only" data-page="withdrawal" onclick="goPage('withdrawal',this)"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><polyline points="8.5 13 12 16.5 15.5 13"/></svg></i> Withdrawal</button>
+      <button class="admin-only" data-page="investors" onclick="goPage('investors',this)"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 13.2a5 5 0 0 1 6 4.8"/></svg></i> Investors</button>
+      <button class="admin-only" data-page="issuerDirectory" onclick="goPage('issuerDirectory',this)"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/><line x1="9" y1="12" x2="9" y2="12.01"/><line x1="15" y1="12" x2="15" y2="12.01"/></svg></i> Issuers</button>
+      <button class="admin-only" data-page="riskApprovals" onclick="goPage('riskApprovals',this)"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6z"/><polyline points="9 12 11 14 15 10"/></svg></i> Risk & Approvals</button>
+      <button class="issuer-only" data-page="financing" onclick="goPage('financing',this)"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></i> Financing</button>
+      <button class="issuer-only" data-page="repayments" onclick="goPage('repayments',this)"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="8 12 11 15 16 9"/></svg></i> Repayments</button>
+      <button class="issuer-only" data-page="documents" onclick="goPage('documents',this)"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg></i> Documents</button>
       <button data-page="statements" onclick="goPage('statements',this)"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><polyline points="14 3 14 8 19 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg></i> Statements</button>
       <button data-page="account" onclick="goPage('account',this)"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="10" r="3"/><path d="M6.5 18.5a6 6 0 0 1 11 0"/></svg></i> Account</button>
     </nav>
     <div class="sidebar-card retail-only"><b>Investor Liquidation Marketplace</b><span>Sell eligible RM1 units from performing notes. Defaulted notes are locked from sale.</span></div>
     <div class="sidebar-card corporate-only"><b>Maker / Checker</b><span>Corporate account supports separate login identities for order creation and approval.</span></div>
+    <div class="sidebar-card admin-only"><b>Platform Oversight</b><span>Approve KYC/KYB, monitor risk exposure and manage the investor and issuer base.</span></div>
+    <div class="sidebar-card issuer-only"><b>Financing Facilities</b><span>Track drawdowns, repayment schedules and compliance documents for your active facilities.</span></div>
+    <div class="role-switch-grid">
+      <button id="roleBtn-retail" onclick="switchPersona('retail')">Retail</button>
+      <button id="roleBtn-corporate" onclick="switchPersona('corporate')">Corporate</button>
+      <button id="roleBtn-admin" onclick="switchPersona('admin')">CEO / Admin</button>
+      <button id="roleBtn-issuer" onclick="switchPersona('issuer')">Issuer</button>
+    </div>
+    <button class="logout-btn" onclick="logout()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Log out</button>
   </aside>
 
   <main class="main">
@@ -100,6 +200,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
         <button class="btn success retail-only" onclick="goPage('deposit')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Deposit Cash</button>
         <button class="btn warn retail-only" onclick="goPage('marketplace')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="14 6 21 6 21 13"/></svg>Invest Now</button>
         <button class="btn primary corporate-only" onclick="createOrder()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><polyline points="14 3 14 8 19 8"/><line x1="12" y1="12" x2="12" y2="17"/><line x1="9.5" y1="14.5" x2="14.5" y2="14.5"/></svg>New Corporate Order</button>
+        <button class="btn warn admin-only" onclick="goPage('riskApprovals')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6z"/><polyline points="9 12 11 14 15 10"/></svg>Review Approvals</button>
+        <button class="btn primary issuer-only" onclick="goPage('financing')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Apply for Financing</button>
       </div>
     </div>
 
@@ -158,8 +260,64 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
         </div>
       </div>
 
+      <div class="banner admin-only">
+        <div class="banner-inner">
+          <div>
+            <h1>Platform Performance</h1>
+            <p>As of <span id="asOfAdmin"></span></p>
+            <div class="chip-stack">
+              <div class="chip"><span>Pending approvals</span><strong id="aApprovalsChip">9 items</strong></div>
+              <div class="chip"><span>Active investors</span><strong id="aInvestorsChip">8,214</strong></div>
+              <div class="chip"><span>Active issuers</span><strong id="aIssuersChip">342</strong></div>
+            </div>
+          </div>
+          <div>
+            <div class="hero-metrics">
+              <div class="hero-kpi"><span>Total platform AUM</span><b id="aAumHero">RM 42.6M</b></div>
+              <div class="hero-kpi"><span>Total disbursed</span><b id="aDisbursedHero">RM 38.2M</b></div>
+              <div class="hero-divider"></div><div class="hero-divider"></div>
+              <div class="hero-kpi"><span>Weighted portfolio yield</span><b id="aYieldHero">9.42%</b></div>
+              <div class="hero-kpi"><span>Platform default rate</span><b id="aDefaultHero">1.90%</b></div>
+            </div>
+          </div>
+        </div>
+        <div class="chart-shell">
+          <div class="chart-top"><h3>Platform AUM Trend</h3><select><option>12 months</option></select></div>
+          <div class="chartbox"><svg id="adminLineChart" width="100%" height="100%"></svg></div>
+        </div>
+      </div>
+
+      <div class="banner issuer-only">
+        <div class="banner-inner">
+          <div>
+            <h1>Financing Overview</h1>
+            <p>As of <span id="asOfIssuer"></span></p>
+            <div class="chip-stack">
+              <div class="chip"><span>Outstanding balance</span><strong id="iOutstandingChip">RM 620,000</strong></div>
+              <div class="chip"><span>Next repayment due</span><strong id="iNextDueChip">RM 110.50</strong></div>
+              <div class="chip"><span>Available credit line</span><strong id="iAvailableChip">RM 400,000</strong></div>
+            </div>
+          </div>
+          <div>
+            <div class="hero-metrics">
+              <div class="hero-kpi"><span>Total financing drawn</span><b id="iDrawnHero">RM 865,000</b></div>
+              <div class="hero-kpi"><span>Total repaid</span><b id="iRepaidHero">RM 245,000</b></div>
+              <div class="hero-divider"></div><div class="hero-divider"></div>
+              <div class="hero-kpi"><span>On-time repayment rate</span><b id="iOnTimeHero">96.40%</b></div>
+              <div class="hero-kpi"><span>Active facilities</span><b id="iFacilitiesHero">2</b></div>
+            </div>
+          </div>
+        </div>
+        <div class="chart-shell">
+          <div class="chart-top"><h3>Outstanding Balance Trend</h3><select><option>12 months</option></select></div>
+          <div class="chartbox"><svg id="issuerLineChart" width="100%" height="100%"></svg></div>
+        </div>
+      </div>
+
       <div class="grid cols-4 retail-only" id="retailMetrics"></div>
       <div class="grid cols-4 corporate-only" id="corpMetrics"></div>
+      <div class="grid cols-4 admin-only" id="adminMetrics"></div>
+      <div class="grid cols-4 issuer-only" id="issuerMetrics"></div>
 
       <div class="grid cols-2" style="margin-top:16px">
         <div class="stack">
@@ -171,8 +329,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
             <div class="section-head"><div><h3>Sub-Wallet Performance</h3><p>Performance by treasury or client mandate.</p></div><span class="pill blue">Live</span></div>
             <div id="subwalletBars" class="bars"></div>
           </div>
-          <div class="card">
-            <div class="section-head"><div><h3>Receivables Aging</h3><p>Outstanding receivables by aging bucket.</p></div><span class="pill amber">Daily monitored</span></div>
+          <div class="card retail-only corporate-only admin-only">
+            <div class="section-head"><div><h3 id="agingTitle">Receivables Aging</h3><p id="agingDesc">Outstanding receivables by aging bucket.</p></div><span class="pill amber">Daily monitored</span></div>
             <div id="agingBars" class="bars"></div>
           </div>
           <div class="card retail-only">
@@ -182,6 +340,18 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
           <div class="card corporate-only">
             <div class="section-head"><div><h3>Maker / Checker Queue</h3><p>Separate order creation and approval for selected corporate accounts.</p></div><button class="btn small" onclick="approveNextOrder()">Approve next</button></div>
             <div id="orderQueue" class="list"></div>
+          </div>
+          <div class="card admin-only">
+            <div class="section-head"><div><h3>Approvals Queue</h3><p>KYC, KYB, new listings and large withdrawals awaiting sign-off.</p></div><button class="btn small" onclick="goPage('riskApprovals')">Review all</button></div>
+            <div id="approvalsPreview" class="list"></div>
+          </div>
+          <div class="card issuer-only">
+            <div class="section-head"><div><h3>Active Facilities</h3><p>Financing facilities currently drawn and under repayment.</p></div><span class="pill blue">2 active</span></div>
+            <div id="facilitiesPreview" class="list"></div>
+          </div>
+          <div class="card issuer-only">
+            <div class="section-head"><div><h3>Upcoming Repayments</h3><p>Next installments due across your active facilities.</p></div><span class="pill amber">Next 3</span></div>
+            <div id="issuerUpcoming" class="grid cols-3"></div>
           </div>
         </div>
         <div class="stack">
@@ -202,6 +372,22 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
               <button class="quick amber" onclick="goPage('statements')"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><polyline points="14 3 14 8 19 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg></i><div><b>NAV Statements</b><span>Monthly and annual account packs.</span></div></button>
               <button class="quick" onclick="goPage('account')"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 13.2a5 5 0 0 1 6 4.8"/></svg></i><div><b>Access Control</b><span>Manage maker and checker identities.</span></div></button>
               <button class="quick red" onclick="downloadCSV('orders')"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 11 12 16 17 11"/><path d="M4 19h16"/></svg></i><div><b>Export Orders</b><span>Download holdings and orders CSV.</span></div></button>
+            </div>
+            <div class="quick-grid admin-only">
+              <button class="quick amber" onclick="goPage('riskApprovals')"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="8.5 12.5 11 15 16 9"/></svg></i><div><b>Review Approvals</b><span>Clear the KYC/KYB and risk queue.</span></div></button>
+              <button class="quick" onclick="goPage('investors')"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 13.2a5 5 0 0 1 6 4.8"/></svg></i><div><b>Manage Investors</b><span>View and search the investor base.</span></div></button>
+              <button class="quick purple" onclick="goPage('issuerDirectory')"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/></svg></i><div><b>Manage Issuers</b><span>Review facilities and risk tiers.</span></div></button>
+              <button class="quick green" onclick="goPage('marketplace')"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></i><div><b>Publish New Note</b><span>List a new financing opportunity.</span></div></button>
+              <button class="quick" onclick="goPage('statements')"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><polyline points="14 3 14 8 19 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg></i><div><b>Platform Reports</b><span>Compliance and performance packs.</span></div></button>
+              <button class="quick red" onclick="downloadCSV('platform')"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 11 12 16 17 11"/><path d="M4 19h16"/></svg></i><div><b>Export Platform Data</b><span>Download investors and issuers CSV.</span></div></button>
+            </div>
+            <div class="quick-grid issuer-only">
+              <button class="quick green" onclick="goPage('financing')"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></i><div><b>Apply for Financing</b><span>Request a new facility or drawdown.</span></div></button>
+              <button class="quick" onclick="goPage('repayments')"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="8 12 11 15 16 9"/></svg></i><div><b>Make a Repayment</b><span>Settle an upcoming installment early.</span></div></button>
+              <button class="quick purple" onclick="goPage('documents')"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg></i><div><b>Upload Documents</b><span>Complete outstanding KYB items.</span></div></button>
+              <button class="quick amber" onclick="goPage('statements')"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><polyline points="14 3 14 8 19 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg></i><div><b>Get Statement</b><span>Financing and repayment statements.</span></div></button>
+              <button class="quick" onclick="goPage('account')"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg></i><div><b>Company Profile</b><span>Update contact and compliance info.</span></div></button>
+              <button class="quick red" onclick="downloadCSV('financing')"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 11 12 16 17 11"/><path d="M4 19h16"/></svg></i><div><b>Export Financing Data</b><span>Download facilities and repayments CSV.</span></div></button>
             </div>
           </div>
           <div class="card">
@@ -377,6 +563,94 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       </div>
     </section>
 
+    <section id="investors" class="page">
+      <div class="card" style="margin-bottom:16px">
+        <div class="section-head"><div><h3>Investor Directory</h3><p>Every retail and corporate investor account on the platform.</p></div><button class="btn small" onclick="downloadCSV('investors')">Export CSV</button></div>
+        <div class="filters" style="grid-template-columns:1.4fr .8fr .8fr">
+          <div class="field"><label>Search investor</label><input id="investorSearch" placeholder="Search by name" oninput="renderInvestors()"/></div>
+          <div class="field"><label>Type</label><select id="investorTypeFilter" onchange="renderInvestors()"><option>All</option><option>Retail</option><option>Corporate</option></select></div>
+          <div class="field"><label>Status</label><select id="investorStatusFilter" onchange="renderInvestors()"><option>All</option><option>Active</option><option>Onboarding</option><option>Under review</option></select></div>
+        </div>
+        <div class="table-wrap" style="margin-top:14px"><table class="table" id="investorsTable"></table></div>
+      </div>
+    </section>
+
+    <section id="issuerDirectory" class="page">
+      <div class="card" style="margin-bottom:16px">
+        <div class="section-head"><div><h3>Issuer Directory</h3><p>Companies borrowing through the platform and their current risk standing.</p></div><button class="btn small" onclick="downloadCSV('issuers')">Export CSV</button></div>
+        <div class="filters" style="grid-template-columns:1.4fr .8fr .8fr">
+          <div class="field"><label>Search issuer</label><input id="issuerSearch" placeholder="Search by company" oninput="renderIssuerDirectory()"/></div>
+          <div class="field"><label>Sector</label><select id="issuerSectorFilter" onchange="renderIssuerDirectory()"><option>All</option><option>Trading</option><option>Manufacturing</option><option>Agriculture</option><option>Logistics</option></select></div>
+          <div class="field"><label>Status</label><select id="issuerStatusFilter" onchange="renderIssuerDirectory()"><option>All</option><option>Performing</option><option>Default</option><option>Onboarding</option></select></div>
+        </div>
+        <div class="table-wrap" style="margin-top:14px"><table class="table" id="issuersTable"></table></div>
+      </div>
+    </section>
+
+    <section id="riskApprovals" class="page">
+      <div class="grid cols-2">
+        <div class="card">
+          <div class="section-head"><div><h3>Approvals Queue</h3><p>KYC, KYB, new note listings and large withdrawals awaiting sign-off.</p></div><span class="pill amber" id="approvalsCountPill">9 pending</span></div>
+          <div id="approvalsQueue" class="list"></div>
+        </div>
+        <div class="card">
+          <div class="section-head"><div><h3>Risk Exposure by Sector</h3><p>Outstanding financing exposure across issuer sectors.</p></div><span class="pill blue">Platform-wide</span></div>
+          <div id="riskBars" class="bars"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="financing" class="page">
+      <div class="grid cols-2">
+        <div class="card">
+          <div class="section-head"><div><h3>Active Facilities</h3><p>Financing facilities currently drawn or under repayment.</p></div><button class="btn small" onclick="downloadCSV('financing')">Export CSV</button></div>
+          <div class="table-wrap"><table class="table" id="facilitiesTable"></table></div>
+        </div>
+        <div class="card">
+          <div class="section-head"><div><h3>Apply for New Financing</h3><p>Submit a request for additional working capital.</p></div></div>
+          <div class="stack">
+            <div class="field"><label>Financing type</label><select id="applyType"><option>Invoice Financing</option><option>Contract Financing</option><option>Working Capital</option></select></div>
+            <div class="field"><label>Requested amount (MYR)</label><input id="applyAmount" type="number" min="1000" value="150000"/></div>
+            <div class="field"><label>Preferred tenor</label><select id="applyTenor"><option>30 days</option><option>90 days</option><option>180 days</option><option>12 months</option><option>18 months</option></select></div>
+            <div class="field"><label>Purpose</label><textarea id="applyPurpose" placeholder="Briefly describe the purpose of financing">Working capital to fulfil confirmed purchase orders.</textarea></div>
+            <button class="btn primary" onclick="submitFinancingApplication()">Submit Application</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="repayments" class="page">
+      <div class="grid cols-2" style="margin-bottom:16px">
+        <div class="card"><div class="label" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:800">Next repayment</div><div style="font-size:23px;font-weight:900;margin-top:6px" id="iNextRepaymentAmt">RM 110.50</div><div class="sub" style="margin-top:6px" id="iNextRepaymentDate">Due 2026-09-08 · MBIBG-26070005</div></div>
+        <div class="card"><div class="label" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:800">On-time repayment rate</div><div style="font-size:23px;font-weight:900;margin-top:6px" id="iOnTimeRate">96.40%</div><div class="sub" style="margin-top:6px">Across all facilities to date</div></div>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="section-head"><div><h3>Repayment Schedule</h3><p>Full installment schedule for your active facilities.</p></div><span class="pill">18 installments</span></div>
+        <div class="table-wrap"><table class="table" id="repaymentScheduleTable"></table></div>
+      </div>
+      <div class="card">
+        <div class="section-head"><div><h3>Repayment History</h3><p>Confirmed repayments and disbursements.</p></div><button class="btn small" onclick="downloadCSV('repayments')">Export CSV</button></div>
+        <div class="table-wrap"><table class="table" id="repaymentHistoryTable"></table></div>
+      </div>
+    </section>
+
+    <section id="documents" class="page">
+      <div class="grid cols-2">
+        <div class="card">
+          <div class="section-head"><div><h3>Compliance Documents</h3><p>Documents required to keep your issuer account in good standing.</p></div></div>
+          <div id="documentsList" class="list"></div>
+        </div>
+        <div class="card">
+          <div class="section-head"><div><h3>Upload a Document</h3><p>Add a new or replacement document for review.</p></div></div>
+          <div class="stack">
+            <div class="field"><label>Document type</label><select id="docType"><option>Certificate of Incorporation</option><option>Latest Audited Financials</option><option>Bank Statements (6 months)</option><option>Director IC / Passport</option><option>Board Resolution</option></select></div>
+            <div class="upload"><strong id="docUploadLabel">Upload document</strong><div class="sub">Accepted format: PDF, JPG, PNG</div><input type="file" id="docFile" style="margin-top:10px" onchange="docPicked()"></div>
+            <button class="btn primary" onclick="submitDocument()">Submit for Review</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section id="statements" class="page">
       <div class="grid cols-2">
         <div class="card">
@@ -417,11 +691,36 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
           </div>
           <div class="banner-notice" style="margin-top:14px"><div><b>Current session</b><span id="corpRoleBadge">Logged in as Maker</span></div><button class="btn small" onclick="toggleCorpRole()">Switch role</button></div>
         </div>
+        <div class="card admin-only">
+          <div class="section-head"><div><h3>Staff & Access Management</h3><p>Manage platform team members and their permission levels.</p></div><button class="btn small primary" onclick="saveAccess()">Save access</button></div>
+          <div class="grid cols-2">
+            <div class="field"><label>Full name</label><input id="adminName" value="Datin Sarah Lim"></div>
+            <div class="field"><label>Email</label><input id="adminEmail" value="sarah.lim@cofundr.com"></div>
+            <div class="field"><label>Role title</label><input value="Chief Executive Officer"></div>
+            <div class="field"><label>Access level</label><select><option selected>Full platform admin</option><option>Compliance reviewer</option><option>Read-only</option></select></div>
+            <div class="field"><label>Two-factor authentication</label><select><option selected>Enabled</option><option>Disabled</option></select></div>
+            <div class="field"><label>Approval authority</label><select><option>Up to RM100,000</option><option selected>Unlimited</option></select></div>
+          </div>
+        </div>
+        <div class="card issuer-only">
+          <div class="section-head"><div><h3>Company Profile</h3><p>Keep your issuer profile current for KYB and financing decisions.</p></div><button class="btn small primary" onclick="saveProfile()">Save changes</button></div>
+          <div class="grid cols-2">
+            <div class="field"><label>Company name</label><input id="issuerCompanyName" value="Sunway Business Solutions"></div>
+            <div class="field"><label>Registration number</label><input value="SSM 201501234567"></div>
+            <div class="field"><label>Industry / sector</label><input value="Trading & Distribution"></div>
+            <div class="field"><label>Contact person</label><input value="Aiman Rahman (Finance Director)"></div>
+            <div class="field"><label>Contact email</label><input id="issuerEmail" value="finance@sunwaybiz.example"></div>
+            <div class="field"><label>Registered address</label><input value="Petaling Jaya, Selangor"></div>
+          </div>
+        </div>
         <div class="card">
-          <div class="section-head"><div><h3>Profile & Compliance Status</h3><p>Display-only status for investors. KYC review is handled internally.</p></div></div>
+          <div class="section-head"><div><h3>Profile & Compliance Status</h3><p>Display-only status. KYC/KYB review is handled internally.</p></div></div>
           <div class="list">
-            <div class="list-item"><div><b>KYC status</b><div class="sub">Verified</div></div><span class="status ok">Approved</span></div>
-            <div class="list-item"><div><b>Bank account verification</b><div class="sub">Verified personal account on file</div></div><span class="status ok">Verified</span></div>
+            <div class="list-item retail-only corporate-only"><div><b>KYC status</b><div class="sub">Verified</div></div><span class="status ok">Approved</span></div>
+            <div class="list-item retail-only corporate-only"><div><b>Bank account verification</b><div class="sub">Verified personal account on file</div></div><span class="status ok">Verified</span></div>
+            <div class="list-item issuer-only"><div><b>KYB status</b><div class="sub">Verified · reviewed 2026-06-02</div></div><span class="status ok">Approved</span></div>
+            <div class="list-item issuer-only"><div><b>Facility agreement</b><div class="sub">Signed and on file</div></div><span class="status ok">Signed</span></div>
+            <div class="list-item admin-only"><div><b>Regulatory reporting</b><div class="sub">Monthly filing to Securities Commission</div></div><span class="status ok">Up to date</span></div>
             <div class="list-item"><div><b>Statement delivery</b><div class="sub">Email + portal download enabled</div></div><span class="status ok">Enabled</span></div>
           </div>
         </div>
@@ -435,7 +734,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 
 <script>
 const state={
-  persona:'retail', page:'overview', marketMode:'primary', corpRole:'Maker', depositMode:'fpx',
+  role:'retail', page:'overview', marketMode:'primary', corpRole:'Maker', depositMode:'fpx',
   profile:{cash:57.78,deposits:29001.09,withdrawals:80.69923,invested:178780,yield:6.64,expectedReturns:1089.36,expectedThisMonth:122.22,overdueThisMonth:17.50,outstanding:2704.65,defaulted:4.65,totalPortfolio:27,numberInvestments:477},
   corporate:{deployed:8950000,nav:9370000,weightedYield:12.45,collectionRate:96.72,realised:471000,performing:8180000,overdue:485000,defaulted:285000,watchlist:485000},
   lineRetail:[13750,13920,14100,14285,14470,14680,14835,14910,14995,15040,15090,15135],
@@ -488,14 +787,98 @@ const state={
     {period:'June 2026',type:'Monthly',status:'Ready'},
     {period:'FY 2025',type:'Annual',status:'Ready'},
     {period:'August 2026',type:'Monthly',status:'Generating'}
-  ]
+  ],
+  admin:{
+    totalAUM:42600000,totalDisbursed:38200000,portfolioYield:9.42,defaultRate:1.90,activeInvestors:8214,activeIssuers:342,
+    lineAUM:[36.1,36.9,37.6,38.4,39.1,39.8,40.6,41.2,41.8,42.1,42.4,42.6],
+    approvals:[
+      {id:'KYC-3381',type:'Investor KYC',name:'Chen Wei Ling',submitted:'2026-08-17',risk:'Standard'},
+      {id:'KYB-1042',type:'Issuer KYB',name:'Delta Freight Sdn Bhd',submitted:'2026-08-16',risk:'Enhanced'},
+      {id:'NOTE-9931',type:'New note listing',name:'Apex Logistics MY',submitted:'2026-08-15',risk:'Standard'},
+      {id:'WD-7742',type:'Large withdrawal',name:'ABC Treasury Sdn Bhd',submitted:'2026-08-15',risk:'Review'},
+      {id:'KYC-3382',type:'Investor KYC',name:'Farah Diyana',submitted:'2026-08-14',risk:'Enhanced'},
+      {id:'NOTE-9932',type:'New note listing',name:'Meridian Textiles',submitted:'2026-08-13',risk:'Standard'},
+      {id:'KYB-1043',type:'Issuer KYB',name:'Northport Cold Chain',submitted:'2026-08-12',risk:'Standard'},
+      {id:'WD-7743',type:'Large withdrawal',name:'Meridian Capital Partners',submitted:'2026-08-11',risk:'Review'},
+      {id:'KYC-3383',type:'Investor KYC',name:'Ong Boon Hock',submitted:'2026-08-10',risk:'Standard'}
+    ],
+    investors:[
+      {name:'Chen Wei Ling',type:'Retail',kyc:'Verified',portfolio:24800,status:'Active'},
+      {name:'ABC Treasury Sdn Bhd',type:'Corporate',kyc:'Verified',portfolio:8950000,status:'Active'},
+      {name:'Nurul Ain Binti Hassan',type:'Retail',kyc:'Pending',portfolio:0,status:'Onboarding'},
+      {name:'Meridian Capital Partners',type:'Corporate',kyc:'Verified',portfolio:3120000,status:'Active'},
+      {name:'Joshua Kuan Chung Shearn',type:'Retail',kyc:'Verified',portfolio:2762.43,status:'Active'},
+      {name:'Farah Diyana Investments',type:'Retail',kyc:'Flagged',portfolio:1890,status:'Under review'},
+      {name:'Golden Harvest Treasury',type:'Corporate',kyc:'Verified',portfolio:1450000,status:'Active'},
+      {name:'Ong Boon Hock',type:'Retail',kyc:'Pending',portfolio:0,status:'Onboarding'}
+    ],
+    issuers:[
+      {name:'Sunway Business Solutions',sector:'Trading',outstanding:620000,tier:'B+',status:'Performing'},
+      {name:'Growth Ventures MY',sector:'Manufacturing',outstanding:245000,tier:'A',status:'Performing'},
+      {name:'The Livestock & Meat Supplier',sector:'Agriculture',outstanding:4650,tier:'C+',status:'Default'},
+      {name:'Delta Freight Sdn Bhd',sector:'Logistics',outstanding:0,tier:'B',status:'Onboarding'},
+      {name:'Evergreen Capital Sdn Bhd',sector:'Trading',outstanding:14000,tier:'B+',status:'Performing'},
+      {name:'Apex Logistics MY',sector:'Logistics',outstanding:88000,tier:'B',status:'Performing'},
+      {name:'Northport Cold Chain',sector:'Logistics',outstanding:0,tier:'B',status:'Onboarding'}
+    ],
+    riskBySector:[
+      {name:'Trading',value:34,color:'green'},{name:'Manufacturing',value:26,color:'green'},{name:'Logistics',value:18,color:'amber'},{name:'Agriculture',value:12,color:'red'},{name:'Services',value:10,color:'amber'}
+    ],
+    platformActivity:[
+      {date:'2026-08-19 08:40',type:'Note fully funded',amount:40200,status:'Confirmed'},
+      {date:'2026-08-18 16:05',type:'KYB approved',amount:0,status:'Confirmed'},
+      {date:'2026-08-18 11:22',type:'Large withdrawal flagged',amount:75000,status:'Pending'},
+      {date:'2026-08-17 09:10',type:'New issuer onboarded',amount:0,status:'Confirmed'},
+      {date:'2026-08-16 14:30',type:'Note fully funded',amount:14000,status:'Confirmed'}
+    ]
+  },
+  issuerAccount:{
+    company:'Sunway Business Solutions',outstanding:620000,availableLine:400000,nextDue:3182.67,nextDueDate:'2026-09-08',totalDrawn:865000,totalRepaid:245000,onTimeRate:96.4,
+    lineOutstanding:[540,560,580,595,605,612,618,620,620,620,620,620],
+    facilities:[
+      {code:'MBIBG-26070005',type:'Invoice Financing',principal:620000,rate:7,tenor:'18 months',status:'Ongoing',outstanding:610000,nextDue:'2026-09-08'},
+      {code:'MBIBG-26080001',type:'Contract Financing',principal:245000,rate:8.5,tenor:'90 days',status:'Ongoing',outstanding:216700,nextDue:'2026-09-08'}
+    ],
+    documents:[
+      {name:'Certificate of Incorporation',status:'Verified'},
+      {name:'Latest Audited Financials',status:'Verified'},
+      {name:'Bank Statements (6 months)',status:'Verified'},
+      {name:'Director IC / Passport',status:'Pending'},
+      {name:'Board Resolution',status:'Action required'}
+    ],
+    activity:[
+      {date:'2026-08-08 10:00',type:'Repayment received',amount:110.50,status:'Confirmed'},
+      {date:'2026-07-08 10:00',type:'Repayment received',amount:110.50,status:'Confirmed'},
+      {date:'2026-06-15 14:20',type:'Disbursement',amount:245000,status:'Confirmed'},
+      {date:'2026-06-10 09:05',type:'Facility approved',amount:245000,status:'Confirmed'}
+    ]
+  }
 };
 
 function money(n){return 'RM '+Number(n).toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function shortMoney(n){if(n>=1000000) return 'RM '+(n/1000000).toFixed(2)+'M'; if(n>=1000) return 'RM '+(n/1000).toFixed(0)+'K'; return money(n);}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window._tt);window._tt=setTimeout(()=>t.classList.remove('show'),2200)}
-function switchPersona(p){state.persona=p;document.getElementById('appRoot').classList.toggle('corp',p==='corporate');document.getElementById('retailBtn').classList.toggle('active',p==='retail');document.getElementById('corpBtn').classList.toggle('active',p==='corporate');document.getElementById('personaText').textContent=p==='retail'?'Simple portfolio-first view focused on cash, outstanding investment, expected returns and liquidity.':'Deployed-funds view focused on performance, collection rates, sub-wallets and maker-checker governance.'; renderAll();}
-function goPage(id,el){state.page=id;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));if(el){el.classList.add('active')}else{document.querySelector(`.nav button[data-page="${id}"]`)?.classList.add('active')}const meta={overview:['Overview','A cleaner investor experience shaped by portfolio-first metrics and competitor-inspired flows.'],marketplace:['Marketplace','Primary notes and investor liquidation marketplace.'],portfolio:['Portfolio','Track holdings, payment performance and liquidation eligibility.'],deposit:['Deposit','FPX online deposit and manual transfer deposit flow.'],withdrawal:['Withdrawal','Withdraw to your designated bank account with RM1 fee.'],statements:['Statements','Request and download monthly and annual account statements.'],account:['Account','Profile details, statement settings and corporate access control.']};document.getElementById('pageTitle').textContent=meta[id][0];document.getElementById('pageDesc').textContent=meta[id][1];window.scrollTo({top:0,behavior:'smooth'});}
+const roleMeta={
+  retail:{label:'Retail Investor',name:'Joshua Kuan Chung Shearn',desc:'Simple portfolio-first view focused on cash, outstanding investment, expected returns and liquidity.',landing:'overview'},
+  corporate:{label:'Corporate Investor',name:'ABC Treasury Sdn Bhd',desc:'Deployed-funds view focused on performance, collection rates, sub-wallets and maker-checker governance.',landing:'overview'},
+  admin:{label:'CEO / Admin',name:'Datin Sarah Lim',desc:'Platform-wide view of AUM, risk exposure, and the investor/issuer approval pipeline.',landing:'overview'},
+  issuer:{label:'Issuer / Borrower',name:'Sunway Business Solutions',desc:'Financing view focused on drawdowns, repayment schedules and compliance documents.',landing:'overview'}
+};
+function switchPersona(p){
+  state.role=p;
+  document.getElementById('appRoot').setAttribute('data-role',p);
+  ['retail','corporate','admin','issuer'].forEach(r=>document.getElementById('roleBtn-'+r)?.classList.toggle('active',r===p));
+  const m=roleMeta[p];
+  document.getElementById('sessionName').textContent=m.name;
+  document.getElementById('roleTag').textContent=m.label;
+  document.getElementById('personaText').textContent=m.desc;
+  goPage(m.landing);
+  renderAll();
+}
+function pickRole(role,el){document.querySelectorAll('#roleGrid .role-card').forEach(c=>c.classList.remove('active'));el.classList.add('active');window._pickedRole=role;}
+function login(){const role=window._pickedRole||'retail';document.getElementById('loginScreen').classList.add('hidden');document.getElementById('appRoot').classList.remove('hidden');switchPersona(role);}
+function logout(){document.getElementById('appRoot').classList.add('hidden');document.getElementById('loginScreen').classList.remove('hidden');toast('Signed out.');}
+function goPage(id,el){state.page=id;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById(id)?.classList.add('active');document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));if(el){el.classList.add('active')}else{document.querySelector(`.nav button[data-page="${id}"]`)?.classList.add('active')}const meta={overview:['Overview','A cleaner investor experience shaped by portfolio-first metrics and competitor-inspired flows.'],marketplace:['Marketplace','Primary notes and investor liquidation marketplace.'],portfolio:['Portfolio','Track holdings, payment performance and liquidation eligibility.'],deposit:['Deposit','FPX online deposit and manual transfer deposit flow.'],withdrawal:['Withdrawal','Withdraw to your designated bank account with RM1 fee.'],statements:['Statements','Request and download monthly and annual account statements.'],account:['Account','Profile details, statement settings and corporate access control.'],investors:['Investors','Search and review every investor account on the platform.'],issuerDirectory:['Issuers','Companies borrowing through the platform and their risk standing.'],riskApprovals:['Risk & Approvals','Clear the KYC/KYB, listing and withdrawal approval queue.'],financing:['Financing','Active facilities and new financing applications.'],repayments:['Repayments','Installment schedule and repayment history.'],documents:['Documents','Compliance documents required to stay in good standing.']};document.getElementById('pageTitle').textContent=meta[id][0];document.getElementById('pageDesc').textContent=meta[id][1];window.scrollTo({top:0,behavior:'smooth'});}
 function refreshData(){state.profile.cash+=Math.random()*1.5; state.profile.expectedReturns+=Math.random()*3; renderAll(); toast('Dashboard refreshed with latest sample data.');}
 function renderMetrics(){
   const rm=document.getElementById('retailMetrics'); rm.innerHTML='';
@@ -519,9 +902,74 @@ function drawLine(svgId,data,color='#2395dc'){const svg=document.getElementById(
  const circles=pts.map(([x,y])=>`<circle cx="${x}" cy="${y}" r="4" fill="#fff" stroke="${color}" stroke-width="3"/>`).join('');
  svg.innerHTML=`<defs><linearGradient id="g${svgId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".22"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>${grid}<path d="${area}" fill="url(#g${svgId})"></path><path d="${d}" fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>${circles}`;
 }
-function renderActivities(){const t=document.getElementById('activityTable');t.innerHTML=`<tr><th>Date of action</th><th>Type</th><th>Amount</th><th>Status</th></tr>`+state.activities.map(a=>`<tr><td>${a.date}</td><td>${a.type}</td><td>${a.amount<0?'- ':''}${money(Math.abs(a.amount))}</td><td><span class="status ${a.status==='Confirmed'||a.status==='Paid'?'ok':a.status==='Pending'?'pending':'pending'}">${a.status}</span></td></tr>`).join('');}
+function renderActivities(){const t=document.getElementById('activityTable'); let cols,rows;
+ if(state.role==='admin'){cols='<tr><th>Date</th><th>Event</th><th>Amount</th><th>Status</th></tr>'; rows=state.admin.platformActivity.map(a=>`<tr><td>${a.date}</td><td>${a.type}</td><td>${a.amount?money(a.amount):'—'}</td><td><span class="status ${a.status==='Confirmed'?'ok':'pending'}">${a.status}</span></td></tr>`).join('');}
+ else if(state.role==='issuer'){cols='<tr><th>Date</th><th>Type</th><th>Amount</th><th>Status</th></tr>'; rows=state.issuerAccount.activity.map(a=>`<tr><td>${a.date}</td><td>${a.type}</td><td>${money(a.amount)}</td><td><span class="status ok">${a.status}</span></td></tr>`).join('');}
+ else{cols='<tr><th>Date of action</th><th>Type</th><th>Amount</th><th>Status</th></tr>'; rows=state.activities.map(a=>`<tr><td>${a.date}</td><td>${a.type}</td><td>${a.amount<0?'- ':''}${money(Math.abs(a.amount))}</td><td><span class="status ${a.status==='Confirmed'||a.status==='Paid'?'ok':'pending'}">${a.status}</span></td></tr>`).join('');}
+ t.innerHTML=cols+rows;}
 function renderUpcoming(){document.getElementById('upcomingPayments').innerHTML=state.payments.map(([m,v])=>`<div class="metric"><div class="label">${m}</div><div class="value">${money(v)}</div><div class="hint">Expected payout</div></div>`).join('');}
-function renderAging(){document.getElementById('agingBars').innerHTML=state.aging.map(a=>`<div class="bar"><div>${a.name}</div><div class="track"><div class="fill ${a.color}" style="width:${a.value}%"></div></div><div>${a.value}%</div></div>`).join('');}
+function renderAging(){const el=document.getElementById('agingBars'); if(!el) return; const title=document.getElementById('agingTitle'),desc=document.getElementById('agingDesc');
+ if(state.role==='admin'){if(title){title.textContent='Risk Exposure by Sector';desc.textContent='Outstanding financing exposure across issuer sectors.';} el.innerHTML=state.admin.riskBySector.map(a=>`<div class="bar"><div>${a.name}</div><div class="track"><div class="fill ${a.color}" style="width:${a.value}%"></div></div><div>${a.value}%</div></div>`).join('');}
+ else{if(title){title.textContent='Receivables Aging';desc.textContent='Outstanding receivables by aging bucket.';} el.innerHTML=state.aging.map(a=>`<div class="bar"><div>${a.name}</div><div class="track"><div class="fill ${a.color}" style="width:${a.value}%"></div></div><div>${a.value}%</div></div>`).join('');}}
+function renderAdminOverview(){
+ document.getElementById('asOfAdmin').textContent=document.getElementById('asOfRetail').textContent;
+ document.getElementById('aApprovalsChip').textContent=`${state.admin.approvals.length} items`;
+ document.getElementById('aInvestorsChip').textContent=state.admin.activeInvestors.toLocaleString();
+ document.getElementById('aIssuersChip').textContent=state.admin.activeIssuers.toLocaleString();
+ document.getElementById('aAumHero').textContent=shortMoney(state.admin.totalAUM);
+ document.getElementById('aDisbursedHero').textContent=shortMoney(state.admin.totalDisbursed);
+ document.getElementById('aYieldHero').textContent=state.admin.portfolioYield.toFixed(2)+'%';
+ document.getElementById('aDefaultHero').textContent=state.admin.defaultRate.toFixed(2)+'%';
+ const am=document.getElementById('adminMetrics'); am.innerHTML='';
+ [['New investors this month','186','Retail and corporate signups.','green'],['New issuer applications','14','Companies applying to raise financing.',''],['Pending approvals',String(state.admin.approvals.length),'KYC, KYB, listings and withdrawals.','amber'],['Platform default rate',state.admin.defaultRate.toFixed(2)+'%','Share of outstanding principal in default.','red']].forEach(x=>am.insertAdjacentHTML('beforeend',`<div class="metric ${x[3]||''}"><div class="label">${x[0]}</div><div class="value">${x[1]}</div><div class="hint">${x[2]}</div></div>`));
+ document.getElementById('approvalsPreview').innerHTML=state.admin.approvals.slice(0,4).map(a=>`<div class="list-item"><div><b>${a.id}</b><div class="sub">${a.type} · ${a.name}</div></div><span class="pill ${a.risk==='Review'?'red':a.risk==='Enhanced'?'amber':'blue'}">${a.risk}</span></div>`).join('');
+}
+function renderIssuerOverview(){
+ const ia=state.issuerAccount;
+ document.getElementById('asOfIssuer').textContent=document.getElementById('asOfRetail').textContent;
+ document.getElementById('iOutstandingChip').textContent=money(ia.outstanding);
+ document.getElementById('iNextDueChip').textContent=money(ia.nextDue);
+ document.getElementById('iAvailableChip').textContent=money(ia.availableLine);
+ document.getElementById('iDrawnHero').textContent=money(ia.totalDrawn);
+ document.getElementById('iRepaidHero').textContent=money(ia.totalRepaid);
+ document.getElementById('iOnTimeHero').textContent=ia.onTimeRate.toFixed(2)+'%';
+ document.getElementById('iFacilitiesHero').textContent=String(ia.facilities.length);
+ const im=document.getElementById('issuerMetrics'); im.innerHTML='';
+ [['Current outstanding principal',money(ia.outstanding),'Across all active facilities.',''],['Next payment',money(ia.nextDue)+' on '+ia.nextDueDate,'Auto-debited from your settlement account.','amber'],['Overdue amount',money(0),'No overdue installments.','green'],['Available additional financing',money(ia.availableLine),'Based on your current facility limits.','']].forEach(x=>im.insertAdjacentHTML('beforeend',`<div class="metric ${x[3]||''}"><div class="label">${x[0]}</div><div class="value">${x[1]}</div><div class="hint">${x[2]}</div></div>`));
+ document.getElementById('facilitiesPreview').innerHTML=ia.facilities.map(f=>`<div class="list-item"><div><b>${f.code}</b><div class="sub">${f.type} · ${f.rate}% p.a.</div></div><div style="text-align:right"><div>${money(f.outstanding)}</div><span class="status ok">${f.status}</span></div></div>`).join('');
+ document.getElementById('issuerUpcoming').innerHTML=ia.facilities.map(f=>`<div class="metric"><div class="label">${f.code}</div><div class="value">${money(ia.nextDue)}</div><div class="hint">Due ${f.nextDue}</div></div>`).join('');
+}
+function renderInvestors(){
+ const q=(document.getElementById('investorSearch')?.value||'').toLowerCase();
+ const typ=document.getElementById('investorTypeFilter')?.value||'All';
+ const st=document.getElementById('investorStatusFilter')?.value||'All';
+ const rows=state.admin.investors.filter(i=>(!q||i.name.toLowerCase().includes(q))&&(typ==='All'||i.type===typ)&&(st==='All'||i.status===st));
+ document.getElementById('investorsTable').innerHTML=`<tr><th>Name</th><th>Type</th><th>KYC</th><th>Portfolio Value</th><th>Status</th><th>Action</th></tr>`+(rows.map(i=>`<tr><td>${i.name}</td><td>${i.type}</td><td><span class="status ${i.kyc==='Verified'?'ok':i.kyc==='Pending'?'pending':'default'}">${i.kyc}</span></td><td>${money(i.portfolio)}</td><td><span class="status ${i.status==='Active'?'ok':i.status==='Onboarding'?'pending':'overdue'}">${i.status}</span></td><td><button class="btn small" onclick="toast('Opening '+'${i.name}'+'…')">View</button></td></tr>`).join('')||'<tr><td colspan="6">No matching investors.</td></tr>');
+}
+function renderIssuerDirectory(){
+ const q=(document.getElementById('issuerSearch')?.value||'').toLowerCase();
+ const sec=document.getElementById('issuerSectorFilter')?.value||'All';
+ const st=document.getElementById('issuerStatusFilter')?.value||'All';
+ const rows=state.admin.issuers.filter(i=>(!q||i.name.toLowerCase().includes(q))&&(sec==='All'||i.sector===sec)&&(st==='All'||i.status===st));
+ document.getElementById('issuersTable').innerHTML=`<tr><th>Company</th><th>Sector</th><th>Outstanding</th><th>Risk Tier</th><th>Status</th><th>Action</th></tr>`+(rows.map(i=>`<tr><td>${i.name}</td><td>${i.sector}</td><td>${money(i.outstanding)}</td><td>${i.tier}</td><td><span class="status ${i.status==='Performing'?'ok':i.status==='Onboarding'?'pending':'default'}">${i.status}</span></td><td><button class="btn small" onclick="toast('Opening '+'${i.name}'+'…')">View</button></td></tr>`).join('')||'<tr><td colspan="6">No matching issuers.</td></tr>');
+}
+function renderRiskApprovals(){
+ document.getElementById('approvalsCountPill').textContent=`${state.admin.approvals.length} pending`;
+ document.getElementById('approvalsQueue').innerHTML=state.admin.approvals.map((a,i)=>`<div class="list-item"><div><b>${a.id}</b><div class="sub">${a.type} · ${a.name}</div><div class="sub">Submitted ${a.submitted}</div></div><div style="text-align:right;display:grid;gap:6px"><span class="pill ${a.risk==='Review'?'red':a.risk==='Enhanced'?'amber':'blue'}">${a.risk}</span><div class="row" style="justify-content:flex-end;gap:6px"><button class="btn small success" onclick="resolveApproval(${i},true)">Approve</button><button class="btn small danger" onclick="resolveApproval(${i},false)">Reject</button></div></div></div>`).join('')||'<div class="sub">Queue is clear.</div>';
+ document.getElementById('riskBars').innerHTML=state.admin.riskBySector.map(r=>`<div class="bar"><div>${r.name}</div><div class="track"><div class="fill ${r.color}" style="width:${r.value}%"></div></div><div>${r.value}%</div></div>`).join('');
+}
+function resolveApproval(i,approved){const item=state.admin.approvals[i]; if(!item) return; state.admin.approvals.splice(i,1); toast(`${item.id} ${approved?'approved':'rejected'}.`); renderRiskApprovals(); renderAdminOverview();}
+function renderFinancing(){document.getElementById('facilitiesTable').innerHTML=`<tr><th>Code</th><th>Type</th><th>Principal</th><th>Rate</th><th>Tenor</th><th>Status</th><th>Outstanding</th><th>Next Due</th></tr>`+state.issuerAccount.facilities.map(f=>`<tr><td>${f.code}</td><td>${f.type}</td><td>${money(f.principal)}</td><td>${f.rate}%</td><td>${f.tenor}</td><td><span class="status ok">${f.status}</span></td><td>${money(f.outstanding)}</td><td>${f.nextDue}</td></tr>`).join('');}
+function submitFinancingApplication(){const amt=Number(document.getElementById('applyAmount').value||0); const type=document.getElementById('applyType').value; toast(`Financing application submitted: ${type}, ${money(amt)}.`);}
+function buildSchedule(principal,rate,count){return Array.from({length:count}).map((_,i)=>{const profit=+((principal*rate/100)/12).toFixed(2); const isLast=i===count-1; return {no:i+1,date:new Date(2026,7+i,8).toISOString().slice(0,10),principal:isLast?principal:0,profit,fee:+(profit*0.12).toFixed(2),status:i===0?'Paid':'Upcoming'};});}
+function renderRepayments(){const f=state.issuerAccount.facilities[0]; document.getElementById('iNextRepaymentAmt').textContent=money(state.issuerAccount.nextDue); document.getElementById('iNextRepaymentDate').textContent=`Due ${state.issuerAccount.nextDueDate} · ${f.code}`; document.getElementById('iOnTimeRate').textContent=state.issuerAccount.onTimeRate.toFixed(2)+'%';
+ const rows=buildSchedule(f.principal,f.rate,18);
+ document.getElementById('repaymentScheduleTable').innerHTML=`<tr><th>No.</th><th>Date</th><th>Principal</th><th>Profit</th><th>Service Fee</th><th>Net Payment</th><th>Status</th></tr>`+rows.map(r=>`<tr><td>${r.no}</td><td>${r.date}</td><td>${money(r.principal)}</td><td>${money(r.profit)}</td><td>${money(r.fee)}</td><td>${money(r.principal+r.profit-r.fee)}</td><td><span class="status ${r.status==='Paid'?'ok':'pending'}">${r.status}</span></td></tr>`).join('');
+ document.getElementById('repaymentHistoryTable').innerHTML=`<tr><th>Date</th><th>Type</th><th>Amount</th><th>Status</th></tr>`+state.issuerAccount.activity.map(a=>`<tr><td>${a.date}</td><td>${a.type}</td><td>${money(a.amount)}</td><td><span class="status ok">${a.status}</span></td></tr>`).join('');
+}
+function renderDocuments(){document.getElementById('documentsList').innerHTML=state.issuerAccount.documents.map(d=>`<div class="list-item"><div><b>${d.name}</b></div><span class="status ${d.status==='Verified'?'ok':d.status==='Pending'?'pending':'overdue'}">${d.status}</span></div>`).join('');}
+function docPicked(){const f=document.getElementById('docFile').files[0]; if(f) document.getElementById('docUploadLabel').textContent=f.name;}
+function submitDocument(){if(!document.getElementById('docFile').files[0]){toast('Please choose a file to upload.');return;} const type=document.getElementById('docType').value; const doc=state.issuerAccount.documents.find(d=>d.name===type); if(doc) doc.status='Pending'; toast(`${type} submitted for review.`); renderDocuments();}
 function renderDefaults(){document.getElementById('defaultList').innerHTML=state.defaults.map(d=>`<div class="list-item"><div><b>${d.code}</b><div class="sub">${d.issuer}</div><div class="sub">${d.update}</div><div class="sub"><strong>Timeline:</strong> ${d.eta}</div></div><div style="text-align:right"><div class="status default">${d.stage}</div><div style="margin-top:8px;font-weight:800">${money(d.amount)}</div></div></div>`).join('');}
 function renderSubwallets(){document.getElementById('subwalletBars').innerHTML=state.subwallets.map(s=>`<div class="bar"><div>${s.name}</div><div class="track"><div class="fill green" style="width:${s.perf}%"></div></div><div>${shortMoney(s.deployed*1000000)}</div></div>`).join('');document.getElementById('corpHoldingBars').innerHTML=state.subwallets.map(s=>`<div class="bar"><div>${s.name}</div><div class="track"><div class="fill" style="width:${Math.min(100,s.deployed*10)}%"></div></div><div>${shortMoney(s.deployed*1000000)}</div></div>`).join('');}
 function renderQueue(){document.getElementById('orderQueue').innerHTML=state.orderQueue.map(o=>`<div class="list-item"><div><b>${o.id}</b><div class="sub">${o.wallet} • ${o.maker}</div></div><div style="text-align:right"><div>${money(o.amount)}</div><span class="status pending">${o.status}</span></div></div>`).join('')||'<div class="sub">No pending approvals.</div>';document.getElementById('pendingOrdersChip').textContent=`${state.orderQueue.length} orders`;}
@@ -592,15 +1040,15 @@ function submitWithdrawal(){const a=Number(document.getElementById('withdrawAmou
 function saveProfile(){toast('Profile details updated successfully.');}
 function saveAccess(){toast('Corporate maker-checker settings saved.');}
 function toggleCorpRole(){state.corpRole=state.corpRole==='Maker'?'Checker':'Maker'; document.getElementById('corpRoleBadge').textContent=`Logged in as ${state.corpRole}`; toast(`Switched to ${state.corpRole} role.`);}
-function createOrder(){if(state.persona!=='corporate'){toast('Corporate view required.');return;} if(state.corpRole!=='Maker'){toast('Only the Maker can create an order.');return;} state.orderQueue.unshift({id:'ORD-'+Math.floor(Math.random()*900+2100),wallet:'Treasury Pool',amount:68000,status:'Pending Checker',maker:document.getElementById('makerUser')?.value||'maker@abctreasury.com'}); renderQueue(); toast('Corporate order created and queued for checker approval.');}
-function approveNextOrder(){if(state.persona!=='corporate'){toast('Corporate view required.');return;} if(state.corpRole!=='Checker'){toast('Only the Checker can approve queued orders.');return;} if(!state.orderQueue.length){toast('No pending orders.');return;} const ord=state.orderQueue.shift(); state.activities.unshift({date:new Date().toISOString().slice(0,16).replace('T',' '),type:'Corporate Order Approved',amount:-ord.amount,status:'Confirmed'}); renderQueue(); renderActivities(); toast(`${ord.id} approved by Checker.`);}
+function createOrder(){if(state.role!=='corporate'){toast('Corporate view required.');return;} if(state.corpRole!=='Maker'){toast('Only the Maker can create an order.');return;} state.orderQueue.unshift({id:'ORD-'+Math.floor(Math.random()*900+2100),wallet:'Treasury Pool',amount:68000,status:'Pending Checker',maker:document.getElementById('makerUser')?.value||'maker@abctreasury.com'}); renderQueue(); toast('Corporate order created and queued for checker approval.');}
+function approveNextOrder(){if(state.role!=='corporate'){toast('Corporate view required.');return;} if(state.corpRole!=='Checker'){toast('Only the Checker can approve queued orders.');return;} if(!state.orderQueue.length){toast('No pending orders.');return;} const ord=state.orderQueue.shift(); state.activities.unshift({date:new Date().toISOString().slice(0,16).replace('T',' '),type:'Corporate Order Approved',amount:-ord.amount,status:'Confirmed'}); renderQueue(); renderActivities(); toast(`${ord.id} approved by Checker.`);}
 function openSellFromOverview(){goPage('portfolio'); setTimeout(()=>document.getElementById('sellSelect').scrollIntoView({behavior:'smooth',block:'center'}),200)}
 function downloadCSV(kind){toast(`Exported ${kind} CSV.`)}
 function downloadStatementCSV(){toast('Statement export downloaded.')}
 function renderDepositMeta(){document.getElementById('depositBalance').textContent=money(state.profile.cash); document.getElementById('withdrawBalance').textContent=money(state.profile.cash); document.getElementById('rCashChip').textContent=money(state.profile.cash); document.getElementById('netWithdrawal').textContent=money(Math.max(0,Number(document.getElementById('withdrawAmount').value||0)-1));}
 function renderHero(){document.getElementById('asOfRetail').textContent=new Date().toLocaleString('en-MY',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); document.getElementById('asOfCorp').textContent=document.getElementById('asOfRetail').textContent; document.getElementById('rDepositsHero').textContent=money(state.profile.deposits); document.getElementById('rInvestedHero').textContent=money(state.profile.invested); document.getElementById('rYieldHero').textContent=state.profile.yield.toFixed(2)+'%'; document.getElementById('rExpectedHero').textContent=money(state.profile.expectedReturns); document.getElementById('rOutstandingChip').textContent=money(state.profile.outstanding); document.getElementById('rDefaultChip').textContent=money(state.profile.defaulted); document.getElementById('cDeployedHero').textContent=shortMoney(state.corporate.deployed); document.getElementById('cNavHero').textContent=shortMoney(state.corporate.nav); document.getElementById('cYieldHero').textContent=state.corporate.weightedYield.toFixed(2)+'%'; document.getElementById('cCollectionHero').textContent=state.corporate.collectionRate.toFixed(2)+'%'; document.getElementById('cOverdueChip').textContent=shortMoney(state.corporate.overdue); document.getElementById('cDefaultChip').textContent=shortMoney(state.corporate.defaulted);}
-function renderAll(){renderHero(); renderMetrics(); drawLine('retailLineChart',state.lineRetail,'#2395dc'); drawLine('corpLineChart',state.lineCorp,'#f0aa34'); renderActivities(); renderUpcoming(); renderAging(); renderDefaults(); renderSubwallets(); renderQueue(); renderMarket(); renderPortfolio(); renderStatements(); renderDepositTimeline(); setDepositMode(state.depositMode||'fpx'); renderDepositMeta(); document.getElementById('corpRoleBadge').textContent=`Logged in as ${state.corpRole}`;}
-renderAll(); renderPortfolio(); switchPersona('retail');
+function renderAll(){renderHero(); renderMetrics(); drawLine('retailLineChart',state.lineRetail,'#2395dc'); drawLine('corpLineChart',state.lineCorp,'#f0aa34'); drawLine('adminLineChart',state.admin.lineAUM,'#f0aa34'); drawLine('issuerLineChart',state.issuerAccount.lineOutstanding,'#2395dc'); renderActivities(); renderUpcoming(); renderAging(); renderDefaults(); renderSubwallets(); renderQueue(); renderMarket(); renderPortfolio(); renderStatements(); renderDepositTimeline(); setDepositMode(state.depositMode||'fpx'); renderDepositMeta(); document.getElementById('corpRoleBadge').textContent=`Logged in as ${state.corpRole}`; renderAdminOverview(); renderIssuerOverview(); renderInvestors(); renderIssuerDirectory(); renderRiskApprovals(); renderFinancing(); renderRepayments(); renderDocuments();}
+renderAll(); renderPortfolio();
 </script>
 </body>
 </html>
