@@ -14,8 +14,6 @@ const DEMO_PASSWORD = "demopassword";
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -60,36 +58,13 @@ export default function Login() {
           </div>
         </div>
         <div className="login-form">
-          <h3>Sign in to your account</h3>
-          <div className="sub">Real accounts now - your data persists across sessions.</div>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              doLogin(email, password);
-            }}
-          >
-            <div className="field">
-              <label>Email</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <h3>Choose an account to explore</h3>
+          <div className="sub">This is a live demo - pick a role below and you're straight in.</div>
+          {error && (
+            <div className="banner-notice" style={{ marginTop: 12 }}>
+              <div>{error}</div>
             </div>
-            <div className="field" style={{ marginTop: 10 }}>
-              <label>Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            {error && (
-              <div className="banner-notice" style={{ marginTop: 12 }}>
-                <div>{error}</div>
-              </div>
-            )}
-            <button className="btn primary" style={{ width: "100%", justifyContent: "center", marginTop: 14 }} disabled={submitting}>
-              Sign in
-            </button>
-          </form>
+          )}
           <div className="sub" style={{ marginTop: 14 }}>
             No account? <Link to="/signup">Create a retail investor account</Link>
           </div>

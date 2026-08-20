@@ -10,11 +10,24 @@ export const DEMO_ACCOUNTS = {
   issuer: "finance@sunwaybiz.demo",
 } as const;
 
+/** The login page only exposes the 4 primary demo buttons now (no free-text
+ * email/password form) - go through the API directly instead, the same way
+ * those buttons do under the hood. This also covers accounts with no button
+ * of their own, e.g. the corporate checker identity. */
 export async function login(page: Page, email: string, password = DEMO_PASSWORD) {
   await page.goto("/login");
-  await page.locator('input[type=email]').fill(email);
-  await page.locator('input[type=password]').fill(password);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.evaluate(
+    async ({ email, password }) => {
+      await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+        credentials: "include",
+      });
+    },
+    { email, password }
+  );
+  await page.goto("/app/overview");
   await page.waitForURL("**/app/overview");
 }
 
