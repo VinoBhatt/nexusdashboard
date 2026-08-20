@@ -9,6 +9,8 @@ import NotesAvailable from "./pages/retail/NotesAvailable";
 import OngoingNotes from "./pages/retail/OngoingNotes";
 import CompletedNotes from "./pages/retail/CompletedNotes";
 import AutoInvest from "./pages/retail/AutoInvest";
+import AccountBalance from "./pages/retail/AccountBalance";
+import Alerts from "./pages/retail/Alerts";
 import Deposit from "./pages/retail/Deposit";
 import Withdrawal from "./pages/retail/Withdrawal";
 import Statements from "./pages/retail/Statements";
@@ -35,6 +37,8 @@ export default function App() {
             <Route path="ongoing-notes" element={<OngoingNotes />} />
             <Route path="completed-notes" element={<CompletedNotes />} />
             <Route path="auto-invest" element={<AutoInvest />} />
+            <Route path="account-balance" element={<AccountBalance />} />
+            <Route path="alerts" element={<Alerts />} />
             <Route path="deposit" element={<Deposit />} />
             <Route path="withdrawal" element={<Withdrawal />} />
             <Route path="statements" element={<Statements />} />

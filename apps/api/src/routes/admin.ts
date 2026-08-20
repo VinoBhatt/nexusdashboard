@@ -10,6 +10,7 @@ import {
   issuerProfiles,
   approvals,
   metricsSnapshots,
+  alerts,
 } from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
@@ -212,6 +213,11 @@ async function decideApproval(db: ReturnType<typeof drizzle>, id: string, decide
         // Offer the newly-open note to every investor's Auto Invest rule
         // immediately, same as a human would see it appear in Notes Available.
         await runAutoInvestForNewFacility(db, { ...facility, status: "Open" });
+        await db.insert(alerts).values({
+          id: crypto.randomUUID(),
+          message: `${facility.noteName ?? facility.id} is open for funding | RM${facility.principalAmount.toLocaleString()} | ${facility.tenorDays} days | ${facility.ratePct}% p.a.`,
+          facilityId: facility.id,
+        });
       }
     }
   }

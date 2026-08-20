@@ -99,6 +99,19 @@ const ICONS: Record<string, React.ReactNode> = {
       <polygon points="13 2 3 14 11 14 10 22 21 10 13 10 13 2" />
     </svg>
   ),
+  balance: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="6" width="20" height="14" rx="2" />
+      <path d="M2 10h20" />
+      <circle cx="16" cy="15" r="1.5" />
+    </svg>
+  ),
+  alerts: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  ),
 };
 
 const NAV_BY_ROLE: Record<Role, { to: string; label: string; icon: string }[]> = {
@@ -110,7 +123,9 @@ const NAV_BY_ROLE: Record<Role, { to: string; label: string; icon: string }[]> =
     { to: "auto-invest", label: "Auto Invest", icon: "autoinvest" },
     { to: "deposit", label: "Deposit", icon: "deposit" },
     { to: "withdrawal", label: "Withdrawal", icon: "withdrawal" },
+    { to: "account-balance", label: "Account Balance", icon: "balance" },
     { to: "statements", label: "Statements", icon: "statements" },
+    { to: "alerts", label: "Alerts", icon: "alerts" },
     { to: "account", label: "Account", icon: "account" },
   ],
   corporate: [{ to: "overview", label: "Overview", icon: "grid" }],

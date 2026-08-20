@@ -316,6 +316,15 @@ export const metricsSnapshots = sqliteTable("metrics_snapshots", {
   value: real("value").notNull(),
 });
 
+// ---- Alerts: system-generated deal announcements, newest first ----
+
+export const alerts = sqliteTable("alerts", {
+  id: id(),
+  message: text("message").notNull(),
+  facilityId: text("facility_id").references(() => financingFacilities.id),
+  ...timestamps,
+});
+
 // ---- Corporate accounts (Phase 2): a company with separate maker/checker logins ----
 
 export const corporateAccounts = sqliteTable("corporate_accounts", {

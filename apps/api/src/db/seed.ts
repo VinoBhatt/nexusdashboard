@@ -109,6 +109,18 @@ async function main() {
     );
   }
 
+  // ---- Alerts (from legacy state's "Latest Messages" deal announcements) ----
+  const alertDefs = [
+    { id: "alert-1", message: "Sunway Business Solutions Invoice Note 5 is open for funding | RM620,000 | 540 days | 7% p.a.", facilityId: "MBIBG-26070005" },
+    { id: "alert-2", message: "Sunway Business Solutions Contract Note 1 is open for funding | RM245,000 | 90 days | 8.5% p.a.", facilityId: "MBIBG-26080001" },
+    { id: "alert-3", message: "Issuer 1932340 Invoice Note 3 is fully funded | RM500,000 | 540 days | 7% p.a.", facilityId: "MBIBG-26070003" },
+  ];
+  for (const a of alertDefs) {
+    statements.push(
+      `INSERT INTO alerts (id, message, facility_id, created_at) VALUES (${sqlStr(a.id)}, ${sqlStr(a.message)}, ${sqlStr(a.facilityId)}, ${sqlTs(now)});`
+    );
+  }
+
   // ---- Retail investor's own KYC/bank documents (sample metadata only) ----
   const retailDocs = [
     { id: "doc-retail-ic-front", type: "IC/Passport (front)", file: "sample-ic-front.jpg", status: "Verified" },

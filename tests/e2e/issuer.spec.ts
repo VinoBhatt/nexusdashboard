@@ -32,6 +32,9 @@ test.describe("Issuer -> admin -> retail cross-role story", () => {
     // The newly approved facility must be investable, not just listed.
     await expect(retailPage.locator(".note").first()).toBeVisible();
 
+    await retailPage.getByRole("link", { name: "Alerts", exact: true }).click();
+    await expect(retailPage.locator(".list-item", { hasText: "RM55,000" })).toBeVisible();
+
     await issuerCtx.close();
     await adminCtx.close();
     await retailCtx.close();
