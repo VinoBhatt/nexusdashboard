@@ -41,6 +41,10 @@ export function apiPostForm<T>(path: string, form: FormData): Promise<T> {
   return request<T>(path, { method: "POST", body: form });
 }
 
+export function apiDelete<T>(path: string): Promise<T> {
+  return request<T>(path, { method: "DELETE" });
+}
+
 export function downloadUrl(path: string): string {
   return BASE + path;
 }

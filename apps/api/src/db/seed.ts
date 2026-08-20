@@ -45,8 +45,10 @@ async function main() {
   const retailId = "user-retail-demo";
 
   // ---- Retail investor profile (from legacy state.profile) ----
+  // Sample/placeholder identity, bank and address data only - never real
+  // PII, even when modelled on a real reference product's field layout.
   statements.push(
-    `INSERT INTO investor_profiles (user_id, cash_balance, total_deposits, total_withdrawals, total_invested, annualised_yield, expected_returns, expected_this_month, overdue_this_month, outstanding, defaulted, kyc_status, job_type, income_range, net_worth, source_of_funds, objective, risk_appetite) VALUES (${sqlStr(retailId)}, 57.78, 29001.09, 80.69923, 178780, 6.64, 1089.36, 122.22, 17.50, 2704.65, 4.65, 'Verified', 'Employed', 'RM5k - RM10k', 'RM100k - RM500k', 'Employment income', 'Balanced return', 'Balanced');`
+    `INSERT INTO investor_profiles (user_id, cash_balance, total_deposits, total_withdrawals, total_invested, annualised_yield, expected_returns, expected_this_month, overdue_this_month, outstanding, defaulted, kyc_status, job_type, income_range, net_worth, source_of_funds, objective, risk_appetite, investor_ref_no, contact_number, identification_type, identification_number, job_title, company_name, nature_of_business, bank_name, bank_account_holder, bank_account_number, address_line1, address_line2, city, country, state, postcode, referral_code, declaration_accepted, profile_updated_at) VALUES (${sqlStr(retailId)}, 57.78, 29001.09, 80.69923, 178780, 6.64, 1089.36, 122.22, 17.50, 2704.65, 4.65, 'Verified', 'Employed', 'Below RM50,000', 'RM100,000 - RM250,000', 'Employment income', 'Balanced return', 'Balanced', '1001', '+60 12-345 6789', 'NRIC', '900101-01-1234', 'Software Engineer', 'Nexus Technology Sdn Bhd', 'Information Technology', 'Maybank', 'Joshua Kuan Chung Shearn', '1234 5678 9012', '12, Jalan Demo Sentral', 'Taman Contoh', 'Kuala Lumpur', 'Malaysia', 'Wilayah Persekutuan Kuala Lumpur', '50000', 'DEMO1234', 1, ${sqlTs(now)});`
   );
 
   // ---- Financing facilities (from legacy state.notes + facilities only referenced by holdings) ----
@@ -104,6 +106,18 @@ async function main() {
   for (const h of holdings) {
     statements.push(
       `INSERT INTO holdings (id, investor_id, facility_id, status, amount_invested, expected_return, actual_return, eligible_for_sale, created_at) VALUES (${sqlStr(h.id)}, ${sqlStr(retailId)}, ${sqlStr(h.facility)}, ${sqlStr(h.status)}, ${sqlNum(h.invested)}, ${sqlNum(h.expected)}, ${sqlNum(h.actual)}, ${sqlBool(h.eligible)}, ${sqlTs(now)});`
+    );
+  }
+
+  // ---- Retail investor's own KYC/bank documents (sample metadata only) ----
+  const retailDocs = [
+    { id: "doc-retail-ic-front", type: "IC/Passport (front)", file: "sample-ic-front.jpg", status: "Verified" },
+    { id: "doc-retail-ic-back", type: "IC/Passport (back)", file: "sample-ic-back.jpg", status: "Verified" },
+    { id: "doc-retail-bank-statement", type: "Bank Statement", file: "sample-bank-statement.pdf", status: "Verified" },
+  ];
+  for (const d of retailDocs) {
+    statements.push(
+      `INSERT INTO documents (id, owner_id, doc_type, file_name, status, uploaded_at) VALUES (${sqlStr(d.id)}, ${sqlStr(retailId)}, ${sqlStr(d.type)}, ${sqlStr(d.file)}, ${sqlStr(d.status)}, ${sqlTs(now)});`
     );
   }
 

@@ -79,6 +79,26 @@ export const investorProfiles = sqliteTable("investor_profiles", {
   sourceOfFunds: text("source_of_funds"),
   objective: text("objective"),
   riskAppetite: text("risk_appetite"),
+  // ---- Full profile (investor ID card, bank, address, referral) ----
+  investorRefNo: text("investor_ref_no"),
+  contactNumber: text("contact_number"),
+  identificationType: text("identification_type", { enum: ["NRIC", "Passport"] }).default("NRIC"),
+  identificationNumber: text("identification_number"),
+  jobTitle: text("job_title"),
+  companyName: text("company_name"),
+  natureOfBusiness: text("nature_of_business"),
+  bankName: text("bank_name"),
+  bankAccountHolder: text("bank_account_holder"),
+  bankAccountNumber: text("bank_account_number"),
+  addressLine1: text("address_line1"),
+  addressLine2: text("address_line2"),
+  city: text("city"),
+  country: text("country").default("Malaysia"),
+  state: text("state"),
+  postcode: text("postcode"),
+  referralCode: text("referral_code"),
+  declarationAccepted: integer("declaration_accepted", { mode: "boolean" }).notNull().default(false),
+  profileUpdatedAt: integer("profile_updated_at", { mode: "timestamp" }),
 });
 
 // ---- Financing instruments (marketplace notes + issuer facilities, same entity) ----

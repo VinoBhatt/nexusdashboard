@@ -14,6 +14,7 @@ import {
   resolveSession,
 } from "../auth/session";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
+import { generateInvestorRefNo, generateReferralCode } from "../lib/ids";
 
 const auth = new Hono<AuthedEnv>();
 
@@ -44,7 +45,12 @@ auth.post("/signup", async (c) => {
   const id = crypto.randomUUID();
   const passwordHash = await hashPassword(password);
   await db.insert(users).values({ id, email, passwordHash, role, displayName });
-  await db.insert(investorProfiles).values({ userId: id, kycStatus: "Pending" });
+  await db.insert(investorProfiles).values({
+    userId: id,
+    kycStatus: "Pending",
+    investorRefNo: generateInvestorRefNo(),
+    referralCode: generateReferralCode(),
+  });
   await db.insert(approvals).values({
     id: crypto.randomUUID(),
     type: "Investor KYC",
