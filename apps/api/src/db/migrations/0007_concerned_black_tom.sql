@@ -1,0 +1,1 @@
+ALTER TABLE `financing_facilities` ADD `repayment_structure` text DEFAULT 'Bullet Principal, Monthly Profit' NOT NULL;

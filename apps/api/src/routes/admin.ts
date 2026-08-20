@@ -15,6 +15,7 @@ import {
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
 import { runAutoInvestForNewFacility } from "../lib/autoInvest";
+import { generateRepaymentSchedule } from "../lib/repaymentSchedule";
 
 const admin = new Hono<AuthedEnv>();
 admin.use("*", requireAuth, requireRole("admin"));
@@ -147,27 +148,6 @@ admin.get("/approvals", async (c) => {
  * per elapsed month, interest-only until the last period repays
  * principal too - generated server-side at approval time, replacing
  * the legacy prototype's client-side buildSchedule(). */
-function generateSchedule(facilityId: string, principal: number, ratePct: number, tenorDays: number) {
-  const count = Math.max(1, Math.round(tenorDays / 30));
-  return Array.from({ length: count }).map((_, i) => {
-    const isLast = i === count - 1;
-    const profit = +((principal * ratePct) / 100 / 12).toFixed(2);
-    const fee = +(profit * 0.12).toFixed(2);
-    const due = new Date();
-    due.setMonth(due.getMonth() + i + 1);
-    return {
-      id: `${facilityId}-${i + 1}`,
-      facilityId,
-      installmentNo: i + 1,
-      dueDate: due.toISOString().slice(0, 10),
-      principalDue: isLast ? principal : 0,
-      profitDue: profit,
-      feeDue: fee,
-      status: "Upcoming" as const,
-    };
-  });
-}
-
 async function decideApproval(db: ReturnType<typeof drizzle>, id: string, decidedBy: string, outcome: "Approved" | "Rejected") {
   const rows = await db.select().from(approvals).where(eq(approvals.id, id)).limit(1);
   const approval = rows[0];
@@ -206,9 +186,14 @@ async function decideApproval(db: ReturnType<typeof drizzle>, id: string, decide
         .set({ status: outcome === "Approved" ? "Open" : "Rejected" })
         .where(eq(financingFacilities.id, facility.id));
       if (outcome === "Approved") {
-        const schedule = generateSchedule(facility.id, facility.principalAmount, facility.ratePct, facility.tenorDays);
+        const schedule = generateRepaymentSchedule(facility.principalAmount, facility.ratePct, facility.tenorDays, facility.repaymentStructure);
         for (const installment of schedule) {
-          await db.insert(repaymentInstallments).values(installment);
+          await db.insert(repaymentInstallments).values({
+            id: `${facility.id}-${installment.installmentNo}`,
+            facilityId: facility.id,
+            status: "Upcoming",
+            ...installment,
+          });
         }
         // Offer the newly-open note to every investor's Auto Invest rule
         // immediately, same as a human would see it appear in Notes Available.

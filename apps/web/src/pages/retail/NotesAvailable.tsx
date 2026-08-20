@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPost } from "../../lib/api";
 import { money } from "../../lib/money";
@@ -21,14 +21,76 @@ interface Note {
   campaignStart: string | null;
   campaignEnd: string | null;
 }
+
+type RepaymentStructure = "Bullet Principal, Monthly Profit" | "Bullet Principal & Profit" | "Monthly Principal & Profit";
+
 interface Listing {
   id: string;
   units: number;
   pricePerUnit: number;
   status: string;
+  facilityId: string;
+  noteName: string | null;
+  issuerName: string;
+  ratePct: number;
+  tenorDays: number;
+  daysElapsed: number;
+  repaymentStructure: RepaymentStructure;
+}
+
+interface ScheduleRow {
+  installmentNo: number;
+  dueDate: string;
+  principalDue: number;
+  profitDue: number;
 }
 
 const MIN_INVESTMENT_FLOOR = 100;
+
+// Mirrors apps/api/src/lib/repaymentSchedule.ts's generateRepaymentSchedule -
+// same three structures, same math - so the simulation shown here matches
+// what the server would actually generate for this note.
+function simulateSchedule(principal: number, ratePct: number, tenorDays: number, structure: RepaymentStructure): ScheduleRow[] {
+  const count = Math.max(1, Math.round(tenorDays / 30));
+  const dueDateAt = (monthsAhead: number) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + monthsAhead);
+    return d.toISOString().slice(0, 10);
+  };
+
+  if (structure === "Bullet Principal & Profit") {
+    const totalProfit = +((principal * ratePct * tenorDays) / 100 / 365).toFixed(2);
+    return Array.from({ length: count }).map((_, i) => {
+      const isLast = i === count - 1;
+      return {
+        installmentNo: i + 1,
+        dueDate: dueDateAt(i + 1),
+        principalDue: isLast ? principal : 0,
+        profitDue: isLast ? totalProfit : 0,
+      };
+    });
+  }
+
+  if (structure === "Monthly Principal & Profit") {
+    const monthlyPrincipal = +(principal / count).toFixed(2);
+    let balance = principal;
+    return Array.from({ length: count }).map((_, i) => {
+      const isLast = i === count - 1;
+      const principalDue = isLast ? +balance.toFixed(2) : monthlyPrincipal;
+      const profitDue = +((balance * ratePct) / 100 / 12).toFixed(2);
+      balance -= principalDue;
+      return { installmentNo: i + 1, dueDate: dueDateAt(i + 1), principalDue, profitDue };
+    });
+  }
+
+  const monthlyProfit = +((principal * ratePct) / 100 / 12).toFixed(2);
+  return Array.from({ length: count }).map((_, i) => ({
+    installmentNo: i + 1,
+    dueDate: dueDateAt(i + 1),
+    principalDue: i === count - 1 ? principal : 0,
+    profitDue: monthlyProfit,
+  }));
+}
 
 export default function NotesAvailable() {
   const [mode, setMode] = useState<"primary" | "secondary">("primary");
@@ -36,6 +98,7 @@ export default function NotesAvailable() {
   const [investTarget, setInvestTarget] = useState<Note | null>(null);
   const [investAmount, setInvestAmount] = useState(MIN_INVESTMENT_FLOOR);
   const [buyTarget, setBuyTarget] = useState<Listing | null>(null);
+  const [buyUnits, setBuyUnits] = useState(1);
   const qc = useQueryClient();
   const toast = useToast();
 
@@ -80,13 +143,26 @@ export default function NotesAvailable() {
     setInvestAmount(Math.max(note.minInvestment, MIN_INVESTMENT_FLOOR));
   }
 
+  function openBuy(listing: Listing) {
+    setBuyTarget(listing);
+    setBuyUnits(listing.units);
+  }
+
+  // Keep the units field in range if the listing's stock changes underneath
+  // the open dialog (e.g. a background refetch after someone else buys some).
+  useEffect(() => {
+    if (buyTarget) setBuyUnits((u) => Math.min(Math.max(u, 1), buyTarget.units));
+  }, [buyTarget]);
+
   const investSimulatedReturn = investTarget ? +(investAmount * (1 + investTarget.ratePct / 100)).toFixed(2) : 0;
   const investValid =
     !!investTarget && investAmount >= Math.max(investTarget.minInvestment, MIN_INVESTMENT_FLOOR) && investAmount <= investTarget.maxInvestment;
 
-  const buyCost = buyTarget ? buyTarget.units * buyTarget.pricePerUnit : 0;
-  const buyReturn = buyTarget ? buyTarget.units : 0;
+  const buyCost = buyTarget ? buyUnits * buyTarget.pricePerUnit : 0;
+  const buyReturn = buyUnits;
   const buyProfit = buyReturn - buyCost;
+  const buyValid = !!buyTarget && buyUnits >= 1 && buyUnits <= buyTarget.units;
+  const buySchedule = buyTarget ? simulateSchedule(buyUnits, buyTarget.ratePct, buyTarget.tenorDays, buyTarget.repaymentStructure) : [];
 
   return (
     <>
@@ -180,7 +256,12 @@ export default function NotesAvailable() {
               return (
                 <div key={l.id} className="note">
                   <div className="row" style={{ justifyContent: "space-between" }}>
-                    <h4>{l.id}</h4>
+                    <div>
+                      <h4>{l.noteName ?? l.facilityId}</h4>
+                      <small>
+                        Listing {l.id} · {l.repaymentStructure}
+                      </small>
+                    </div>
                   </div>
                   <div className="mini-metrics">
                     <div>
@@ -196,8 +277,11 @@ export default function NotesAvailable() {
                       <b>{returnPct}%</b>
                     </div>
                   </div>
+                  <div className="sub" style={{ marginTop: 12 }}>
+                    {l.issuerName} · {l.ratePct}% p.a. · {l.tenorDays} day(s)
+                  </div>
                   <div className="row" style={{ justifyContent: "flex-end", marginTop: 12 }}>
-                    <button className="btn small primary" onClick={() => setBuyTarget(l)}>
+                    <button className="btn small primary" onClick={() => openBuy(l)}>
                       Buy Units
                     </button>
                   </div>
@@ -262,11 +346,13 @@ export default function NotesAvailable() {
 
       {buyTarget && (
         <div className="modal show">
-          <div className="modal-card" style={{ maxWidth: 440 }}>
+          <div className="modal-card" style={{ maxWidth: 560 }}>
             <div className="modal-head">
               <div>
-                <h3>Buy {buyTarget.id}</h3>
-                <div className="sub">{buyTarget.units.toLocaleString()} unit(s) at RM{buyTarget.pricePerUnit} per unit</div>
+                <h3>Buy {buyTarget.noteName ?? buyTarget.facilityId}</h3>
+                <div className="sub">
+                  Listing {buyTarget.id} · RM{buyTarget.pricePerUnit} per unit · {buyTarget.repaymentStructure}
+                </div>
               </div>
               <button className="close" onClick={() => setBuyTarget(null)} aria-label="Close">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
@@ -275,7 +361,17 @@ export default function NotesAvailable() {
                 </svg>
               </button>
             </div>
-            <div className="banner-notice" style={{ marginTop: 4 }}>
+            <div className="field">
+              <label>Units to buy (1 - {buyTarget.units.toLocaleString()})</label>
+              <input
+                type="number"
+                min={1}
+                max={buyTarget.units}
+                value={buyUnits}
+                onChange={(e) => setBuyUnits(Number(e.target.value))}
+              />
+            </div>
+            <div className="banner-notice" style={{ marginTop: 12 }}>
               <div>
                 <b>Simulated payout at maturity: {money(buyReturn)}</b>
                 <span>
@@ -283,11 +379,40 @@ export default function NotesAvailable() {
                 </span>
               </div>
             </div>
+            <div className="field" style={{ marginTop: 14 }}>
+              <label>Repayment breakdown ({buyTarget.repaymentStructure})</label>
+              <div className="table-wrap">
+                <table className="table" style={{ minWidth: 0 }}>
+                  <tbody>
+                    <tr>
+                      <th>#</th>
+                      <th>Due Date</th>
+                      <th>Principal</th>
+                      <th>Profit</th>
+                      <th>Total</th>
+                    </tr>
+                    {buySchedule.map((row) => (
+                      <tr key={row.installmentNo}>
+                        <td>{row.installmentNo}</td>
+                        <td>{row.dueDate}</td>
+                        <td>{money(row.principalDue)}</td>
+                        <td>{money(row.profitDue)}</td>
+                        <td>{money(row.principalDue + row.profitDue)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
             <div className="row" style={{ justifyContent: "flex-end", gap: 10, marginTop: 14 }}>
               <button className="btn" onClick={() => setBuyTarget(null)}>
                 Cancel
               </button>
-              <button className="btn primary" disabled={buy.isPending} onClick={() => buy.mutate({ id: buyTarget.id, units: buyTarget.units })}>
+              <button
+                className="btn primary"
+                disabled={!buyValid || buy.isPending}
+                onClick={() => buy.mutate({ id: buyTarget.id, units: buyUnits })}
+              >
                 Confirm Purchase
               </button>
             </div>

@@ -20,8 +20,22 @@ marketplace.get("/notes", async (c) => {
 
   if (mode === "secondary") {
     const rows = await db
-      .select()
+      .select({
+        id: secondaryListings.id,
+        units: secondaryListings.units,
+        pricePerUnit: secondaryListings.pricePerUnit,
+        status: secondaryListings.status,
+        facilityId: financingFacilities.id,
+        noteName: financingFacilities.noteName,
+        issuerName: financingFacilities.issuerName,
+        ratePct: financingFacilities.ratePct,
+        tenorDays: financingFacilities.tenorDays,
+        daysElapsed: financingFacilities.daysElapsed,
+        repaymentStructure: financingFacilities.repaymentStructure,
+      })
       .from(secondaryListings)
+      .innerJoin(holdings, eq(secondaryListings.holdingId, holdings.id))
+      .innerJoin(financingFacilities, eq(holdings.facilityId, financingFacilities.id))
       .where(eq(secondaryListings.status, "Open"));
     return c.json({ mode, listings: rows });
   }
@@ -81,6 +95,7 @@ marketplace.post("/secondary/:id/buy", async (c) => {
   const user = c.get("user");
   const parsed = buySchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) return c.json({ error: "invalid_input" }, 400);
+  const { units: unitsToBuy } = parsed.data;
 
   const db = drizzle(c.env.DB);
   const rows = await db
@@ -92,18 +107,25 @@ marketplace.post("/secondary/:id/buy", async (c) => {
   const row = rows[0];
   if (!row) return c.json({ error: "not_found" }, 404);
   const { listing, facilityId } = row;
-  const cost = listing.units * listing.pricePerUnit;
+  if (unitsToBuy > listing.units) {
+    return c.json({ error: "above_available", message: `Only ${listing.units} unit(s) are available in this listing.` }, 400);
+  }
+  const cost = unitsToBuy * listing.pricePerUnit;
 
   const profileRows = await db.select().from(investorProfiles).where(eq(investorProfiles.userId, user.id)).limit(1);
   const profile = profileRows[0];
   if (!profile) return c.json({ error: "not_found" }, 404);
   if (profile.cashBalance < cost) return c.json({ error: "insufficient_balance" }, 400);
 
-  await db.update(secondaryListings).set({ status: "Sold" }).where(eq(secondaryListings.id, listing.id));
+  if (unitsToBuy === listing.units) {
+    await db.update(secondaryListings).set({ status: "Sold" }).where(eq(secondaryListings.id, listing.id));
+  } else {
+    await db.update(secondaryListings).set({ units: listing.units - unitsToBuy }).where(eq(secondaryListings.id, listing.id));
+  }
 
   // Ownership actually transfers to the buyer: a real holding, priced at
-  // what they paid, receivable at full par (listing.units) at maturity -
-  // the gap between the two is the discount they bought at.
+  // what they paid, receivable at full par (unitsToBuy) at maturity - the
+  // gap between the two is the discount they bought at.
   const holdingId = crypto.randomUUID();
   await db.insert(holdings).values({
     id: holdingId,
@@ -111,7 +133,7 @@ marketplace.post("/secondary/:id/buy", async (c) => {
     facilityId,
     status: "Ongoing",
     amountInvested: cost,
-    expectedReturn: listing.units,
+    expectedReturn: unitsToBuy,
     actualReturn: 0,
     eligibleForSale: true,
     source: "manual",

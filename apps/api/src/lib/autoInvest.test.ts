@@ -24,6 +24,7 @@ function makeFacility(overrides: Partial<Parameters<typeof matchesRule>[1]> = {}
     noteName: null,
     campaignStart: null,
     campaignEnd: null,
+    repaymentStructure: "Bullet Principal, Monthly Profit" as const,
     createdAt: new Date(),
     ...overrides,
   };
