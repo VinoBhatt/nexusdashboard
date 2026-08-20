@@ -1,14 +1,18 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { drizzle } from "drizzle-orm/d1";
-import { eq, and, or } from "drizzle-orm";
-import { financingFacilities, secondaryListings, transactions } from "../db/schema";
+import { eq, and, or, sql } from "drizzle-orm";
+import { financingFacilities, secondaryListings, transactions, holdings, investorProfiles } from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
 import { investInFacility } from "../lib/invest";
 
 const marketplace = new Hono<AuthedEnv>();
 marketplace.use("*", requireAuth, requireRole("retail"));
+
+// Demo-friendly: a random subset each request, so reloading the page
+// surfaces a different-feeling set of notes instead of the same static list.
+const PRIMARY_NOTES_SHOWN = 8;
 
 marketplace.get("/notes", async (c) => {
   const db = drizzle(c.env.DB);
@@ -25,7 +29,9 @@ marketplace.get("/notes", async (c) => {
   const rows = await db
     .select()
     .from(financingFacilities)
-    .where(or(eq(financingFacilities.status, "Open"), eq(financingFacilities.status, "Ongoing")));
+    .where(or(eq(financingFacilities.status, "Open"), eq(financingFacilities.status, "Ongoing")))
+    .orderBy(sql`RANDOM()`)
+    .limit(PRIMARY_NOTES_SHOWN);
   return c.json({ mode, notes: rows });
 });
 
@@ -40,7 +46,7 @@ marketplace.get("/notes/:id", async (c) => {
   return c.json({ note: rows[0] });
 });
 
-const investSchema = z.object({ amount: z.number().positive() });
+const investSchema = z.object({ amount: z.number().min(100) });
 
 marketplace.post("/notes/:id/invest", async (c) => {
   const user = c.get("user");
@@ -56,11 +62,17 @@ marketplace.post("/notes/:id/invest", async (c) => {
     .limit(1);
   const facility = facilityRows[0];
   if (!facility) return c.json({ error: "not_found" }, 404);
+  if (amount < facility.minInvestment) {
+    return c.json({ error: "below_minimum", message: `Minimum investment for this note is RM${facility.minInvestment}.` }, 400);
+  }
+  if (amount > facility.maxInvestment) {
+    return c.json({ error: "above_maximum", message: `Maximum investment for this note is RM${facility.maxInvestment}.` }, 400);
+  }
 
   const result = await investInFacility(db, user.id, facility, amount, "manual");
   if (!result.ok) return c.json({ error: result.error }, result.error === "not_found" ? 404 : 400);
 
-  return c.json({ ok: true, holdingId: result.holdingId });
+  return c.json({ ok: true, holdingId: result.holdingId, expectedReturn: +(amount * (1 + facility.ratePct / 100)).toFixed(2) });
 });
 
 const buySchema = z.object({ units: z.number().positive() });
@@ -71,25 +83,53 @@ marketplace.post("/secondary/:id/buy", async (c) => {
   if (!parsed.success) return c.json({ error: "invalid_input" }, 400);
 
   const db = drizzle(c.env.DB);
-  const listingRows = await db
-    .select()
+  const rows = await db
+    .select({ listing: secondaryListings, facilityId: holdings.facilityId })
     .from(secondaryListings)
+    .innerJoin(holdings, eq(secondaryListings.holdingId, holdings.id))
     .where(and(eq(secondaryListings.id, c.req.param("id")), eq(secondaryListings.status, "Open")))
     .limit(1);
-  const listing = listingRows[0];
-  if (!listing) return c.json({ error: "not_found" }, 404);
+  const row = rows[0];
+  if (!row) return c.json({ error: "not_found" }, 404);
+  const { listing, facilityId } = row;
+  const cost = listing.units * listing.pricePerUnit;
+
+  const profileRows = await db.select().from(investorProfiles).where(eq(investorProfiles.userId, user.id)).limit(1);
+  const profile = profileRows[0];
+  if (!profile) return c.json({ error: "not_found" }, 404);
+  if (profile.cashBalance < cost) return c.json({ error: "insufficient_balance" }, 400);
 
   await db.update(secondaryListings).set({ status: "Sold" }).where(eq(secondaryListings.id, listing.id));
+
+  // Ownership actually transfers to the buyer: a real holding, priced at
+  // what they paid, receivable at full par (listing.units) at maturity -
+  // the gap between the two is the discount they bought at.
+  const holdingId = crypto.randomUUID();
+  await db.insert(holdings).values({
+    id: holdingId,
+    investorId: user.id,
+    facilityId,
+    status: "Ongoing",
+    amountInvested: cost,
+    expectedReturn: listing.units,
+    actualReturn: 0,
+    eligibleForSale: true,
+    source: "manual",
+  });
+  await db
+    .update(investorProfiles)
+    .set({ cashBalance: profile.cashBalance - cost, totalInvested: profile.totalInvested + cost, outstanding: profile.outstanding + cost })
+    .where(eq(investorProfiles.userId, user.id));
   await db.insert(transactions).values({
     id: crypto.randomUUID(),
     accountId: user.id,
     type: "Secondary Purchase",
-    amount: -(listing.units * listing.pricePerUnit),
+    amount: -cost,
     status: "Confirmed",
     referenceJson: JSON.stringify({ listingId: listing.id }),
   });
 
-  return c.json({ ok: true });
+  return c.json({ ok: true, holdingId });
 });
 
 export default marketplace;

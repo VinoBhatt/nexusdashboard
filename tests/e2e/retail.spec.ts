@@ -24,8 +24,8 @@ test.describe("Retail investor", () => {
   test("investing in a note appears in on-going notes", async ({ page }) => {
     await login(page, DEMO_ACCOUNTS.retail);
     await page.getByRole("link", { name: "Notes Available", exact: true }).click();
-    const investButton = page.getByRole("button", { name: /^Invest RM/ }).first();
-    await investButton.click();
+    await page.getByRole("button", { name: "Invest", exact: true }).first().click();
+    await page.locator(".modal.show").getByRole("button", { name: "Confirm Investment" }).click();
     await expect(page.locator("#toast")).toContainText("Investment confirmed");
 
     await page.getByRole("link", { name: "On-Going Notes", exact: true }).click();
