@@ -1,9 +1,27 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { apiGet, downloadUrl } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { LineChart } from "../../components/charts/LineChart";
+
+const CHART_RANGES = {
+  since_open: "Since account open",
+  "12m": "Last 12 months",
+  "6m": "Last 6 months",
+  "1m": "Last month",
+} as const;
+type ChartRange = keyof typeof CHART_RANGES;
+
+function filterByRange<T extends { date: string }>(points: T[], range: ChartRange): T[] {
+  if (range === "since_open") return points;
+  const days = { "12m": 365, "6m": 182, "1m": 31 }[range];
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  return points.filter((p) => p.date >= cutoffStr);
+}
 
 interface Profile {
   cashBalance: number;
@@ -30,13 +48,14 @@ interface Activity {
 }
 
 export default function Overview() {
+  const [chartRange, setChartRange] = useState<ChartRange>("since_open");
   const { data, isLoading } = useQuery({
     queryKey: ["investor", "overview"],
     queryFn: () => apiGet<OverviewResponse>("/api/investor/overview"),
   });
   const { data: chart } = useQuery({
     queryKey: ["investor", "chart", "profit"],
-    queryFn: () => apiGet<{ points: { snapshotDate: string; value: number }[] }>("/api/investor/chart/profit"),
+    queryFn: () => apiGet<{ points: { date: string; value: number }[] }>("/api/investor/chart/profit"),
   });
   const { data: activities } = useQuery({
     queryKey: ["investor", "activities"],
@@ -45,6 +64,7 @@ export default function Overview() {
 
   if (isLoading || !data) return <PageHeader title="Overview" description="Loading…" />;
   const { profile } = data;
+  const filteredChartPoints = filterByRange(chart?.points ?? [], chartRange);
 
   return (
     <>
@@ -109,9 +129,19 @@ export default function Overview() {
         <div className="chart-shell">
           <div className="chart-top">
             <h3>Cumulative Profit Payout</h3>
+            <select value={chartRange} onChange={(e) => setChartRange(e.target.value as ChartRange)}>
+              {Object.entries(CHART_RANGES).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="chartbox">
-            <LineChart data={chart?.points.map((p) => p.value) ?? []} />
+            <LineChart
+              data={filteredChartPoints.map((p) => p.value)}
+              labels={filteredChartPoints.map((p) => p.date)}
+            />
           </div>
         </div>
       </div>

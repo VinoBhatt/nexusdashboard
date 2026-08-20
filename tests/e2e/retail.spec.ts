@@ -23,6 +23,14 @@ test.describe("Retail investor", () => {
 
   test("investing in a note appears in on-going notes", async ({ page }) => {
     await login(page, DEMO_ACCOUNTS.retail);
+
+    // Top up cash first - Notes Available shows a random subset each load,
+    // and some notes require a higher minimum than the seeded balance covers.
+    await page.getByRole("link", { name: "Deposit", exact: true }).click();
+    await page.locator('input[type=number]').first().fill("5000");
+    await page.getByRole("button", { name: "Continue with FPX" }).click();
+    await expect(page.locator("#toast")).toContainText("FPX deposit confirmed");
+
     await page.getByRole("link", { name: "Notes Available", exact: true }).click();
     await page.getByRole("button", { name: "Invest", exact: true }).first().click();
 

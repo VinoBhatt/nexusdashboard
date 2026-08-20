@@ -9,6 +9,18 @@ import { HoldingDetailModal } from "../../components/retail/HoldingDetailModal";
 
 const FILTERS = ["All", "Ongoing", "Default"] as const;
 
+function breakdownBy(holdings: Holding[], key: "financingType" | "riskTier"): { label: string; pct: number; amount: number }[] {
+  const total = holdings.reduce((sum, h) => sum + h.amountInvested, 0);
+  if (total === 0) return [];
+  const totals = new Map<string, number>();
+  for (const h of holdings) {
+    totals.set(h[key], (totals.get(h[key]) ?? 0) + h.amountInvested);
+  }
+  return [...totals.entries()]
+    .map(([label, amount]) => ({ label, amount, pct: +((amount / total) * 100).toFixed(1) }))
+    .sort((a, b) => b.amount - a.amount);
+}
+
 const columns: Column<Holding>[] = [
   { key: "facilityId", label: "Facility", sortable: true },
   { key: "issuerName", label: "Issuer", sortable: true },
@@ -34,18 +46,65 @@ export default function OngoingNotes() {
   });
   const active = (data?.holdings ?? []).filter((h) => h.status !== "Completed");
   const shown = filter === "All" ? active : active.filter((h) => h.status === filter);
+  const totalInvested = active.reduce((sum, h) => sum + h.amountInvested, 0);
+  const sectorBreakdown = breakdownBy(active, "financingType");
+  const riskBreakdown = breakdownBy(active, "riskTier");
 
   return (
     <>
       <PageHeader
         title="On-Going Notes"
-        description="Funded notes still accruing profit, including any in default."
+        description="Your current portfolio - funded notes still accruing profit, including any in default."
         actions={
           <a className="btn small" href={downloadUrl("/api/export/portfolio.csv")}>
             Export CSV
           </a>
         }
       />
+
+      {active.length > 0 && (
+        <div className="grid cols-2" style={{ marginBottom: 16 }}>
+          <div className="card">
+            <div className="section-head">
+              <div>
+                <h3>Sector Breakdown</h3>
+                <p>Your {money(totalInvested)} in active notes, by financing type.</p>
+              </div>
+            </div>
+            <div className="bars">
+              {sectorBreakdown.map((s) => (
+                <div key={s.label} className="bar">
+                  <div>{s.label}</div>
+                  <div className="track">
+                    <div className="fill" style={{ width: `${s.pct}%` }} />
+                  </div>
+                  <div>{s.pct}%</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="card">
+            <div className="section-head">
+              <div>
+                <h3>Credit Risk Rating Breakdown</h3>
+                <p>Same {money(totalInvested)}, by note risk tier.</p>
+              </div>
+            </div>
+            <div className="bars">
+              {riskBreakdown.map((r) => (
+                <div key={r.label} className="bar">
+                  <div>{r.label}</div>
+                  <div className="track">
+                    <div className="fill" style={{ width: `${r.pct}%` }} />
+                  </div>
+                  <div>{r.pct}%</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="row" style={{ marginBottom: 12 }}>
           {FILTERS.map((f) => (
