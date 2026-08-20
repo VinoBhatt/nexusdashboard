@@ -53,7 +53,7 @@ auth.post("/signup", async (c) => {
   });
   await db.insert(approvals).values({
     id: crypto.randomUUID(),
-    type: "Investor KYC",
+    type: "Investor Verification",
     subjectType: "user",
     subjectId: id,
     applicantName: displayName,

@@ -39,13 +39,13 @@ export default function RiskApprovals() {
 
   return (
     <>
-      <PageHeader title="Risk & Approvals" description="Clear the KYC/KYB, listing and withdrawal approval queue." />
+      <PageHeader title="Risk & Approvals" description="Clear the verification, listing and withdrawal approval queue." />
       <div className="grid cols-2">
         <div className="card">
           <div className="section-head">
             <div>
               <h3>Approvals Queue</h3>
-              <p>KYC, KYB, new note listings and large withdrawals awaiting sign-off.</p>
+              <p>Investor and issuer verification, new note listings and large withdrawals awaiting sign-off.</p>
             </div>
             <span className="pill amber">{approvals.length} pending</span>
           </div>

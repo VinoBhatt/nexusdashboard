@@ -175,16 +175,16 @@ async function decideApproval(db: ReturnType<typeof drizzle>, id: string, decide
   await db.update(approvals).set({ status: outcome, decidedBy, decidedAt: new Date() }).where(eq(approvals.id, id));
 
   // Apply the real effect the legacy prototype never had: approving an
-  // Investor KYC actually flips the investor's kyc_status, unlocking
-  // their account, instead of just changing a queue item's badge.
-  if (approval.type === "Investor KYC" && approval.subjectType === "user") {
+  // investor verification actually flips the investor's kyc_status,
+  // unlocking their account, instead of just changing a queue item's badge.
+  if (approval.type === "Investor Verification" && approval.subjectType === "user") {
     await db
       .update(investorProfiles)
       .set({ kycStatus: outcome === "Approved" ? "Verified" : "Rejected" })
       .where(eq(investorProfiles.userId, approval.subjectId));
   }
 
-  if (approval.type === "Issuer KYB" && approval.subjectType === "user") {
+  if (approval.type === "Issuer Verification" && approval.subjectType === "user") {
     await db
       .update(issuerProfiles)
       .set({ kybStatus: outcome === "Approved" ? "Verified" : "Rejected" })

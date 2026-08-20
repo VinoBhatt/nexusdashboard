@@ -229,7 +229,7 @@ export const withdrawals = sqliteTable("withdrawals", {
 export const approvals = sqliteTable("approvals", {
   id: id(),
   type: text("type", {
-    enum: ["Investor KYC", "Issuer KYB", "New Note Listing", "Large Withdrawal"],
+    enum: ["Investor Verification", "Issuer Verification", "New Note Listing", "Large Withdrawal"],
   }).notNull(),
   subjectType: text("subject_type").notNull(),
   subjectId: text("subject_id").notNull(),

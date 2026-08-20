@@ -26,6 +26,7 @@ portfolio.get("/holdings", async (c) => {
       issuerName: financingFacilities.issuerName,
       ratePct: financingFacilities.ratePct,
       tenorDays: financingFacilities.tenorDays,
+      daysElapsed: financingFacilities.daysElapsed,
       lastPaymentDate: financingFacilities.lastPaymentDate,
     })
     .from(holdings)
@@ -51,7 +52,19 @@ portfolio.get("/holdings/:id", async (c) => {
   return c.json({ holding: rows[0] });
 });
 
-const listForSaleSchema = z.object({ units: z.number().positive(), price: z.number().positive() });
+const listForSaleSchema = z.object({ units: z.number().positive() });
+
+// System-priced, not investor-set: a buyer who holds to maturity should
+// earn ~ratePct annualised, so today's fair price discounts the RM1
+// maturity value by the facility's own yield over the remaining tenor
+// (simple-interest discounting, consistent with how repayment profit is
+// accrued elsewhere in this app).
+export function calculateSecondaryPrice(ratePct: number, tenorDays: number, daysElapsed: number): number {
+  const remainingDays = Math.max(tenorDays - daysElapsed, 0);
+  const remainingYears = remainingDays / 365;
+  const price = 1 / (1 + (ratePct / 100) * remainingYears);
+  return Math.round(price * 10000) / 10000;
+}
 
 portfolio.post("/holdings/:id/list-for-sale", async (c) => {
   const user = c.get("user");
@@ -60,13 +73,17 @@ portfolio.post("/holdings/:id/list-for-sale", async (c) => {
 
   const db = drizzle(c.env.DB);
   const rows = await db
-    .select()
+    .select({ holding: holdings, facility: financingFacilities })
     .from(holdings)
+    .innerJoin(financingFacilities, eq(holdings.facilityId, financingFacilities.id))
     .where(and(eq(holdings.id, c.req.param("id")), eq(holdings.investorId, user.id)))
     .limit(1);
-  const holding = rows[0];
-  if (!holding) return c.json({ error: "not_found" }, 404);
+  const row = rows[0];
+  if (!row) return c.json({ error: "not_found" }, 404);
+  const { holding, facility } = row;
   if (!holding.eligibleForSale) return c.json({ error: "not_eligible", message: "Defaulted notes cannot be sold." }, 400);
+
+  const pricePerUnit = calculateSecondaryPrice(facility.ratePct, facility.tenorDays, facility.daysElapsed);
 
   const id = crypto.randomUUID();
   await db.insert(secondaryListings).values({
@@ -74,10 +91,10 @@ portfolio.post("/holdings/:id/list-for-sale", async (c) => {
     holdingId: holding.id,
     sellerId: user.id,
     units: parsed.data.units,
-    pricePerUnit: parsed.data.price,
+    pricePerUnit,
     status: "Open",
   });
-  return c.json({ ok: true, listingId: id });
+  return c.json({ ok: true, listingId: id, pricePerUnit });
 });
 
 export default portfolio;

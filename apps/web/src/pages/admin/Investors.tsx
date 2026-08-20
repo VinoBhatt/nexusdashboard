@@ -30,7 +30,7 @@ export default function Investors() {
   const columns: Column<Investor>[] = [
     { key: "name", label: "Name", sortable: true },
     { key: "type", label: "Type", sortable: true },
-    { key: "kyc", label: "KYC", sortable: true, render: (r) => <span className={`status ${r.kyc === "Verified" ? "ok" : r.kyc === "Rejected" ? "default" : "pending"}`}>{r.kyc}</span> },
+    { key: "kyc", label: "Verification", sortable: true, render: (r) => <span className={`status ${r.kyc === "Verified" ? "ok" : r.kyc === "Rejected" ? "default" : "pending"}`}>{r.kyc}</span> },
     { key: "portfolio", label: "Portfolio Value", sortable: true, render: (r) => money(r.portfolio) },
     { key: "status", label: "Status", sortable: true, render: (r) => <span className={`status ${r.status === "Active" ? "ok" : r.status === "Under review" ? "overdue" : "pending"}`}>{r.status}</span> },
   ];

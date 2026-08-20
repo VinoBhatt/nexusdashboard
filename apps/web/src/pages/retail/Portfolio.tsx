@@ -17,7 +17,18 @@ interface Holding {
   issuerName: string;
   ratePct: number;
   tenorDays: number;
+  daysElapsed: number;
   lastPaymentDate: string | null;
+}
+
+// Mirrors the server's calculateSecondaryPrice (apps/api/src/routes/portfolio.ts)
+// for a live estimate - the server always recomputes the price it actually
+// lists at, this is preview-only.
+function estimateSecondaryPrice(h: Holding): number {
+  const remainingDays = Math.max(h.tenorDays - h.daysElapsed, 0);
+  const remainingYears = remainingDays / 365;
+  const price = 1 / (1 + (h.ratePct / 100) * remainingYears);
+  return Math.round(price * 10000) / 10000;
 }
 
 const FILTERS = ["All", "Ongoing", "Completed", "Default"] as const;
@@ -41,7 +52,6 @@ export default function Portfolio() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [sellId, setSellId] = useState("");
   const [units, setUnits] = useState(100);
-  const [price, setPrice] = useState(0.998);
   const qc = useQueryClient();
   const toast = useToast();
 
@@ -53,9 +63,9 @@ export default function Portfolio() {
   const selected = holdings.find((h) => h.id === sellId) ?? holdings[0];
 
   const listForSale = useMutation({
-    mutationFn: () => apiPost(`/api/portfolio/holdings/${selected?.id}/list-for-sale`, { units, price }),
-    onSuccess: () => {
-      toast("Holding listed in the investor liquidation marketplace.");
+    mutationFn: () => apiPost<{ pricePerUnit: number }>(`/api/portfolio/holdings/${selected?.id}/list-for-sale`, { units }),
+    onSuccess: (res) => {
+      toast(`Holding listed at RM${res.pricePerUnit.toFixed(4)} per RM1 unit, priced from yield to maturity.`);
       qc.invalidateQueries({ queryKey: ["marketplace"] });
     },
     onError: (e: Error) => toast(e.message === "not_eligible" ? "Defaulted notes cannot be sold." : e.message),
@@ -108,7 +118,7 @@ export default function Portfolio() {
           </div>
           <div className="field">
             <label>Price per RM1 unit</label>
-            <input type="number" step="0.001" value={price} onChange={(e) => setPrice(Number(e.target.value))} />
+            <input value={selected ? `RM${estimateSecondaryPrice(selected).toFixed(4)} (system-priced, yield to maturity)` : ""} disabled />
           </div>
         </div>
         {selected && (
