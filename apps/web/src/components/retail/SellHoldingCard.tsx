@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiPost } from "../../lib/api";
 import { useToast } from "../Toast";
+import type { RepaymentStructure } from "../../lib/repaymentSchedule";
 
 export interface Holding {
   id: string;
@@ -11,11 +12,15 @@ export interface Holding {
   actualReturn: number;
   eligibleForSale: boolean;
   facilityId: string;
+  noteName: string | null;
   issuerName: string;
   ratePct: number;
   tenorDays: number;
   daysElapsed: number;
   lastPaymentDate: string | null;
+  repaymentStructure: RepaymentStructure;
+  riskTier: string;
+  financingType: string;
 }
 
 // Mirrors the server's calculateSecondaryPrice (apps/api/src/routes/portfolio.ts)

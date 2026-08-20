@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet, downloadUrl } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { DataTable, type Column } from "../../components/data/DataTable";
 import { SellHoldingCard, type Holding } from "../../components/retail/SellHoldingCard";
+import { HoldingDetailModal } from "../../components/retail/HoldingDetailModal";
 
 const columns: Column<Holding>[] = [
   { key: "facilityId", label: "Facility", sortable: true },
@@ -15,6 +17,7 @@ const columns: Column<Holding>[] = [
 ];
 
 export default function CompletedNotes() {
+  const [selected, setSelected] = useState<Holding | null>(null);
   const { data } = useQuery({
     queryKey: ["portfolio", "holdings", "Completed"],
     queryFn: () => apiGet<{ holdings: Holding[] }>(`/api/portfolio/holdings?status=Completed`),
@@ -46,10 +49,12 @@ export default function CompletedNotes() {
             </div>
           </div>
         )}
-        <DataTable columns={columns} rows={holdings} emptyMessage="No completed notes yet." />
+        <DataTable columns={columns} rows={holdings} emptyMessage="No completed notes yet." onRowClick={setSelected} />
       </div>
 
       <SellHoldingCard holdings={holdings} />
+
+      {selected && <HoldingDetailModal holding={selected} onClose={() => setSelected(null)} />}
     </>
   );
 }

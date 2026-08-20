@@ -5,6 +5,7 @@ import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { DataTable, type Column } from "../../components/data/DataTable";
 import { SellHoldingCard, type Holding } from "../../components/retail/SellHoldingCard";
+import { HoldingDetailModal } from "../../components/retail/HoldingDetailModal";
 
 const FILTERS = ["All", "Ongoing", "Default"] as const;
 
@@ -25,6 +26,7 @@ const columns: Column<Holding>[] = [
 
 export default function OngoingNotes() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
+  const [selected, setSelected] = useState<Holding | null>(null);
 
   const { data } = useQuery({
     queryKey: ["portfolio", "holdings", "all"],
@@ -52,10 +54,12 @@ export default function OngoingNotes() {
             </button>
           ))}
         </div>
-        <DataTable columns={columns} rows={shown} emptyMessage="No on-going notes match this filter." />
+        <DataTable columns={columns} rows={shown} emptyMessage="No on-going notes match this filter." onRowClick={setSelected} />
       </div>
 
       <SellHoldingCard holdings={active} />
+
+      {selected && <HoldingDetailModal holding={selected} onClose={() => setSelected(null)} />}
     </>
   );
 }

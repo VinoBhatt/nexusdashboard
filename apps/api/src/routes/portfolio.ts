@@ -23,11 +23,15 @@ portfolio.get("/holdings", async (c) => {
       actualReturn: holdings.actualReturn,
       eligibleForSale: holdings.eligibleForSale,
       facilityId: financingFacilities.id,
+      noteName: financingFacilities.noteName,
       issuerName: financingFacilities.issuerName,
       ratePct: financingFacilities.ratePct,
       tenorDays: financingFacilities.tenorDays,
       daysElapsed: financingFacilities.daysElapsed,
       lastPaymentDate: financingFacilities.lastPaymentDate,
+      repaymentStructure: financingFacilities.repaymentStructure,
+      riskTier: financingFacilities.riskTier,
+      financingType: financingFacilities.financingType,
     })
     .from(holdings)
     .innerJoin(financingFacilities, eq(holdings.facilityId, financingFacilities.id))

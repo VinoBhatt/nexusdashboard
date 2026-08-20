@@ -25,11 +25,33 @@ test.describe("Retail investor", () => {
     await login(page, DEMO_ACCOUNTS.retail);
     await page.getByRole("link", { name: "Notes Available", exact: true }).click();
     await page.getByRole("button", { name: "Invest", exact: true }).first().click();
+
+    // Header row plus at least one real installment row.
+    const rows = page.locator(".modal.show .table tbody tr");
+    await expect(rows.first()).toBeVisible();
+    expect(await rows.count()).toBeGreaterThan(1);
+
     await page.locator(".modal.show").getByRole("button", { name: "Confirm Investment" }).click();
     await expect(page.locator("#toast")).toContainText("Investment confirmed");
 
     await page.getByRole("link", { name: "On-Going Notes", exact: true }).click();
     await expect(page.locator(".table tbody tr, table tr")).not.toHaveCount(0);
+  });
+
+  test("clicking an on-going holding shows its repayment breakdown", async ({ page }) => {
+    await login(page, DEMO_ACCOUNTS.retail);
+    await page.getByRole("link", { name: "On-Going Notes", exact: true }).click();
+    await page.locator(".table tbody tr", { hasText: "Ongoing" }).first().click();
+    await expect(page.locator(".modal.show")).toContainText("Repayment breakdown");
+    await expect(page.locator(".modal.show")).toContainText("You will be paid");
+  });
+
+  test("clicking a defaulted holding shows a recovery timeline instead", async ({ page }) => {
+    await login(page, DEMO_ACCOUNTS.retail);
+    await page.getByRole("link", { name: "On-Going Notes", exact: true }).click();
+    await page.locator(".table tbody tr", { hasText: "Default" }).first().click();
+    await expect(page.locator(".modal.show")).toContainText("Recovery Process");
+    await expect(page.locator(".modal.show .pill", { hasText: "Current" })).toBeVisible();
   });
 
   test("CSV export link points at a real endpoint", async ({ page }) => {

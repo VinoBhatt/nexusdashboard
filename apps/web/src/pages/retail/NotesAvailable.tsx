@@ -4,6 +4,7 @@ import { apiGet, apiPost } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
+import { simulateSchedule, daysUntil, type RepaymentStructure } from "../../lib/repaymentSchedule";
 
 interface Note {
   id: string;
@@ -20,9 +21,8 @@ interface Note {
   principalAmount: number;
   campaignStart: string | null;
   campaignEnd: string | null;
+  repaymentStructure: RepaymentStructure;
 }
-
-type RepaymentStructure = "Bullet Principal, Monthly Profit" | "Bullet Principal & Profit" | "Monthly Principal & Profit";
 
 interface Listing {
   id: string;
@@ -38,59 +38,7 @@ interface Listing {
   repaymentStructure: RepaymentStructure;
 }
 
-interface ScheduleRow {
-  installmentNo: number;
-  dueDate: string;
-  principalDue: number;
-  profitDue: number;
-}
-
 const MIN_INVESTMENT_FLOOR = 100;
-
-// Mirrors apps/api/src/lib/repaymentSchedule.ts's generateRepaymentSchedule -
-// same three structures, same math - so the simulation shown here matches
-// what the server would actually generate for this note.
-function simulateSchedule(principal: number, ratePct: number, tenorDays: number, structure: RepaymentStructure): ScheduleRow[] {
-  const count = Math.max(1, Math.round(tenorDays / 30));
-  const dueDateAt = (monthsAhead: number) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() + monthsAhead);
-    return d.toISOString().slice(0, 10);
-  };
-
-  if (structure === "Bullet Principal & Profit") {
-    const totalProfit = +((principal * ratePct * tenorDays) / 100 / 365).toFixed(2);
-    return Array.from({ length: count }).map((_, i) => {
-      const isLast = i === count - 1;
-      return {
-        installmentNo: i + 1,
-        dueDate: dueDateAt(i + 1),
-        principalDue: isLast ? principal : 0,
-        profitDue: isLast ? totalProfit : 0,
-      };
-    });
-  }
-
-  if (structure === "Monthly Principal & Profit") {
-    const monthlyPrincipal = +(principal / count).toFixed(2);
-    let balance = principal;
-    return Array.from({ length: count }).map((_, i) => {
-      const isLast = i === count - 1;
-      const principalDue = isLast ? +balance.toFixed(2) : monthlyPrincipal;
-      const profitDue = +((balance * ratePct) / 100 / 12).toFixed(2);
-      balance -= principalDue;
-      return { installmentNo: i + 1, dueDate: dueDateAt(i + 1), principalDue, profitDue };
-    });
-  }
-
-  const monthlyProfit = +((principal * ratePct) / 100 / 12).toFixed(2);
-  return Array.from({ length: count }).map((_, i) => ({
-    installmentNo: i + 1,
-    dueDate: dueDateAt(i + 1),
-    principalDue: i === count - 1 ? principal : 0,
-    profitDue: monthlyProfit,
-  }));
-}
 
 export default function NotesAvailable() {
   const [mode, setMode] = useState<"primary" | "secondary">("primary");
@@ -157,6 +105,9 @@ export default function NotesAvailable() {
   const investSimulatedReturn = investTarget ? +(investAmount * (1 + investTarget.ratePct / 100)).toFixed(2) : 0;
   const investValid =
     !!investTarget && investAmount >= Math.max(investTarget.minInvestment, MIN_INVESTMENT_FLOOR) && investAmount <= investTarget.maxInvestment;
+  const investSchedule = investTarget
+    ? simulateSchedule(investAmount, investTarget.ratePct, investTarget.tenorDays, investTarget.repaymentStructure)
+    : [];
 
   const buyCost = buyTarget ? buyUnits * buyTarget.pricePerUnit : 0;
   const buyReturn = buyUnits;
@@ -199,7 +150,7 @@ export default function NotesAvailable() {
                     <div>
                       <h4>{n.noteName ?? n.id}</h4>
                       <small>
-                        Reference Number {n.id} · {n.financingType}
+                        Reference Number {n.id} · {n.financingType} · {n.repaymentStructure}
                       </small>
                     </div>
                     <span className={`pill ${n.fundingProgressPct >= 100 ? "amber" : "blue"}`}>
@@ -294,12 +245,13 @@ export default function NotesAvailable() {
 
       {investTarget && (
         <div className="modal show">
-          <div className="modal-card" style={{ maxWidth: 440 }}>
+          <div className="modal-card" style={{ maxWidth: 560 }}>
             <div className="modal-head">
               <div>
                 <h3>Invest in {investTarget.noteName ?? investTarget.id}</h3>
                 <div className="sub">
-                  {investTarget.ratePct}% p.a. · {investTarget.tenorDays} day(s) · Credit Risk Rating {investTarget.riskTier}
+                  {investTarget.ratePct}% p.a. · {investTarget.tenorDays} day(s) · Credit Risk Rating {investTarget.riskTier} ·{" "}
+                  {investTarget.repaymentStructure}
                 </div>
               </div>
               <button className="close" onClick={() => setInvestTarget(null)} aria-label="Close">
@@ -326,6 +278,42 @@ export default function NotesAvailable() {
               <div>
                 <b>Simulated payout at maturity: {money(investSimulatedReturn)}</b>
                 <span>Profit of {money(investSimulatedReturn - investAmount)} on {money(investAmount)} invested.</span>
+              </div>
+            </div>
+            {investSchedule[0] && (
+              <div className="banner-notice" style={{ marginTop: 12 }}>
+                <div>
+                  <b>
+                    You will be paid {money(investSchedule[0].principalDue + investSchedule[0].profitDue)} in{" "}
+                    {daysUntil(investSchedule[0].dueDate)} day(s)
+                  </b>
+                  <span>Next installment due {investSchedule[0].dueDate}.</span>
+                </div>
+              </div>
+            )}
+            <div className="field" style={{ marginTop: 14 }}>
+              <label>Repayment breakdown ({investTarget.repaymentStructure})</label>
+              <div className="table-wrap">
+                <table className="table" style={{ minWidth: 0 }}>
+                  <tbody>
+                    <tr>
+                      <th>#</th>
+                      <th>Due Date</th>
+                      <th>Principal</th>
+                      <th>Profit</th>
+                      <th>Total</th>
+                    </tr>
+                    {investSchedule.map((row) => (
+                      <tr key={row.installmentNo}>
+                        <td>{row.installmentNo}</td>
+                        <td>{row.dueDate}</td>
+                        <td>{money(row.principalDue)}</td>
+                        <td>{money(row.profitDue)}</td>
+                        <td>{money(row.principalDue + row.profitDue)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
             <div className="row" style={{ justifyContent: "flex-end", gap: 10, marginTop: 14 }}>
@@ -379,6 +367,16 @@ export default function NotesAvailable() {
                 </span>
               </div>
             </div>
+            {buySchedule[0] && (
+              <div className="banner-notice" style={{ marginTop: 12 }}>
+                <div>
+                  <b>
+                    You will be paid {money(buySchedule[0].principalDue + buySchedule[0].profitDue)} in {daysUntil(buySchedule[0].dueDate)} day(s)
+                  </b>
+                  <span>Next installment due {buySchedule[0].dueDate}.</span>
+                </div>
+              </div>
+            )}
             <div className="field" style={{ marginTop: 14 }}>
               <label>Repayment breakdown ({buyTarget.repaymentStructure})</label>
               <div className="table-wrap">

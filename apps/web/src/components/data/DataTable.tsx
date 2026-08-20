@@ -8,7 +8,19 @@ export interface Column<T> {
   sortValue?: (row: T) => string | number;
 }
 
-export function DataTable<T>({ columns, rows, pageSize = 8, emptyMessage = "No results." }: { columns: Column<T>[]; rows: T[]; pageSize?: number; emptyMessage?: string }) {
+export function DataTable<T>({
+  columns,
+  rows,
+  pageSize = 8,
+  emptyMessage = "No results.",
+  onRowClick,
+}: {
+  columns: Column<T>[];
+  rows: T[];
+  pageSize?: number;
+  emptyMessage?: string;
+  onRowClick?: (row: T) => void;
+}) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(0);
@@ -56,7 +68,7 @@ export function DataTable<T>({ columns, rows, pageSize = 8, emptyMessage = "No r
               ))}
             </tr>
             {pageRows.map((row, i) => (
-              <tr key={i}>
+              <tr key={i} onClick={onRowClick ? () => onRowClick(row) : undefined} style={onRowClick ? { cursor: "pointer" } : undefined}>
                 {columns.map((col) => (
                   <td key={col.key}>{col.render ? col.render(row) : String((row as Record<string, unknown>)[col.key] ?? "")}</td>
                 ))}
