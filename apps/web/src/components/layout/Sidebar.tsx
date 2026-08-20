@@ -99,8 +99,9 @@ const ICONS: Record<string, React.ReactNode> = {
 const NAV_BY_ROLE: Record<Role, { to: string; label: string; icon: string }[]> = {
   retail: [
     { to: "overview", label: "Overview", icon: "grid" },
-    { to: "marketplace", label: "Marketplace", icon: "marketplace" },
-    { to: "portfolio", label: "Portfolio", icon: "portfolio" },
+    { to: "notes-available", label: "Notes Available", icon: "marketplace" },
+    { to: "ongoing-notes", label: "On-Going Notes", icon: "portfolio" },
+    { to: "completed-notes", label: "Completed Notes", icon: "repayments" },
     { to: "deposit", label: "Deposit", icon: "deposit" },
     { to: "withdrawal", label: "Withdrawal", icon: "withdrawal" },
     { to: "statements", label: "Statements", icon: "statements" },

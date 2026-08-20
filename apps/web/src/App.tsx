@@ -5,8 +5,9 @@ import AppShell from "./components/layout/AppShell";
 import Login from "./pages/auth/Login";
 import Signup from "./pages/auth/Signup";
 import RoleAwareOverview from "./pages/RoleAwareOverview";
-import Marketplace from "./pages/retail/Marketplace";
-import Portfolio from "./pages/retail/Portfolio";
+import NotesAvailable from "./pages/retail/NotesAvailable";
+import OngoingNotes from "./pages/retail/OngoingNotes";
+import CompletedNotes from "./pages/retail/CompletedNotes";
 import Deposit from "./pages/retail/Deposit";
 import Withdrawal from "./pages/retail/Withdrawal";
 import Statements from "./pages/retail/Statements";
@@ -29,8 +30,9 @@ export default function App() {
           <Route path="/app" element={<AppShell />}>
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<RoleAwareOverview />} />
-            <Route path="marketplace" element={<Marketplace />} />
-            <Route path="portfolio" element={<Portfolio />} />
+            <Route path="notes-available" element={<NotesAvailable />} />
+            <Route path="ongoing-notes" element={<OngoingNotes />} />
+            <Route path="completed-notes" element={<CompletedNotes />} />
             <Route path="deposit" element={<Deposit />} />
             <Route path="withdrawal" element={<Withdrawal />} />
             <Route path="statements" element={<Statements />} />

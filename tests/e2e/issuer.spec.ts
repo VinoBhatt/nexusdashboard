@@ -28,7 +28,7 @@ test.describe("Issuer -> admin -> retail cross-role story", () => {
     await expect(adminPage.locator("#toast")).toContainText("updated");
 
     await login(retailPage, DEMO_ACCOUNTS.retail);
-    await retailPage.getByRole("link", { name: "Marketplace", exact: true }).click();
+    await retailPage.getByRole("link", { name: "Notes Available", exact: true }).click();
     // The newly approved facility must be investable, not just listed.
     await expect(retailPage.locator(".note").first()).toBeVisible();
 

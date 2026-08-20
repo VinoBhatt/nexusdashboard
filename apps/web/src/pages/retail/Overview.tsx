@@ -56,7 +56,7 @@ export default function Overview() {
             <Link className="btn success" to="/app/deposit">
               Deposit Cash
             </Link>
-            <Link className="btn warn" to="/app/marketplace">
+            <Link className="btn warn" to="/app/notes-available">
               Invest Now
             </Link>
           </>
@@ -198,7 +198,7 @@ export default function Overview() {
                   <span>FPX online deposit or manual transfer.</span>
                 </div>
               </Link>
-              <Link className="quick" to="/app/marketplace">
+              <Link className="quick" to="/app/notes-available">
                 <i>↗</i>
                 <div>
                   <b>Invest in Notes</b>

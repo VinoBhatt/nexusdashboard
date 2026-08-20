@@ -28,7 +28,7 @@ interface Listing {
   status: string;
 }
 
-export default function Marketplace() {
+export default function NotesAvailable() {
   const [mode, setMode] = useState<"primary" | "secondary">("primary");
   const [search, setSearch] = useState("");
   const qc = useQueryClient();
@@ -68,7 +68,7 @@ export default function Marketplace() {
 
   return (
     <>
-      <PageHeader title="Marketplace" description="Primary notes and the investor liquidation marketplace." />
+      <PageHeader title="Notes Available" description="Primary notes and the investor liquidation marketplace." />
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="section-head">
           <div>

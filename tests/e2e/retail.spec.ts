@@ -21,20 +21,20 @@ test.describe("Retail investor", () => {
     expect(after).toBeCloseTo(before + 250, 1);
   });
 
-  test("investing in a note appears in the portfolio", async ({ page }) => {
+  test("investing in a note appears in on-going notes", async ({ page }) => {
     await login(page, DEMO_ACCOUNTS.retail);
-    await page.getByRole("link", { name: "Marketplace", exact: true }).click();
+    await page.getByRole("link", { name: "Notes Available", exact: true }).click();
     const investButton = page.getByRole("button", { name: /^Invest RM/ }).first();
     await investButton.click();
     await expect(page.locator("#toast")).toContainText("Investment confirmed");
 
-    await page.getByRole("link", { name: "Portfolio", exact: true }).click();
+    await page.getByRole("link", { name: "On-Going Notes", exact: true }).click();
     await expect(page.locator(".table tbody tr, table tr")).not.toHaveCount(0);
   });
 
   test("CSV export link points at a real endpoint", async ({ page }) => {
     await login(page, DEMO_ACCOUNTS.retail);
-    await page.getByRole("link", { name: "Portfolio", exact: true }).click();
+    await page.getByRole("link", { name: "On-Going Notes", exact: true }).click();
     const exportLink = page.getByRole("link", { name: "Export CSV" });
     await expect(exportLink).toHaveAttribute("href", "/api/export/portfolio.csv");
   });
@@ -47,7 +47,7 @@ test.describe("Retail investor", () => {
     await page.locator(".menu-btn").click();
     await expect(page.locator(".sidebar")).toHaveClass(/open/);
 
-    await page.getByRole("link", { name: "Marketplace", exact: true }).click();
+    await page.getByRole("link", { name: "Notes Available", exact: true }).click();
     await expect(page.locator(".sidebar")).not.toHaveClass(/open/);
   });
 });
