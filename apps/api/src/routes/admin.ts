@@ -13,6 +13,7 @@ import {
 } from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
+import { runAutoInvestForNewFacility } from "../lib/autoInvest";
 
 const admin = new Hono<AuthedEnv>();
 admin.use("*", requireAuth, requireRole("admin"));
@@ -208,6 +209,9 @@ async function decideApproval(db: ReturnType<typeof drizzle>, id: string, decide
         for (const installment of schedule) {
           await db.insert(repaymentInstallments).values(installment);
         }
+        // Offer the newly-open note to every investor's Auto Invest rule
+        // immediately, same as a human would see it appear in Notes Available.
+        await runAutoInvestForNewFacility(db, { ...facility, status: "Open" });
       }
     }
   }

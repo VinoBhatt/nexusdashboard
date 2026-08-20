@@ -94,6 +94,11 @@ const ICONS: Record<string, React.ReactNode> = {
       <polyline points="13 2 13 9 20 9" />
     </svg>
   ),
+  autoinvest: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="13 2 3 14 11 14 10 22 21 10 13 10 13 2" />
+    </svg>
+  ),
 };
 
 const NAV_BY_ROLE: Record<Role, { to: string; label: string; icon: string }[]> = {
@@ -102,6 +107,7 @@ const NAV_BY_ROLE: Record<Role, { to: string; label: string; icon: string }[]> =
     { to: "notes-available", label: "Notes Available", icon: "marketplace" },
     { to: "ongoing-notes", label: "On-Going Notes", icon: "portfolio" },
     { to: "completed-notes", label: "Completed Notes", icon: "repayments" },
+    { to: "auto-invest", label: "Auto Invest", icon: "autoinvest" },
     { to: "deposit", label: "Deposit", icon: "deposit" },
     { to: "withdrawal", label: "Withdrawal", icon: "withdrawal" },
     { to: "statements", label: "Statements", icon: "statements" },

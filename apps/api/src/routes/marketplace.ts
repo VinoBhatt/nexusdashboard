@@ -2,15 +2,10 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { drizzle } from "drizzle-orm/d1";
 import { eq, and, or } from "drizzle-orm";
-import {
-  financingFacilities,
-  secondaryListings,
-  holdings,
-  investorProfiles,
-  transactions,
-} from "../db/schema";
+import { financingFacilities, secondaryListings, transactions } from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
+import { investInFacility } from "../lib/invest";
 
 const marketplace = new Hono<AuthedEnv>();
 marketplace.use("*", requireAuth, requireRole("retail"));
@@ -62,46 +57,10 @@ marketplace.post("/notes/:id/invest", async (c) => {
   const facility = facilityRows[0];
   if (!facility) return c.json({ error: "not_found" }, 404);
 
-  const profileRows = await db
-    .select()
-    .from(investorProfiles)
-    .where(eq(investorProfiles.userId, user.id))
-    .limit(1);
-  const profile = profileRows[0];
-  if (!profile) return c.json({ error: "not_found" }, 404);
-  if (profile.cashBalance < amount) return c.json({ error: "insufficient_balance" }, 400);
+  const result = await investInFacility(db, user.id, facility, amount, "manual");
+  if (!result.ok) return c.json({ error: result.error }, result.error === "not_found" ? 404 : 400);
 
-  const holdingId = crypto.randomUUID();
-  const expectedReturn = +(amount * (1 + facility.ratePct / 100)).toFixed(2);
-
-  await db.insert(holdings).values({
-    id: holdingId,
-    investorId: user.id,
-    facilityId: facility.id,
-    status: "Ongoing",
-    amountInvested: amount,
-    expectedReturn,
-    actualReturn: 0,
-    eligibleForSale: true,
-  });
-  await db
-    .update(investorProfiles)
-    .set({
-      cashBalance: profile.cashBalance - amount,
-      totalInvested: profile.totalInvested + amount,
-      outstanding: profile.outstanding + amount,
-    })
-    .where(eq(investorProfiles.userId, user.id));
-  await db.insert(transactions).values({
-    id: crypto.randomUUID(),
-    accountId: user.id,
-    type: "Investment",
-    amount: -amount,
-    status: "Confirmed",
-    referenceJson: JSON.stringify({ facilityId: facility.id }),
-  });
-
-  return c.json({ ok: true, holdingId });
+  return c.json({ ok: true, holdingId: result.holdingId });
 });
 
 const buySchema = z.object({ units: z.number().positive() });

@@ -164,7 +164,26 @@ export const holdings = sqliteTable("holdings", {
   expectedReturn: real("expected_return").notNull().default(0),
   actualReturn: real("actual_return").notNull().default(0),
   eligibleForSale: integer("eligible_for_sale", { mode: "boolean" }).notNull().default(false),
+  source: text("source", { enum: ["manual", "auto"] }).notNull().default("manual"),
   ...timestamps,
+});
+
+// ---- Auto Invest: one rule per investor, matched against new/open notes ----
+
+export const autoInvestRules = sqliteTable("auto_invest_rules", {
+  investorId: text("investor_id")
+    .primaryKey()
+    .references(() => users.id),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
+  minRatePct: real("min_rate_pct"),
+  maxTenorDays: integer("max_tenor_days"),
+  riskTiers: text("risk_tiers"), // comma-separated, e.g. "A,B+" - null/empty means any tier
+  amountPerNote: real("amount_per_note").notNull().default(100),
+  budgetCap: real("budget_cap"), // null means unlimited
+  totalInvested: real("total_invested").notNull().default(0),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
 });
 
 export const secondaryListings = sqliteTable("secondary_listings", {

@@ -8,6 +8,7 @@ import RoleAwareOverview from "./pages/RoleAwareOverview";
 import NotesAvailable from "./pages/retail/NotesAvailable";
 import OngoingNotes from "./pages/retail/OngoingNotes";
 import CompletedNotes from "./pages/retail/CompletedNotes";
+import AutoInvest from "./pages/retail/AutoInvest";
 import Deposit from "./pages/retail/Deposit";
 import Withdrawal from "./pages/retail/Withdrawal";
 import Statements from "./pages/retail/Statements";
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="notes-available" element={<NotesAvailable />} />
             <Route path="ongoing-notes" element={<OngoingNotes />} />
             <Route path="completed-notes" element={<CompletedNotes />} />
+            <Route path="auto-invest" element={<AutoInvest />} />
             <Route path="deposit" element={<Deposit />} />
             <Route path="withdrawal" element={<Withdrawal />} />
             <Route path="statements" element={<Statements />} />
