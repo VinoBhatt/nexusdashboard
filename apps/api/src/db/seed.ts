@@ -5,6 +5,7 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { hashPassword } from "../auth/password";
+import { calculateSecondaryPrice } from "../routes/portfolio";
 
 function sqlStr(v: string | null | undefined): string {
   if (v === null || v === undefined) return "NULL";
@@ -165,6 +166,27 @@ async function main() {
   statements.push(
     `INSERT INTO secondary_listings (id, holding_id, seller_id, units, price_per_unit, status, listed_at) VALUES ('SEC-1054', 'holding-seed-2', 'user-seed-seller', 5100, 0.994, 'Open', ${sqlTs(now)});`
   );
+
+  // A bigger reserve so the liquidation marketplace doesn't run dry after a
+  // couple of demo purchases - each backed by its own real holding, priced
+  // the same system yield-to-maturity way as an investor's own listings.
+  const moreListings = [
+    { id: "holding-seed-3", listing: "SEC-1067", facility: "MBSG-25080015", status: "Completed" as const, units: 800, rate: 6, tenor: 30 },
+    { id: "holding-seed-4", listing: "SEC-1078", facility: "MBSG-25080017", status: "Completed" as const, units: 600, rate: 6, tenor: 30 },
+    { id: "holding-seed-5", listing: "SEC-1089", facility: "MBIBG-26070005", status: "Ongoing" as const, units: 1500, rate: 7, tenor: 540 },
+    { id: "holding-seed-6", listing: "SEC-1093", facility: "MBIBG-26080001", status: "Ongoing" as const, units: 3000, rate: 8.5, tenor: 90 },
+    { id: "holding-seed-7", listing: "SEC-1097", facility: "MBIBG-26070003", status: "Ongoing" as const, units: 1000, rate: 7, tenor: 540 },
+  ];
+  for (const l of moreListings) {
+    const actual = l.status === "Completed" ? l.units * (1 + l.rate / 100) : 0;
+    statements.push(
+      `INSERT INTO holdings (id, investor_id, facility_id, status, amount_invested, expected_return, actual_return, eligible_for_sale, created_at) VALUES (${sqlStr(l.id)}, 'user-seed-seller', ${sqlStr(l.facility)}, ${sqlStr(l.status)}, ${sqlNum(l.units)}, ${sqlNum(+(l.units * (1 + l.rate / 100)).toFixed(2))}, ${sqlNum(+actual.toFixed(2))}, 1, ${sqlTs(now)});`
+    );
+    const price = calculateSecondaryPrice(l.rate, l.tenor, 0);
+    statements.push(
+      `INSERT INTO secondary_listings (id, holding_id, seller_id, units, price_per_unit, status, listed_at) VALUES (${sqlStr(l.listing)}, ${sqlStr(l.id)}, 'user-seed-seller', ${sqlNum(l.units)}, ${sqlNum(price)}, 'Open', ${sqlTs(now)});`
+    );
+  }
 
   // ---- Activities / transactions (from legacy state.activities) ----
   const activities = [
