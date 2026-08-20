@@ -7,3 +7,6 @@ dist/
 !.env.example
 apps/api/src/db/seed.sql
 .DS_Store
+playwright-report/
+test-results/
+blob-report/

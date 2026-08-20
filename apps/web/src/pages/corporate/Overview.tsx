@@ -5,6 +5,7 @@ import { shortMoney, money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { LineChart } from "../../components/charts/LineChart";
 import { useToast } from "../../components/Toast";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 
 interface Account {
   companyName: string;
@@ -42,6 +43,7 @@ interface OverviewResponse {
 export default function CorporateOverview() {
   const [subwalletId, setSubwalletId] = useState("");
   const [amount, setAmount] = useState(30000);
+  const [pendingDecision, setPendingDecision] = useState<{ id: string; outcome: "approve" | "reject" } | null>(null);
   const qc = useQueryClient();
   const toast = useToast();
 
@@ -209,10 +211,10 @@ export default function CorporateOverview() {
                     <div>{money(o.amount)}</div>
                     {o.status === "Pending Checker" && myCorpRole === "checker" ? (
                       <div className="row" style={{ justifyContent: "flex-end", gap: 6, marginTop: 6 }}>
-                        <button className="btn small success" disabled={approve.isPending} onClick={() => approve.mutate(o.id)}>
+                        <button className="btn small success" onClick={() => setPendingDecision({ id: o.id, outcome: "approve" })}>
                           Approve
                         </button>
-                        <button className="btn small danger" disabled={reject.isPending} onClick={() => reject.mutate(o.id)}>
+                        <button className="btn small danger" onClick={() => setPendingDecision({ id: o.id, outcome: "reject" })}>
                           Reject
                         </button>
                       </div>
@@ -265,6 +267,19 @@ export default function CorporateOverview() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!pendingDecision}
+        title={pendingDecision?.outcome === "approve" ? "Approve this order?" : "Reject this order?"}
+        description={pendingDecision ? `Order ${pendingDecision.id}. This ${pendingDecision.outcome === "approve" ? "deploys the funds" : "cancels the request"} immediately.` : ""}
+        confirmLabel={pendingDecision?.outcome === "approve" ? "Approve" : "Reject"}
+        danger={pendingDecision?.outcome === "reject"}
+        onCancel={() => setPendingDecision(null)}
+        onConfirm={() => {
+          if (pendingDecision) (pendingDecision.outcome === "approve" ? approve : reject).mutate(pendingDecision.id);
+          setPendingDecision(null);
+        }}
+      />
     </>
   );
 }

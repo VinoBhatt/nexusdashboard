@@ -4,6 +4,7 @@ import { apiGet, apiPost, downloadUrl } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
+import { DataTable, type Column } from "../../components/data/DataTable";
 
 interface Holding {
   id: string;
@@ -20,6 +21,21 @@ interface Holding {
 }
 
 const FILTERS = ["All", "Ongoing", "Completed", "Default"] as const;
+
+const portfolioColumns: Column<Holding>[] = [
+  { key: "facilityId", label: "Facility", sortable: true },
+  { key: "issuerName", label: "Issuer", sortable: true },
+  {
+    key: "status",
+    label: "Status",
+    sortable: true,
+    render: (h) => <span className={`status ${h.status === "Completed" ? "ok" : h.status === "Default" ? "default" : "pending"}`}>{h.status}</span>,
+  },
+  { key: "ratePct", label: "Returns (p.a.)", sortable: true, render: (h) => `${h.ratePct}%` },
+  { key: "amountInvested", label: "Invested", sortable: true, render: (h) => money(h.amountInvested) },
+  { key: "expectedReturn", label: "Expected", sortable: true, render: (h) => money(h.expectedReturn) },
+  { key: "actualReturn", label: "Actual", sortable: true, render: (h) => money(h.actualReturn) },
+];
 
 export default function Portfolio() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
@@ -64,41 +80,7 @@ export default function Portfolio() {
             </button>
           ))}
         </div>
-        <div className="table-wrap">
-          <table className="table">
-            <tbody>
-              <tr>
-                <th>Facility</th>
-                <th>Issuer</th>
-                <th>Status</th>
-                <th>Returns (p.a.)</th>
-                <th>Invested</th>
-                <th>Expected</th>
-                <th>Actual</th>
-              </tr>
-              {holdings.map((h) => (
-                <tr key={h.id}>
-                  <td>{h.facilityId}</td>
-                  <td>{h.issuerName}</td>
-                  <td>
-                    <span className={`status ${h.status === "Completed" ? "ok" : h.status === "Default" ? "default" : "pending"}`}>
-                      {h.status}
-                    </span>
-                  </td>
-                  <td>{h.ratePct}%</td>
-                  <td>{money(h.amountInvested)}</td>
-                  <td>{money(h.expectedReturn)}</td>
-                  <td>{money(h.actualReturn)}</td>
-                </tr>
-              ))}
-              {holdings.length === 0 && (
-                <tr>
-                  <td colSpan={7}>No holdings match this filter.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <DataTable columns={portfolioColumns} rows={holdings} emptyMessage="No holdings match this filter." />
       </div>
 
       <div className="card">

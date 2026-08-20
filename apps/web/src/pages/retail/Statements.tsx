@@ -21,7 +21,7 @@ export default function Statements() {
   const generate = useMutation({
     mutationFn: () => apiPost("/api/statements/generate", { period: "August 2026", type: "Monthly" }),
     onSuccess: () => {
-      toast("Monthly statement generated.");
+      toast("Monthly statement queued. It will be ready shortly.");
       qc.invalidateQueries({ queryKey: ["statements"] });
     },
   });

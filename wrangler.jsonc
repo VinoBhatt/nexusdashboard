@@ -15,5 +15,8 @@
       "database_id": "28012f34-3c59-41d2-a86e-3c2a39d7bb99",
       "migrations_dir": "apps/api/src/db/migrations"
     }
-  ]
+  ],
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  }
 }

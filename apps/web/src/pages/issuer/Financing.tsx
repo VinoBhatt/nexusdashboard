@@ -4,6 +4,7 @@ import { apiGet, apiPost } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
+import { DataTable, type Column } from "../../components/data/DataTable";
 
 interface Facility {
   id: string;
@@ -13,6 +14,19 @@ interface Facility {
   tenorDays: number;
   status: string;
 }
+
+const facilityColumns: Column<Facility>[] = [
+  { key: "id", label: "Code", sortable: true },
+  { key: "financingType", label: "Type", sortable: true },
+  { key: "principalAmount", label: "Principal", sortable: true, render: (f) => money(f.principalAmount) },
+  { key: "ratePct", label: "Rate", sortable: true, render: (f) => `${f.ratePct}%` },
+  {
+    key: "status",
+    label: "Status",
+    sortable: true,
+    render: (f) => <span className={`status ${f.status === "Ongoing" ? "ok" : f.status === "Pending Review" ? "pending" : f.status === "Rejected" ? "default" : "pending"}`}>{f.status}</span>,
+  },
+];
 
 export default function Financing() {
   const [financingType, setFinancingType] = useState<"Invoice Financing" | "Contract Financing" | "Working Capital">("Invoice Financing");
@@ -41,35 +55,7 @@ export default function Financing() {
           <div className="section-head">
             <h3>Active Facilities</h3>
           </div>
-          <div className="table-wrap">
-            <table className="table">
-              <tbody>
-                <tr>
-                  <th>Code</th>
-                  <th>Type</th>
-                  <th>Principal</th>
-                  <th>Rate</th>
-                  <th>Status</th>
-                </tr>
-                {(data?.facilities ?? []).map((f) => (
-                  <tr key={f.id}>
-                    <td>{f.id}</td>
-                    <td>{f.financingType}</td>
-                    <td>{money(f.principalAmount)}</td>
-                    <td>{f.ratePct}%</td>
-                    <td>
-                      <span className={`status ${f.status === "Ongoing" ? "ok" : f.status === "Pending Review" ? "pending" : f.status === "Rejected" ? "default" : "pending"}`}>{f.status}</span>
-                    </td>
-                  </tr>
-                ))}
-                {(data?.facilities ?? []).length === 0 && (
-                  <tr>
-                    <td colSpan={5}>No facilities yet.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DataTable columns={facilityColumns} rows={data?.facilities ?? []} emptyMessage="No facilities yet." />
         </div>
         <div className="card">
           <div className="section-head">

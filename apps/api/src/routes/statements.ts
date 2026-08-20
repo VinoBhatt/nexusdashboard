@@ -36,11 +36,9 @@ statementsRouter.post("/generate", async (c) => {
     type: parsed.data.type,
     status: "Generating",
   });
-  // Phase 5 (per rebuild plan) moves Generating->Ready to a real Cron
-  // Trigger. For now, flip immediately so the flow is demoable end to
-  // end without a background job yet.
-  await db.update(statements).set({ status: "Ready", readyAt: new Date() }).where(eq(statements.id, id));
-
+  // Stays "Generating" - a Cron Trigger (see src/scheduled.ts) flips it
+  // to "Ready" on its next run, matching how a real statement-rendering
+  // job would actually behave instead of resolving instantly.
   return c.json({ ok: true, id });
 });
 

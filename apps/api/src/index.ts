@@ -10,6 +10,7 @@ import exportRouter from "./routes/export";
 import corporate from "./routes/corporate";
 import admin from "./routes/admin";
 import issuer from "./routes/issuer";
+import { handleScheduled } from "./scheduled";
 
 export interface Env {
   DB: D1Database;
@@ -39,5 +40,8 @@ export default {
       return app.fetch(request, env, ctx);
     }
     return env.ASSETS.fetch(request);
+  },
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(handleScheduled(env));
   },
 };
