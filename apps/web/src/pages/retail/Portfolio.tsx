@@ -90,6 +90,20 @@ export default function Portfolio() {
             </button>
           ))}
         </div>
+        {filter === "Completed" && holdings.length > 0 && (
+          <div className="grid cols-2" style={{ marginBottom: 14 }}>
+            <div className="card" style={{ boxShadow: "none", background: "#fbfdff" }}>
+              <span className="sub">Total Profit Earned (RM)</span>
+              <h3 style={{ margin: "4px 0 0" }}>{money(holdings.reduce((sum, h) => sum + (h.actualReturn - h.amountInvested), 0))}</h3>
+            </div>
+            <div className="card" style={{ boxShadow: "none", background: "#fbfdff" }}>
+              <span className="sub">Average Profit (RM)</span>
+              <h3 style={{ margin: "4px 0 0" }}>
+                {money(holdings.reduce((sum, h) => sum + (h.actualReturn - h.amountInvested), 0) / holdings.length)}
+              </h3>
+            </div>
+          </div>
+        )}
         <DataTable columns={portfolioColumns} rows={holdings} emptyMessage="No holdings match this filter." />
       </div>
 

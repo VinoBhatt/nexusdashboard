@@ -127,6 +127,9 @@ export const financingFacilities = sqliteTable("financing_facilities", {
   purpose: text("purpose"),
   firstPaymentDate: text("first_payment_date"),
   lastPaymentDate: text("last_payment_date"),
+  noteName: text("note_name"),
+  campaignStart: text("campaign_start"),
+  campaignEnd: text("campaign_end"),
   ...timestamps,
 });
 

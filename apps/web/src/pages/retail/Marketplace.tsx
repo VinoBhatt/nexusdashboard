@@ -16,6 +16,10 @@ interface Note {
   financingType: string;
   fundingProgressPct: number;
   status: string;
+  noteName: string | null;
+  principalAmount: number;
+  campaignStart: string | null;
+  campaignEnd: string | null;
 }
 interface Listing {
   id: string;
@@ -89,48 +93,70 @@ export default function Marketplace() {
 
       <div className="note-grid">
         {mode === "primary"
-          ? filteredNotes.map((n) => (
-              <div key={n.id} className="note">
-                <div className="row" style={{ justifyContent: "space-between" }}>
-                  <div>
-                    <h4>{n.id}</h4>
-                    <small>{n.financingType}</small>
+          ? filteredNotes.map((n) => {
+              const outstandingBalance = n.principalAmount * (1 - n.fundingProgressPct / 100);
+              return (
+                <div key={n.id} className="note">
+                  <div className="row" style={{ justifyContent: "space-between" }}>
+                    <div>
+                      <h4>{n.noteName ?? n.id}</h4>
+                      <small>
+                        Reference Number {n.id} · {n.financingType}
+                      </small>
+                    </div>
+                    <span className={`pill ${n.fundingProgressPct >= 100 ? "amber" : "blue"}`}>
+                      {n.fundingProgressPct >= 100 ? "Fully Funded" : "Open"}
+                    </span>
                   </div>
-                  <span className="pill blue">{n.riskTier}</span>
-                </div>
-                <div className="mini-metrics">
-                  <div>
-                    <span>Returns</span>
-                    <b>{n.ratePct}%</b>
+                  <div className="mini-metrics">
+                    <div>
+                      <span>Credit Risk Rating</span>
+                      <b>{n.riskTier}</b>
+                    </div>
+                    <div>
+                      <span>Profit Rate p.a.</span>
+                      <b>{n.ratePct}%</b>
+                    </div>
+                    <div>
+                      <span>Note Tenure</span>
+                      <b>{n.tenorDays} day(s)</b>
+                    </div>
+                    <div>
+                      <span>Financing Amount</span>
+                      <b>{money(n.principalAmount)}</b>
+                    </div>
+                    <div>
+                      <span>Outstanding Balance</span>
+                      <b>
+                        {money(outstandingBalance)} ({(100 - n.fundingProgressPct).toFixed(1)}%)
+                      </b>
+                    </div>
+                    <div>
+                      <span>Investment range</span>
+                      <b>
+                        RM {n.minInvestment} - {n.maxInvestment}
+                      </b>
+                    </div>
                   </div>
-                  <div>
-                    <span>Tenor</span>
-                    <b>{n.tenorDays} day(s)</b>
+                  <div className="sub" style={{ marginTop: 12 }}>
+                    {n.issuerName}
+                    {n.campaignStart && n.campaignEnd ? ` · Campaign Period ${n.campaignStart} to ${n.campaignEnd}` : ""}
                   </div>
-                  <div>
-                    <span>Investment range</span>
-                    <b>
-                      RM {n.minInvestment} - {n.maxInvestment}
-                    </b>
+                  <div className="progress">
+                    <span style={{ width: `${n.fundingProgressPct}%` }} />
+                  </div>
+                  <div className="row" style={{ justifyContent: "flex-end", marginTop: 12 }}>
+                    <button
+                      className="btn small primary"
+                      disabled={n.fundingProgressPct >= 100 || invest.isPending}
+                      onClick={() => invest.mutate({ id: n.id, amount: n.minInvestment })}
+                    >
+                      {n.fundingProgressPct >= 100 ? "Fully Funded" : `Invest ${money(n.minInvestment)}`}
+                    </button>
                   </div>
                 </div>
-                <div className="sub" style={{ marginTop: 12 }}>
-                  {n.issuerName}
-                </div>
-                <div className="progress">
-                  <span style={{ width: `${n.fundingProgressPct}%` }} />
-                </div>
-                <div className="row" style={{ justifyContent: "flex-end", marginTop: 12 }}>
-                  <button
-                    className="btn small primary"
-                    disabled={n.fundingProgressPct >= 100 || invest.isPending}
-                    onClick={() => invest.mutate({ id: n.id, amount: n.minInvestment })}
-                  >
-                    {n.fundingProgressPct >= 100 ? "Fully Funded" : `Invest ${money(n.minInvestment)}`}
-                  </button>
-                </div>
-              </div>
-            ))
+              );
+            })
           : listings.map((l) => (
               <div key={l.id} className="note">
                 <div className="row" style={{ justifyContent: "space-between" }}>
