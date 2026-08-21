@@ -136,18 +136,28 @@ export function calculateSecondaryPrice(ratePct: number, tenorDays: number, days
 
 portfolio.post("/holdings/:id/list-for-sale", async (c) => {
   const user = c.get("user");
-  if (user.effectiveRole !== "retail") {
-    return c.json({ error: "forbidden", message: "Corporate accounts cannot list holdings for sale yet." }, 403);
+  // Listing doesn't move any money by itself (only the eventual sale does),
+  // so unlike investing or withdrawing it doesn't need Checker sign-off -
+  // matches retail's ungated behaviour. A corporate Checker still can't
+  // list on their own, though: only the Maker acts on company holdings.
+  if (user.effectiveRole === "corporate") {
+    const ctx = await resolveCorporateContext(c.env.DB, user.id);
+    if (!ctx) return c.json({ error: "not_found" }, 404);
+    if (ctx.corpRole !== "maker") {
+      return c.json({ error: "forbidden", message: "Only the Maker can list a holding for sale." }, 403);
+    }
   }
   const parsed = listForSaleSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) return c.json({ error: "invalid_input" }, 400);
 
   const db = drizzle(c.env.DB);
+  const owned = await ownershipCondition(c);
+  if (!owned) return c.json({ error: "not_found" }, 404);
   const rows = await db
     .select({ holding: holdings, facility: financingFacilities })
     .from(holdings)
     .innerJoin(financingFacilities, eq(holdings.facilityId, financingFacilities.id))
-    .where(and(eq(holdings.id, c.req.param("id")), eq(holdings.investorId, user.id)))
+    .where(and(eq(holdings.id, c.req.param("id")), owned))
     .limit(1);
   const row = rows[0];
   if (!row) return c.json({ error: "not_found" }, 404);

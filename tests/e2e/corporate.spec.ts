@@ -138,6 +138,46 @@ test.describe("Corporate maker/checker", () => {
     await expect(rejectedRow).toContainText("rebalancing budget");
   });
 
+  test("maker lists a corporate holding for sale instantly, no checker step needed", async ({ page }) => {
+    await login(page, DEMO_ACCOUNTS.corporateMaker);
+    await page.getByRole("link", { name: "On-Going Notes", exact: true }).click();
+    await expect(page.getByText("Sell / Liquidate Investment")).toBeVisible();
+    await page.getByRole("button", { name: "List for Sale" }).click();
+    await expect(page.locator("#toast")).toContainText("Holding listed at RM");
+  });
+
+  test("a corporate checker cannot list a holding for sale", async ({ page }) => {
+    await login(page, DEMO_ACCOUNTS.corporateChecker);
+    await page.getByRole("link", { name: "On-Going Notes", exact: true }).click();
+    await expect(page.getByText("Sell / Liquidate Investment")).toHaveCount(0);
+  });
+
+  test("maker proposes a secondary purchase; checker approves it; a new holding appears", async ({ browser }) => {
+    const makerCtx = await browser.newContext();
+    const checkerCtx = await browser.newContext();
+    const makerPage = await makerCtx.newPage();
+    const checkerPage = await checkerCtx.newPage();
+
+    await login(makerPage, DEMO_ACCOUNTS.corporateMaker);
+    await makerPage.getByRole("link", { name: "Notes Available", exact: true }).click();
+    await makerPage.getByRole("button", { name: "Investor Liquidation Marketplace" }).click();
+    await makerPage.getByRole("button", { name: "Propose Purchase" }).first().click();
+    await makerPage.locator(".modal.show").getByRole("button", { name: "Propose Purchase" }).click();
+    await expect(makerPage.locator("#toast")).toContainText("Secondary purchase proposed, pending checker approval");
+
+    await login(checkerPage, DEMO_ACCOUNTS.corporateChecker);
+    await checkerPage.getByRole("link", { name: "Overview", exact: true }).click();
+    await checkerPage.locator("table tr", { hasText: "Secondary Purchase" }).first().getByRole("button", { name: "Approve" }).click();
+    await checkerPage.locator(".modal.show").getByRole("button", { name: "Approve" }).click();
+    await expect(checkerPage.locator("#toast")).toContainText("Order approved");
+
+    await checkerPage.getByRole("link", { name: "On-Going Notes", exact: true }).click();
+    await expect(checkerPage.locator(".table tbody tr, table tr")).not.toHaveCount(0);
+
+    await makerCtx.close();
+    await checkerCtx.close();
+  });
+
   test("the checker demo persona is reachable from the login screen", async ({ page }) => {
     await page.goto("/login");
     await page.getByRole("button", { name: "Corporate Investor - Checker" }).click();

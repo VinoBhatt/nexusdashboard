@@ -32,9 +32,11 @@ interface Order {
   id: string;
   amount: number;
   status: "Pending Checker" | "Approved" | "Rejected";
-  type: "Allocation" | "Investment" | "Withdrawal";
+  type: "Allocation" | "Investment" | "Withdrawal" | "SecondaryPurchase";
   subwalletId: string | null;
   facilityId: string | null;
+  secondaryListingId: string | null;
+  units: number | null;
   reason: string | null;
   decisionNote: string | null;
   makerEmail: string;
@@ -48,7 +50,7 @@ interface OverviewResponse {
   myCorpRole: "maker" | "checker";
 }
 
-const TYPE_FILTERS = ["All", "Allocation", "Investment", "Withdrawal"] as const;
+const TYPE_FILTERS = ["All", "Allocation", "Investment", "Withdrawal", "SecondaryPurchase"] as const;
 const STATUS_FILTERS = ["All", "Pending Checker", "Approved", "Rejected"] as const;
 
 export default function CorporateOverview() {
@@ -129,7 +131,11 @@ export default function CorporateOverview() {
       key: "type",
       label: "Type",
       sortable: true,
-      render: (o) => <span className={`pill ${o.type === "Investment" ? "blue" : o.type === "Withdrawal" ? "amber" : ""}`}>{o.type}</span>,
+      render: (o) => (
+        <span className={`pill ${o.type === "Investment" ? "blue" : o.type === "Withdrawal" ? "amber" : o.type === "SecondaryPurchase" ? "green" : ""}`}>
+          {o.type === "SecondaryPurchase" ? "Secondary Purchase" : o.type}
+        </span>
+      ),
     },
     {
       key: "context",
@@ -137,7 +143,13 @@ export default function CorporateOverview() {
       sortValue: (o) => o.facilityId ?? o.reason ?? subwallets.find((w) => w.id === o.subwalletId)?.name ?? "",
       render: (o) => (
         <>
-          {o.type === "Investment" ? o.facilityId : o.type === "Withdrawal" ? (o.reason ?? "Withdrawal") : subwallets.find((w) => w.id === o.subwalletId)?.name}
+          {o.type === "Investment"
+            ? o.facilityId
+            : o.type === "SecondaryPurchase"
+              ? `${o.facilityId ?? o.secondaryListingId} · ${o.units} unit(s)`
+              : o.type === "Withdrawal"
+                ? (o.reason ?? "Withdrawal")
+                : subwallets.find((w) => w.id === o.subwalletId)?.name}
           <div className="sub">Proposed by {o.makerEmail}</div>
         </>
       ),
@@ -193,7 +205,7 @@ export default function CorporateOverview() {
               {pending.length} order{pending.length === 1 ? "" : "s"} awaiting your approval
             </b>
             <span>
-              {(["Investment", "Withdrawal", "Allocation"] as const)
+              {(["Investment", "SecondaryPurchase", "Withdrawal", "Allocation"] as const)
                 .map((t) => ({ t, n: pending.filter((o) => o.type === t).length }))
                 .filter((x) => x.n > 0)
                 .map((x) => `${x.n} ${x.t}`)

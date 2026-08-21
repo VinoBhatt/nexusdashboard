@@ -71,6 +71,13 @@
       "when": 1787283340183,
       "tag": "0009_confused_omega_flight",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1787285119588,
+      "tag": "0010_spicy_mauler",
+      "breakpoints": true
     }
   ]
 }

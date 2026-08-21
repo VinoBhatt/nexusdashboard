@@ -334,7 +334,7 @@ async function main() {
   // "late payment" scenario, so the corporate portfolio view demonstrates
   // the same Late-status story.
   statements.push(
-    `INSERT INTO holdings (id, investor_id, corporate_account_id, facility_id, status, amount_invested, expected_return, actual_return, eligible_for_sale, created_at) VALUES ('holding-corp-1', ${sqlStr(corpMakerUserId)}, ${sqlStr(corpAccountId)}, 'MBIBG-26070005', 'Ongoing', 50000, 53500, 290, 0, ${sqlTs(now)});`
+    `INSERT INTO holdings (id, investor_id, corporate_account_id, facility_id, status, amount_invested, expected_return, actual_return, eligible_for_sale, created_at) VALUES ('holding-corp-1', ${sqlStr(corpMakerUserId)}, ${sqlStr(corpAccountId)}, 'MBIBG-26070005', 'Ongoing', 50000, 53500, 290, 1, ${sqlTs(now)});`
   );
   statements.push(
     `INSERT INTO transactions (id, account_id, corporate_account_id, type, amount, status, reference_json, occurred_at) VALUES ('txn-corp-invest-1', ${sqlStr(corpMakerUserId)}, ${sqlStr(corpAccountId)}, 'Corporate Investment', -50000, 'Confirmed', ${sqlStr(JSON.stringify({ facilityId: "MBIBG-26070005" }))}, ${sqlTs(now)});`

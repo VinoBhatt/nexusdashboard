@@ -384,10 +384,12 @@ export const orders = sqliteTable("orders", {
     .references(() => corporateAccounts.id),
   subwalletId: text("subwallet_id").references(() => subwallets.id),
   amount: real("amount").notNull(),
-  type: text("type", { enum: ["Allocation", "Investment", "Withdrawal"] })
+  type: text("type", { enum: ["Allocation", "Investment", "Withdrawal", "SecondaryPurchase"] })
     .notNull()
     .default("Allocation"),
   facilityId: text("facility_id").references(() => financingFacilities.id),
+  secondaryListingId: text("secondary_listing_id").references(() => secondaryListings.id),
+  units: real("units"),
   reason: text("reason"),
   decisionNote: text("decision_note"),
   status: text("status", { enum: ["Pending Checker", "Approved", "Rejected"] })

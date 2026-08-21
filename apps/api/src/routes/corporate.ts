@@ -3,7 +3,7 @@ import { z } from "zod";
 import { drizzle } from "drizzle-orm/d1";
 import { eq, desc, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
-import { subwallets, orders, corporateUsers, users, metricsSnapshots, financingFacilities, holdings, transactions, corporateAccounts, auditLog } from "../db/schema";
+import { subwallets, orders, corporateUsers, users, metricsSnapshots, financingFacilities, holdings, transactions, corporateAccounts, auditLog, secondaryListings } from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
 import { resolveCorporateContext, getCorporateAccount } from "../auth/corporateContext";
@@ -25,6 +25,8 @@ async function loadOrders(db: ReturnType<typeof drizzle>, corporateAccountId: st
       type: orders.type,
       subwalletId: orders.subwalletId,
       facilityId: orders.facilityId,
+      secondaryListingId: orders.secondaryListingId,
+      units: orders.units,
       reason: orders.reason,
       decisionNote: orders.decisionNote,
       makerEmail: makerUsers.email,
@@ -122,10 +124,12 @@ corporate.get("/activity", async (c) => {
 });
 
 const createOrderSchema = z.object({
-  type: z.enum(["Allocation", "Investment", "Withdrawal"]).default("Allocation"),
+  type: z.enum(["Allocation", "Investment", "Withdrawal", "SecondaryPurchase"]).default("Allocation"),
   subwalletId: z.string().min(1).optional(),
   facilityId: z.string().min(1).optional(),
-  amount: z.number().positive(),
+  secondaryListingId: z.string().min(1).optional(),
+  units: z.number().positive().optional(),
+  amount: z.number().positive().optional(),
   reason: z.string().max(300).optional(),
 });
 
@@ -136,16 +140,39 @@ corporate.post("/orders", async (c) => {
 
   const parsed = createOrderSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) return c.json({ error: "invalid_input" }, 400);
-  const { type, amount } = parsed.data;
+  const { type } = parsed.data;
 
   const db = drizzle(c.env.DB);
   const account = await getCorporateAccount(c.env.DB, ctx.corporateAccountId);
   if (!account) return c.json({ error: "not_found" }, 404);
+
+  let facilityId: string | null = null;
+  let secondaryListingId: string | null = null;
+  let units: number | null = null;
+  let amount: number;
+
+  if (type === "SecondaryPurchase") {
+    if (!parsed.data.secondaryListingId || !parsed.data.units) {
+      return c.json({ error: "invalid_input", message: "secondaryListingId and units are required for a Secondary Purchase order." }, 400);
+    }
+    const listingRows = await db.select().from(secondaryListings).where(eq(secondaryListings.id, parsed.data.secondaryListingId)).limit(1);
+    const listing = listingRows[0];
+    if (!listing || listing.status !== "Open") return c.json({ error: "not_found" }, 404);
+    if (parsed.data.units > listing.units) {
+      return c.json({ error: "above_available", message: `Only ${listing.units} unit(s) are available in this listing.` }, 400);
+    }
+    secondaryListingId = listing.id;
+    units = parsed.data.units;
+    amount = +(units * listing.pricePerUnit).toFixed(2);
+  } else {
+    if (!parsed.data.amount) return c.json({ error: "invalid_input", message: "amount is required." }, 400);
+    amount = parsed.data.amount;
+  }
+
   if (amount > account.orderLimit) {
     return c.json({ error: "over_limit", message: `Orders are limited to RM${account.orderLimit.toLocaleString()} per maker.` }, 400);
   }
 
-  let facilityId: string | null = null;
   if (type === "Investment") {
     if (!parsed.data.facilityId) return c.json({ error: "invalid_input", message: "facilityId is required for an Investment order." }, 400);
     const facilityRows = await db.select().from(financingFacilities).where(eq(financingFacilities.id, parsed.data.facilityId)).limit(1);
@@ -162,8 +189,8 @@ corporate.post("/orders", async (c) => {
     }
     facilityId = facility.id;
   }
-  if (type === "Withdrawal" && amount > account.cashBalance) {
-    return c.json({ error: "insufficient_balance", message: "Withdrawal exceeds the available treasury cash balance." }, 400);
+  if ((type === "Withdrawal" || type === "SecondaryPurchase") && amount > account.cashBalance) {
+    return c.json({ error: "insufficient_balance", message: "This order exceeds the available treasury cash balance." }, 400);
   }
 
   const id = crypto.randomUUID();
@@ -174,6 +201,8 @@ corporate.post("/orders", async (c) => {
     amount,
     type,
     facilityId,
+    secondaryListingId,
+    units,
     reason: parsed.data.reason ?? null,
     status: "Pending Checker",
     createdBy: ctx.corpUserId,
@@ -224,7 +253,7 @@ corporate.post("/orders/:id/approve", async (c) => {
       amountInvested: order.amount,
       expectedReturn,
       actualReturn: 0,
-      eligibleForSale: false,
+      eligibleForSale: true,
       source: "manual",
     });
     await db
@@ -243,6 +272,66 @@ corporate.post("/orders/:id/approve", async (c) => {
       amount: -order.amount,
       status: "Confirmed",
       referenceJson: JSON.stringify({ facilityId: facility.id, orderId: order.id }),
+    });
+  } else if (order.type === "SecondaryPurchase") {
+    if (!order.secondaryListingId || !order.units) return c.json({ error: "invalid_state" }, 409);
+    if (order.amount > account.cashBalance) return c.json({ error: "insufficient_balance" }, 400);
+    const listingRows = await db
+      .select({ listing: secondaryListings, facilityId: holdings.facilityId })
+      .from(secondaryListings)
+      .innerJoin(holdings, eq(secondaryListings.holdingId, holdings.id))
+      .where(eq(secondaryListings.id, order.secondaryListingId))
+      .limit(1);
+    const listingRow = listingRows[0];
+    if (!listingRow || listingRow.listing.status !== "Open") {
+      return c.json({ error: "not_found", message: "This listing is no longer available." }, 404);
+    }
+    const { listing, facilityId: heldFacilityId } = listingRow;
+    if (order.units > listing.units) {
+      return c.json({ error: "above_available", message: `Only ${listing.units} unit(s) are available in this listing.` }, 400);
+    }
+
+    const makerRows = await db.select().from(corporateUsers).where(eq(corporateUsers.id, order.createdBy)).limit(1);
+    const maker = makerRows[0];
+    if (!maker) return c.json({ error: "not_found" }, 404);
+
+    if (order.units === listing.units) {
+      await db.update(secondaryListings).set({ status: "Sold" }).where(eq(secondaryListings.id, listing.id));
+    } else {
+      await db.update(secondaryListings).set({ units: listing.units - order.units }).where(eq(secondaryListings.id, listing.id));
+    }
+
+    // Ownership transfers to the buyer at what they paid, receivable at
+    // full par (units) at maturity - same convention as retail's secondary
+    // purchase.
+    await db.insert(holdings).values({
+      id: crypto.randomUUID(),
+      investorId: maker.userId,
+      corporateAccountId: ctx.corporateAccountId,
+      facilityId: heldFacilityId,
+      status: "Ongoing",
+      amountInvested: order.amount,
+      expectedReturn: order.units,
+      actualReturn: 0,
+      eligibleForSale: true,
+      source: "manual",
+    });
+    await db
+      .update(corporateAccounts)
+      .set({
+        cashBalance: account.cashBalance - order.amount,
+        deployedFunds: account.deployedFunds + order.amount,
+        performing: account.performing + order.amount,
+      })
+      .where(eq(corporateAccounts.id, ctx.corporateAccountId));
+    await db.insert(transactions).values({
+      id: crypto.randomUUID(),
+      accountId: maker.userId,
+      corporateAccountId: ctx.corporateAccountId,
+      type: "Corporate Secondary Purchase",
+      amount: -order.amount,
+      status: "Confirmed",
+      referenceJson: JSON.stringify({ listingId: listing.id, orderId: order.id }),
     });
   } else if (order.type === "Withdrawal") {
     if (order.amount > account.cashBalance) return c.json({ error: "insufficient_balance" }, 400);
