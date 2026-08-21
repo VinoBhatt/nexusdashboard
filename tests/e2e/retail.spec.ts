@@ -54,6 +54,20 @@ test.describe("Retail investor", () => {
     await expect(page.locator(".modal.show")).toContainText("You will be paid");
   });
 
+  test("a note with a delayed installment shows Late status and its notification, which also appears in Alerts", async ({ page }) => {
+    await login(page, DEMO_ACCOUNTS.retail);
+    await page.getByRole("link", { name: "On-Going Notes", exact: true }).click();
+    await page.locator(".table tbody tr", { hasText: "MBIBG-26070005" }).first().click();
+
+    await expect(page.locator(".modal.show")).toContainText("Notifications for this note");
+    await expect(page.locator(".modal.show")).toContainText("Installment #2 payment delayed");
+    await expect(page.locator(".modal.show .table .status", { hasText: "Late" })).toBeVisible();
+
+    await page.locator(".modal.show button.close").click();
+    await page.getByRole("link", { name: "Alerts", exact: true }).click();
+    await expect(page.locator(".list-item", { hasText: "Installment #2 payment delayed" })).toBeVisible();
+  });
+
   test("clicking a defaulted holding shows a recovery timeline instead", async ({ page }) => {
     await login(page, DEMO_ACCOUNTS.retail);
     await page.getByRole("link", { name: "On-Going Notes", exact: true }).click();

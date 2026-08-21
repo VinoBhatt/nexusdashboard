@@ -1,18 +1,50 @@
+import { useQuery } from "@tanstack/react-query";
+import { apiGet } from "../../lib/api";
 import { money } from "../../lib/money";
-import { simulateSchedule, generateRecoveryTimeline, daysUntil } from "../../lib/repaymentSchedule";
+import { generateRecoveryTimeline, daysUntil } from "../../lib/repaymentSchedule";
 import type { Holding } from "./SellHoldingCard";
+
+interface ScheduleRow {
+  installmentNo: number;
+  dueDate: string;
+  principalDue: number;
+  profitDue: number;
+  status: "Paid" | "Upcoming" | "Overdue";
+}
+interface Notification {
+  id: string;
+  message: string;
+  createdAt: string;
+}
+interface ScheduleResponse {
+  schedule: ScheduleRow[];
+  notifications: Notification[];
+}
+
+function statusLabel(status: ScheduleRow["status"]): string {
+  return status === "Overdue" ? "Late" : status;
+}
+function statusClass(status: ScheduleRow["status"]): string {
+  if (status === "Paid") return "ok";
+  if (status === "Overdue") return "default";
+  return "pending";
+}
 
 export function HoldingDetailModal({ holding, onClose }: { holding: Holding; onClose: () => void }) {
   const isDefault = holding.status === "Default";
-  const schedule = !isDefault
-    ? simulateSchedule(holding.amountInvested, holding.ratePct, holding.tenorDays, holding.repaymentStructure)
-    : [];
+  const { data } = useQuery({
+    queryKey: ["portfolio", "schedule", holding.id],
+    queryFn: () => apiGet<ScheduleResponse>(`/api/portfolio/holdings/${holding.id}/schedule`),
+    enabled: !isDefault,
+  });
+  const schedule = data?.schedule ?? [];
+  const notifications = data?.notifications ?? [];
   const timeline = isDefault ? generateRecoveryTimeline() : [];
-  const nextPayment = schedule[0];
+  const nextPayment = schedule.find((r) => r.status !== "Paid");
 
   return (
     <div className="modal show">
-      <div className="modal-card" style={{ maxWidth: 600 }}>
+      <div className="modal-card" style={{ maxWidth: 640 }}>
         <div className="modal-head">
           <div>
             <h3>{holding.noteName ?? holding.facilityId}</h3>
@@ -58,6 +90,22 @@ export function HoldingDetailModal({ holding, onClose }: { holding: Holding; onC
           </div>
         )}
 
+        {!isDefault && notifications.length > 0 && (
+          <div className="field" style={{ marginTop: 14 }}>
+            <label>Notifications for this note</label>
+            <div className="list">
+              {notifications.map((n) => (
+                <div key={n.id} className="list-item">
+                  <div>
+                    <b>{n.message}</b>
+                    <div className="sub">{new Date(n.createdAt).toLocaleString()}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {isDefault ? (
           <div className="field" style={{ marginTop: 14 }}>
             <label>Recovery Process</label>
@@ -87,6 +135,7 @@ export function HoldingDetailModal({ holding, onClose }: { holding: Holding; onC
                     <th>Principal</th>
                     <th>Profit</th>
                     <th>Total</th>
+                    <th>Status</th>
                   </tr>
                   {schedule.map((row) => (
                     <tr key={row.installmentNo}>
@@ -95,6 +144,9 @@ export function HoldingDetailModal({ holding, onClose }: { holding: Holding; onC
                       <td>{money(row.principalDue)}</td>
                       <td>{money(row.profitDue)}</td>
                       <td>{money(row.principalDue + row.profitDue)}</td>
+                      <td>
+                        <span className={`status ${statusClass(row.status)}`}>{statusLabel(row.status)}</span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

@@ -1,10 +1,11 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { drizzle } from "drizzle-orm/d1";
-import { eq, and } from "drizzle-orm";
-import { holdings, financingFacilities, secondaryListings } from "../db/schema";
+import { eq, and, desc } from "drizzle-orm";
+import { holdings, financingFacilities, secondaryListings, repaymentInstallments, alerts } from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
+import { generateRepaymentSchedule } from "../lib/repaymentSchedule";
 
 const portfolio = new Hono<AuthedEnv>();
 portfolio.use("*", requireAuth, requireRole("retail"));
@@ -54,6 +55,56 @@ portfolio.get("/holdings/:id", async (c) => {
     .limit(1);
   if (!rows[0]) return c.json({ error: "not_found" }, 404);
   return c.json({ holding: rows[0] });
+});
+
+// Real repayment_installments only exist for facilities that went through
+// the admin approval flow (or were hand-seeded with one) - everything else
+// falls back to the same simulated schedule shown before investing, marked
+// "Upcoming" throughout since there's no real payment history to report yet.
+portfolio.get("/holdings/:id/schedule", async (c) => {
+  const db = drizzle(c.env.DB);
+  const user = c.get("user");
+  const rows = await db
+    .select({ holding: holdings, facility: financingFacilities })
+    .from(holdings)
+    .innerJoin(financingFacilities, eq(holdings.facilityId, financingFacilities.id))
+    .where(and(eq(holdings.id, c.req.param("id")), eq(holdings.investorId, user.id)))
+    .limit(1);
+  const row = rows[0];
+  if (!row) return c.json({ error: "not_found" }, 404);
+  const { holding, facility } = row;
+
+  const realInstallments = await db
+    .select()
+    .from(repaymentInstallments)
+    .where(eq(repaymentInstallments.facilityId, facility.id))
+    .orderBy(repaymentInstallments.installmentNo);
+
+  // The stored installments are sized for the facility's full principal;
+  // this investor only owns a slice of it.
+  const shareRatio = facility.principalAmount > 0 ? holding.amountInvested / facility.principalAmount : 0;
+
+  const schedule =
+    realInstallments.length > 0
+      ? realInstallments.map((i) => ({
+          installmentNo: i.installmentNo,
+          dueDate: i.dueDate,
+          principalDue: +(i.principalDue * shareRatio).toFixed(2),
+          profitDue: +(i.profitDue * shareRatio).toFixed(2),
+          status: i.status,
+        }))
+      : generateRepaymentSchedule(holding.amountInvested, facility.ratePct, facility.tenorDays, facility.repaymentStructure).map((r) => ({
+          ...r,
+          status: "Upcoming" as const,
+        }));
+
+  const notifications = await db
+    .select()
+    .from(alerts)
+    .where(eq(alerts.facilityId, facility.id))
+    .orderBy(desc(alerts.createdAt));
+
+  return c.json({ schedule, notifications });
 });
 
 const listForSaleSchema = z.object({ units: z.number().positive() });

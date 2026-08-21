@@ -96,8 +96,12 @@ async function main() {
   for (let i = 0; i < 18; i++) {
     const dueDate = new Date(2026, 7 + i, 8).toISOString().slice(0, 10);
     const isLast = i === 17;
+    // Installment 2 is a deliberate "late payment" demo scenario - paired
+    // with a facility-linked alert below explaining why and that late
+    // charges accrue until it's settled.
+    const status = i === 0 ? "Paid" : i === 1 ? "Overdue" : "Upcoming";
     statements.push(
-      `INSERT INTO repayment_installments (id, facility_id, installment_no, due_date, principal_due, profit_due, fee_due, status) VALUES (${sqlStr(`${scheduleFacilityId}-${i + 1}`)}, ${sqlStr(scheduleFacilityId)}, ${i + 1}, ${sqlStr(dueDate)}, ${isLast ? 100 : 0}, ${isLast ? 0.64 : 0.58}, ${isLast ? 0.09 : 0.08}, ${sqlStr(i === 0 ? "Paid" : "Upcoming")});`
+      `INSERT INTO repayment_installments (id, facility_id, installment_no, due_date, principal_due, profit_due, fee_due, status) VALUES (${sqlStr(`${scheduleFacilityId}-${i + 1}`)}, ${sqlStr(scheduleFacilityId)}, ${i + 1}, ${sqlStr(dueDate)}, ${isLast ? 100 : 0}, ${isLast ? 0.64 : 0.58}, ${isLast ? 0.09 : 0.08}, ${sqlStr(status)});`
     );
   }
   const shortFacilityId = "MBIBG-26080001";
@@ -128,6 +132,7 @@ async function main() {
     { id: "alert-1", message: "Sunway Business Solutions Invoice Note 5 is open for funding | RM620,000 | 540 days | 7% p.a.", facilityId: "MBIBG-26070005" },
     { id: "alert-2", message: "Sunway Business Solutions Contract Note 1 is open for funding | RM245,000 | 90 days | 8.5% p.a.", facilityId: "MBIBG-26080001" },
     { id: "alert-3", message: "Issuer 1932340 Invoice Note 3 is fully funded | RM500,000 | 540 days | 7% p.a.", facilityId: "MBIBG-26070003" },
+    { id: "alert-4", message: "Sunway Business Solutions Invoice Note 5: Installment #2 payment delayed - issuer reported a temporary cash flow timing issue. Principal repayment is delayed and late charges will accrue until settled.", facilityId: "MBIBG-26070005" },
   ];
   for (const a of alertDefs) {
     statements.push(
