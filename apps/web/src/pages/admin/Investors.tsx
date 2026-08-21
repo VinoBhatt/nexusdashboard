@@ -41,20 +41,20 @@ export default function Investors() {
       <div className="card">
         <div className="filters" style={{ gridTemplateColumns: "1.4fr .8fr .8fr" }}>
           <div className="field">
-            <label>Search investor</label>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name" />
+            <label htmlFor="investorsSearch">Search investor</label>
+            <input id="investorsSearch" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name" />
           </div>
           <div className="field">
-            <label>Type</label>
-            <select value={type} onChange={(e) => setType(e.target.value)}>
+            <label htmlFor="investorsType">Type</label>
+            <select id="investorsType" value={type} onChange={(e) => setType(e.target.value)}>
               <option>All</option>
               <option>Retail</option>
               <option>Corporate</option>
             </select>
           </div>
           <div className="field">
-            <label>Status</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value)}>
+            <label htmlFor="investorsStatus">Status</label>
+            <select id="investorsStatus" value={status} onChange={(e) => setStatus(e.target.value)}>
               <option>All</option>
               <option>Active</option>
               <option>Onboarding</option>

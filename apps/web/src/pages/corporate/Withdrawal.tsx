@@ -56,12 +56,12 @@ export default function CorporateWithdrawal() {
           {myCorpRole === "maker" ? (
             <div className="card" style={{ boxShadow: "none", maxWidth: 420 }}>
               <div className="field">
-                <label>Amount (MYR)</label>
-                <input type="number" min={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+                <label htmlFor="corpWithdrawalAmount">Amount (MYR)</label>
+                <input id="corpWithdrawalAmount" type="number" min={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
               </div>
               <div className="field">
-                <label>Reason for withdrawal</label>
-                <select value={reason} onChange={(e) => setReason(e.target.value)}>
+                <label htmlFor="corpWithdrawalReason">Reason for withdrawal</label>
+                <select id="corpWithdrawalReason" value={reason} onChange={(e) => setReason(e.target.value)}>
                   <option>Portfolio rebalancing</option>
                   <option>Operating expenses</option>
                   <option>Distribution to shareholders</option>

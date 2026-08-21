@@ -6,9 +6,9 @@ test.describe("Admin approvals", () => {
     const email = `pw-newbie-${Date.now()}@test.com`;
 
     await page.goto("/signup");
-    await page.locator(".login-form input").first().fill("Playwright Newbie");
-    await page.locator('input[type=email]').fill(email);
-    await page.locator('input[type=password]').fill("testpassword123");
+    await page.getByLabel("Full name").fill("Playwright Newbie");
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill("testpassword123");
     await page.getByRole("button", { name: "Create account" }).click();
     await page.waitForURL("**/app/overview");
 

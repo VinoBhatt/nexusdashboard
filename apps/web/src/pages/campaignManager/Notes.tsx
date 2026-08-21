@@ -115,8 +115,8 @@ export default function CampaignManagerNotes() {
               <h3>Disburse Note</h3>
             </div>
             <div className="field" style={{ maxWidth: 280 }}>
-              <label>Disbursement Date</label>
-              <input type="date" value={disbursementDate} onChange={(e) => setDisbursementDate(e.target.value)} />
+              <label htmlFor="disbursementDate">Disbursement Date</label>
+              <input id="disbursementDate" type="date" value={disbursementDate} onChange={(e) => setDisbursementDate(e.target.value)} />
             </div>
             <button className="btn primary" disabled={disburse.isPending} onClick={() => disburse.mutate()}>
               Confirm Disbursement

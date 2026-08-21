@@ -62,8 +62,8 @@ export default function Documents() {
           </div>
           <div className="stack">
             <div className="field">
-              <label>Document type</label>
-              <select value={docType} onChange={(e) => setDocType(e.target.value)}>
+              <label htmlFor="issuerDocType">Document type</label>
+              <select id="issuerDocType" value={docType} onChange={(e) => setDocType(e.target.value)}>
                 {DOC_TYPES.map((t) => (
                   <option key={t}>{t}</option>
                 ))}

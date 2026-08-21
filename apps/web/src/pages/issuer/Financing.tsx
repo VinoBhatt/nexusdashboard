@@ -201,15 +201,15 @@ export default function Financing() {
           {step === "product" && (
             <div className="stack">
               <div className="field">
-                <label>Financing Type</label>
-                <select value={islamicConventional} onChange={(e) => setIslamicConventional(e.target.value as "Islamic" | "Conventional")}>
+                <label htmlFor="financingIslamicConventional">Financing Type</label>
+                <select id="financingIslamicConventional" value={islamicConventional} onChange={(e) => setIslamicConventional(e.target.value as "Islamic" | "Conventional")}>
                   <option value="Islamic">Islamic</option>
                   <option value="Conventional">Conventional</option>
                 </select>
               </div>
               <div className="field">
-                <label>Product</label>
-                <select value={productFamily} onChange={(e) => setProductFamily(e.target.value)}>
+                <label htmlFor="financingProductFamily">Product</label>
+                <select id="financingProductFamily" value={productFamily} onChange={(e) => setProductFamily(e.target.value)}>
                   {PRODUCT_FAMILIES.map((p) => (
                     <option key={p}>{p}</option>
                   ))}
@@ -231,13 +231,13 @@ export default function Financing() {
           {step === "forms" && editingId && (
             <div className="stack">
               <div className="field">
-                <label>Sign, Stamp and Attach the CRA Consent Form</label>
-                <input type="file" onChange={(e) => onFileChosen("craConsent", e.target.files?.[0])} />
+                <label htmlFor="financingCraConsent">Sign, Stamp and Attach the CRA Consent Form</label>
+                <input id="financingCraConsent" type="file" onChange={(e) => onFileChosen("craConsent", e.target.files?.[0])} />
                 {docs.craConsent && <div className="hint">Uploaded: {docs.craConsent}</div>}
               </div>
               <div className="field">
-                <label>Stamp and Attach the Declaration Form</label>
-                <input type="file" onChange={(e) => onFileChosen("declaration", e.target.files?.[0])} />
+                <label htmlFor="financingDeclaration">Stamp and Attach the Declaration Form</label>
+                <input id="financingDeclaration" type="file" onChange={(e) => onFileChosen("declaration", e.target.files?.[0])} />
                 {docs.declaration && <div className="hint">Uploaded: {docs.declaration}</div>}
               </div>
               <div className="row" style={{ justifyContent: "space-between" }}>
@@ -254,12 +254,12 @@ export default function Financing() {
           {step === "business" && editingId && (
             <div className="stack">
               <div className="field">
-                <label>Financing Amount Requested (RM)</label>
-                <input type="number" min={1000} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+                <label htmlFor="financingAmount">Financing Amount Requested (RM)</label>
+                <input id="financingAmount" type="number" min={1000} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
               </div>
               <div className="field">
-                <label>Tenor (days)</label>
-                <select value={tenorDays} onChange={(e) => setTenorDays(Number(e.target.value))}>
+                <label htmlFor="financingTenorDays">Tenor (days)</label>
+                <select id="financingTenorDays" value={tenorDays} onChange={(e) => setTenorDays(Number(e.target.value))}>
                   <option value={30}>30 days</option>
                   <option value={90}>90 days</option>
                   <option value={180}>180 days</option>
@@ -268,36 +268,36 @@ export default function Financing() {
                 </select>
               </div>
               <div className="field">
-                <label>Purpose</label>
-                <textarea value={purpose} onChange={(e) => setPurpose(e.target.value)} />
+                <label htmlFor="financingPurpose">Purpose</label>
+                <textarea id="financingPurpose" value={purpose} onChange={(e) => setPurpose(e.target.value)} />
               </div>
               <div className="field">
-                <label>Do you have any form of business insurance?</label>
-                <select value={businessInsurance} onChange={(e) => setBusinessInsurance(e.target.value as "Yes" | "No")}>
+                <label htmlFor="financingBusinessInsurance">Do you have any form of business insurance?</label>
+                <select id="financingBusinessInsurance" value={businessInsurance} onChange={(e) => setBusinessInsurance(e.target.value as "Yes" | "No")}>
                   <option value="">Select answer</option>
                   <option value="Yes">Yes</option>
                   <option value="No">No</option>
                 </select>
               </div>
               <div className="field">
-                <label>Has your company applied for financing with other P2P lending operators?</label>
-                <select value={otherP2PFinancing} onChange={(e) => setOtherP2PFinancing(e.target.value as "Yes" | "No")}>
+                <label htmlFor="financingOtherP2P">Has your company applied for financing with other P2P lending operators?</label>
+                <select id="financingOtherP2P" value={otherP2PFinancing} onChange={(e) => setOtherP2PFinancing(e.target.value as "Yes" | "No")}>
                   <option value="">Select answer</option>
                   <option value="Yes">Yes</option>
                   <option value="No">No</option>
                 </select>
               </div>
               <div className="field">
-                <label>Annual Sales / Turnover (RM)</label>
-                <input type="number" min={0} value={annualSales} onChange={(e) => setAnnualSales(e.target.value === "" ? "" : Number(e.target.value))} />
+                <label htmlFor="financingAnnualSales">Annual Sales / Turnover (RM)</label>
+                <input id="financingAnnualSales" type="number" min={0} value={annualSales} onChange={(e) => setAnnualSales(e.target.value === "" ? "" : Number(e.target.value))} />
               </div>
               <div className="field">
-                <label>Number of Employees</label>
-                <input type="number" min={0} value={employeeCount} onChange={(e) => setEmployeeCount(e.target.value === "" ? "" : Number(e.target.value))} />
+                <label htmlFor="financingEmployeeCount">Number of Employees</label>
+                <input id="financingEmployeeCount" type="number" min={0} value={employeeCount} onChange={(e) => setEmployeeCount(e.target.value === "" ? "" : Number(e.target.value))} />
               </div>
               <div className="field">
-                <label>Number of Clients</label>
-                <input type="number" min={0} value={clientCount} onChange={(e) => setClientCount(e.target.value === "" ? "" : Number(e.target.value))} />
+                <label htmlFor="financingClientCount">Number of Clients</label>
+                <input id="financingClientCount" type="number" min={0} value={clientCount} onChange={(e) => setClientCount(e.target.value === "" ? "" : Number(e.target.value))} />
               </div>
               <div className="row" style={{ justifyContent: "space-between" }}>
                 <button className="btn secondary" onClick={saveDraft}>
@@ -314,15 +314,15 @@ export default function Financing() {
             <div className="stack">
               {SUPPORTING_DOCS.map((doc) => (
                 <div className="field" key={doc.key}>
-                  <label>{doc.label}</label>
-                  <input type="file" onChange={(e) => onFileChosen(doc.key, e.target.files?.[0])} />
+                  <label htmlFor={`financingDoc-${doc.key}`}>{doc.label}</label>
+                  <input id={`financingDoc-${doc.key}`} type="file" onChange={(e) => onFileChosen(doc.key, e.target.files?.[0])} />
                   {docs[doc.key] && <div className="hint">Uploaded: {docs[doc.key]}</div>}
                 </div>
               ))}
               {requiresSpecificDoc && (
                 <div className="field">
-                  <label>Invoices, Contracts, SPAs, Awards, or Insurance Documents for Financing</label>
-                  <input type="file" onChange={(e) => onFileChosen("specificFinanceDoc", e.target.files?.[0])} />
+                  <label htmlFor="financingSpecificFinanceDoc">Invoices, Contracts, SPAs, Awards, or Insurance Documents for Financing</label>
+                  <input id="financingSpecificFinanceDoc" type="file" onChange={(e) => onFileChosen("specificFinanceDoc", e.target.files?.[0])} />
                   {docs.specificFinanceDoc && <div className="hint">Uploaded: {docs.specificFinanceDoc}</div>}
                 </div>
               )}

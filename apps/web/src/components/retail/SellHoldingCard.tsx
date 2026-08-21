@@ -62,8 +62,8 @@ export function SellHoldingCard({ holdings }: { holdings: Holding[] }) {
         <span className="pill blue">Secondary market</span>
       </div>
       <div className="field">
-        <label>Select holding</label>
-        <select value={sellId || selected?.id || ""} onChange={(e) => setSellId(e.target.value)}>
+        <label htmlFor="sellHoldingSelect">Select holding</label>
+        <select id="sellHoldingSelect" value={sellId || selected?.id || ""} onChange={(e) => setSellId(e.target.value)}>
           {holdings.map((h) => (
             <option key={h.id} value={h.id}>
               {h.facilityId} · {h.issuerName}
@@ -73,12 +73,12 @@ export function SellHoldingCard({ holdings }: { holdings: Holding[] }) {
       </div>
       <div className="duo" style={{ marginTop: 12 }}>
         <div className="field">
-          <label>Units to sell</label>
-          <input type="number" min={1} value={units} onChange={(e) => setUnits(Number(e.target.value))} />
+          <label htmlFor="sellHoldingUnits">Units to sell</label>
+          <input id="sellHoldingUnits" type="number" min={1} value={units} onChange={(e) => setUnits(Number(e.target.value))} />
         </div>
         <div className="field">
-          <label>Price per RM1 unit</label>
-          <input value={selected ? `RM${estimateSecondaryPrice(selected).toFixed(4)} (system-priced, yield to maturity)` : ""} disabled />
+          <label htmlFor="sellHoldingPrice">Price per RM1 unit</label>
+          <input id="sellHoldingPrice" value={selected ? `RM${estimateSecondaryPrice(selected).toFixed(4)} (system-priced, yield to maturity)` : ""} disabled />
         </div>
       </div>
       {selected && (

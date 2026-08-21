@@ -77,12 +77,12 @@ export default function Withdrawal() {
             </div>
             <div className="stack">
               <div className="field">
-                <label>Amount (min RM1)</label>
-                <input type="number" min={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+                <label htmlFor="withdrawalAmount">Amount (min RM1)</label>
+                <input id="withdrawalAmount" type="number" min={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
               </div>
               <div className="field">
-                <label>Reason for withdrawal</label>
-                <select value={reason} onChange={(e) => setReason(e.target.value)}>
+                <label htmlFor="withdrawalReason">Reason for withdrawal</label>
+                <select id="withdrawalReason" value={reason} onChange={(e) => setReason(e.target.value)}>
                   <option>Personal liquidity</option>
                   <option>Portfolio rebalancing</option>
                   <option>Emergency use</option>

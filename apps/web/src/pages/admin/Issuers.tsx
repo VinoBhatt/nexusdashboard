@@ -34,8 +34,8 @@ export default function Issuers() {
       <PageHeader title="Issuers" description="Companies borrowing through the platform and their risk standing." />
       <div className="card">
         <div className="field" style={{ maxWidth: 340 }}>
-          <label>Search issuer</label>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by company" />
+          <label htmlFor="issuersSearch">Search issuer</label>
+          <input id="issuersSearch" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by company" />
         </div>
         <div style={{ marginTop: 14 }}>
           <DataTable columns={columns} rows={data?.issuers ?? []} emptyMessage="No matching issuers." />

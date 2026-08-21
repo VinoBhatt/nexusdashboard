@@ -138,8 +138,8 @@ export default function NotesAvailable() {
           </button>
         </div>
         <div className="field">
-          <label>Search financing code</label>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search financing code" />
+          <label htmlFor="notesAvailableSearch">Search financing code</label>
+          <input id="notesAvailableSearch" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search financing code" />
         </div>
       </div>
 
@@ -265,10 +265,11 @@ export default function NotesAvailable() {
               </button>
             </div>
             <div className="field">
-              <label>
+              <label htmlFor="retailInvestAmount">
                 Amount to invest (RM {Math.max(investTarget.minInvestment, MIN_INVESTMENT_FLOOR)} - {investTarget.maxInvestment})
               </label>
               <input
+                id="retailInvestAmount"
                 type="number"
                 min={Math.max(investTarget.minInvestment, MIN_INVESTMENT_FLOOR)}
                 max={investTarget.maxInvestment}
@@ -353,8 +354,9 @@ export default function NotesAvailable() {
               </button>
             </div>
             <div className="field">
-              <label>Units to buy (1 - {buyTarget.units.toLocaleString()})</label>
+              <label htmlFor="retailBuyUnits">Units to buy (1 - {buyTarget.units.toLocaleString()})</label>
               <input
+                id="retailBuyUnits"
                 type="number"
                 min={1}
                 max={buyTarget.units}

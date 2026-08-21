@@ -91,8 +91,8 @@ export default function CorporateActivity() {
       <PageHeader title="Activity Log" description="Full audit trail of every order created, approved and rejected on this account." />
       <div className="card">
         <div className="field" style={{ marginBottom: 14, maxWidth: 360 }}>
-          <label>Search</label>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Order ID, person, action…" />
+          <label htmlFor="corpActivitySearch">Search</label>
+          <input id="corpActivitySearch" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Order ID, person, action…" />
         </div>
         <DataTable columns={columns} rows={filtered} pageSize={50} emptyMessage="No activity yet." />
       </div>

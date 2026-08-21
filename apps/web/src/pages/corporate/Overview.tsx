@@ -322,8 +322,8 @@ export default function CorporateOverview() {
           {myCorpRole === "maker" ? (
             <div className="stack">
               <div className="field">
-                <label>Sub-wallet</label>
-                <select value={subwalletId || subwallets[0]?.id} onChange={(e) => setSubwalletId(e.target.value)}>
+                <label htmlFor="allocationSubwallet">Sub-wallet</label>
+                <select id="allocationSubwallet" value={subwalletId || subwallets[0]?.id} onChange={(e) => setSubwalletId(e.target.value)}>
                   {subwallets.map((w) => (
                     <option key={w.id} value={w.id}>
                       {w.name}
@@ -332,8 +332,8 @@ export default function CorporateOverview() {
                 </select>
               </div>
               <div className="field">
-                <label>Amount (MYR)</label>
-                <input type="number" min={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+                <label htmlFor="allocationAmount">Amount (MYR)</label>
+                <input id="allocationAmount" type="number" min={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
               </div>
               <div className="sub">Order limit per maker: {money(account.orderLimit)}</div>
               <button className="btn primary" disabled={createOrder.isPending} onClick={() => createOrder.mutate()}>
@@ -355,20 +355,20 @@ export default function CorporateOverview() {
         </div>
         <div className="filters" style={{ gridTemplateColumns: "1.4fr .8fr .8fr", marginBottom: 14 }}>
           <div className="field">
-            <label>Search</label>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Order ID, maker, checker, note…" />
+            <label htmlFor="orderQueueSearch">Search</label>
+            <input id="orderQueueSearch" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Order ID, maker, checker, note…" />
           </div>
           <div className="field">
-            <label>Type</label>
-            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as (typeof TYPE_FILTERS)[number])}>
+            <label htmlFor="orderQueueType">Type</label>
+            <select id="orderQueueType" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as (typeof TYPE_FILTERS)[number])}>
               {TYPE_FILTERS.map((t) => (
                 <option key={t}>{t}</option>
               ))}
             </select>
           </div>
           <div className="field">
-            <label>Status</label>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as (typeof STATUS_FILTERS)[number])}>
+            <label htmlFor="orderQueueStatus">Status</label>
+            <select id="orderQueueStatus" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as (typeof STATUS_FILTERS)[number])}>
               {STATUS_FILTERS.map((s) => (
                 <option key={s}>{s}</option>
               ))}
@@ -413,8 +413,9 @@ export default function CorporateOverview() {
               </button>
             </div>
             <div className="field">
-              <label>Reason for the Maker (optional, but helpful)</label>
+              <label htmlFor="rejectNote">Reason for the Maker (optional, but helpful)</label>
               <textarea
+                id="rejectNote"
                 value={rejectNote}
                 onChange={(e) => setRejectNote(e.target.value)}
                 placeholder="e.g. Amount exceeds this quarter's rebalancing budget."

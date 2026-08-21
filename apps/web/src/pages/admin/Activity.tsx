@@ -99,8 +99,8 @@ export default function AdminActivity() {
       <PageHeader title="Activity Log" description="Platform-wide audit trail: every corporate order decision and every risk & approvals decision, across every account." />
       <div className="card">
         <div className="field" style={{ marginBottom: 14, maxWidth: 360 }}>
-          <label>Search</label>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Actor, action, subject…" />
+          <label htmlFor="adminActivitySearch">Search</label>
+          <input id="adminActivitySearch" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Actor, action, subject…" />
         </div>
         <DataTable columns={columns} rows={rows} pageSize={15} emptyMessage="No activity yet." />
       </div>

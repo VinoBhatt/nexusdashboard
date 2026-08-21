@@ -118,8 +118,9 @@ export default function AutoInvest() {
 
         <div className="grid cols-2">
           <div className="field">
-            <label>Minimum Profit Rate (% p.a.)</label>
+            <label htmlFor="autoInvestMinRate">Minimum Profit Rate (% p.a.)</label>
             <input
+              id="autoInvestMinRate"
               type="number"
               step="0.1"
               placeholder="No minimum"
@@ -128,8 +129,9 @@ export default function AutoInvest() {
             />
           </div>
           <div className="field">
-            <label>Maximum Tenor (days)</label>
+            <label htmlFor="autoInvestMaxTenor">Maximum Tenor (days)</label>
             <input
+              id="autoInvestMaxTenor"
               type="number"
               placeholder="No maximum"
               value={form.maxTenorDays}
@@ -137,12 +139,13 @@ export default function AutoInvest() {
             />
           </div>
           <div className="field">
-            <label>Amount per Note (RM)</label>
-            <input type="number" min={1} value={form.amountPerNote} onChange={(e) => setForm({ ...form, amountPerNote: e.target.value })} />
+            <label htmlFor="autoInvestAmountPerNote">Amount per Note (RM)</label>
+            <input id="autoInvestAmountPerNote" type="number" min={1} value={form.amountPerNote} onChange={(e) => setForm({ ...form, amountPerNote: e.target.value })} />
           </div>
           <div className="field">
-            <label>Budget Cap (RM)</label>
+            <label htmlFor="autoInvestBudgetCap">Budget Cap (RM)</label>
             <input
+              id="autoInvestBudgetCap"
               type="number"
               min={1}
               placeholder="No cap"
@@ -153,8 +156,8 @@ export default function AutoInvest() {
         </div>
 
         <div className="field" style={{ marginTop: 6 }}>
-          <label>Accepted Credit Risk Ratings (any if none selected)</label>
-          <div className="row">
+          <label id="autoInvestRiskTiersLabel">Accepted Credit Risk Ratings (any if none selected)</label>
+          <div className="row" role="group" aria-labelledby="autoInvestRiskTiersLabel">
             {RISK_TIERS.map((tier) => (
               <button
                 key={tier}

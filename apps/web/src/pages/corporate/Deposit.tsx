@@ -56,8 +56,8 @@ export default function CorporateDeposit() {
           {myCorpRole === "maker" ? (
             <div className="card" style={{ boxShadow: "none", maxWidth: 420 }}>
               <div className="field">
-                <label>Deposit amount (MYR)</label>
-                <input type="number" min={100} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+                <label htmlFor="corpDepositAmount">Deposit amount (MYR)</label>
+                <input id="corpDepositAmount" type="number" min={100} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
               </div>
               <button className="btn primary" disabled={deposit.isPending} onClick={() => deposit.mutate()}>
                 Deposit to Treasury

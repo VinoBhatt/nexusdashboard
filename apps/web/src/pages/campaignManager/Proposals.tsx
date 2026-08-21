@@ -343,24 +343,24 @@ export default function CampaignManagerProposals() {
             <div className="modal-dialog">
               <h3>Schedule Note Launch</h3>
               <div className="field">
-                <label>Promotional Date & Time</label>
-                <input type="datetime-local" value={promotionalStart} onChange={(e) => setPromotionalStart(e.target.value)} />
+                <label htmlFor="scheduleModalPromotionalStart">Promotional Date & Time</label>
+                <input id="scheduleModalPromotionalStart" type="datetime-local" value={promotionalStart} onChange={(e) => setPromotionalStart(e.target.value)} />
               </div>
               <div className="field">
-                <label>Note Launching Date & Time</label>
-                <input type="datetime-local" value={launchStart} onChange={(e) => setLaunchStart(e.target.value)} />
+                <label htmlFor="scheduleModalLaunchStart">Note Launching Date & Time</label>
+                <input id="scheduleModalLaunchStart" type="datetime-local" value={launchStart} onChange={(e) => setLaunchStart(e.target.value)} />
               </div>
               <div className="field">
-                <label>Note Closing Date & Time</label>
-                <input type="datetime-local" value={launchEnd} onChange={(e) => setLaunchEnd(e.target.value)} />
+                <label htmlFor="scheduleModalLaunchEnd">Note Closing Date & Time</label>
+                <input id="scheduleModalLaunchEnd" type="datetime-local" value={launchEnd} onChange={(e) => setLaunchEnd(e.target.value)} />
               </div>
               <div className="field">
-                <label>Note Name</label>
-                <input value={noteName} onChange={(e) => setNoteName(e.target.value)} />
+                <label htmlFor="scheduleModalNoteName">Note Name</label>
+                <input id="scheduleModalNoteName" value={noteName} onChange={(e) => setNoteName(e.target.value)} />
               </div>
               <div className="field">
-                <label>Message (Optional)</label>
-                <textarea value={noteMessage} onChange={(e) => setNoteMessage(e.target.value)} />
+                <label htmlFor="scheduleModalNoteMessage">Message (Optional)</label>
+                <textarea id="scheduleModalNoteMessage" value={noteMessage} onChange={(e) => setNoteMessage(e.target.value)} />
               </div>
               <div className="row" style={{ justifyContent: "flex-end", gap: 8 }}>
                 <button className="btn secondary" onClick={() => setShowScheduleModal(false)}>
@@ -454,32 +454,32 @@ function ProposalForm(p: ProposalFormProps) {
       </div>
       <div className="form-grid">
         <div className="field">
-          <label>Financing Amount (RM)</label>
-          <input type="number" min={1000} value={p.amount} onChange={(e) => p.setAmount(Number(e.target.value))} />
+          <label htmlFor="proposalAmount">Financing Amount (RM)</label>
+          <input id="proposalAmount" type="number" min={1000} value={p.amount} onChange={(e) => p.setAmount(Number(e.target.value))} />
         </div>
         <div className="field">
-          <label>Tenor (days)</label>
-          <input type="number" min={1} value={p.tenorDays} onChange={(e) => p.setTenorDays(Number(e.target.value))} />
+          <label htmlFor="proposalTenorDays">Tenor (days)</label>
+          <input id="proposalTenorDays" type="number" min={1} value={p.tenorDays} onChange={(e) => p.setTenorDays(Number(e.target.value))} />
         </div>
         <div className="field">
-          <label>Profit / Interest Rate (% p.a.)</label>
-          <input type="number" min={0} step={0.1} value={p.ratePct} onChange={(e) => p.setRatePct(Number(e.target.value))} />
+          <label htmlFor="proposalRatePct">Profit / Interest Rate (% p.a.)</label>
+          <input id="proposalRatePct" type="number" min={0} step={0.1} value={p.ratePct} onChange={(e) => p.setRatePct(Number(e.target.value))} />
         </div>
         <div className="field">
-          <label>Repayment Structure</label>
-          <select value={p.repaymentStructure} onChange={(e) => p.setRepaymentStructure(e.target.value as (typeof REPAYMENT_STRUCTURES)[number])}>
+          <label htmlFor="proposalRepaymentStructure">Repayment Structure</label>
+          <select id="proposalRepaymentStructure" value={p.repaymentStructure} onChange={(e) => p.setRepaymentStructure(e.target.value as (typeof REPAYMENT_STRUCTURES)[number])}>
             {REPAYMENT_STRUCTURES.map((s) => (
               <option key={s}>{s}</option>
             ))}
           </select>
         </div>
         <div className="field">
-          <label>Processing Fee (RM)</label>
-          <input type="number" min={0} value={p.processingFee} onChange={(e) => p.setProcessingFee(Number(e.target.value))} />
+          <label htmlFor="proposalProcessingFee">Processing Fee (RM)</label>
+          <input id="proposalProcessingFee" type="number" min={0} value={p.processingFee} onChange={(e) => p.setProcessingFee(Number(e.target.value))} />
         </div>
         <div className="field">
-          <label>Platform Fee (RM)</label>
-          <input type="number" min={0} value={p.platformFee} onChange={(e) => p.setPlatformFee(Number(e.target.value))} />
+          <label htmlFor="proposalPlatformFee">Platform Fee (RM)</label>
+          <input id="proposalPlatformFee" type="number" min={0} value={p.platformFee} onChange={(e) => p.setPlatformFee(Number(e.target.value))} />
         </div>
       </div>
 
@@ -488,8 +488,8 @@ function ProposalForm(p: ProposalFormProps) {
       </div>
       <div className="form-grid">
         <div className="field">
-          <label>Risk Rating Method</label>
-          <select value={p.riskMethod} onChange={(e) => { p.setRiskMethod(e.target.value); p.setRiskValue(""); }}>
+          <label htmlFor="proposalRiskMethod">Risk Rating Method</label>
+          <select id="proposalRiskMethod" value={p.riskMethod} onChange={(e) => { p.setRiskMethod(e.target.value); p.setRiskValue(""); }}>
             <option value="">Select method</option>
             {Object.keys(RISK_OPTIONS).map((m) => (
               <option key={m}>{m}</option>
@@ -497,8 +497,8 @@ function ProposalForm(p: ProposalFormProps) {
           </select>
         </div>
         <div className="field">
-          <label>Rating</label>
-          <select value={p.riskValue} onChange={(e) => p.setRiskValue(e.target.value)} disabled={!p.riskMethod}>
+          <label htmlFor="proposalRiskValue">Rating</label>
+          <select id="proposalRiskValue" value={p.riskValue} onChange={(e) => p.setRiskValue(e.target.value)} disabled={!p.riskMethod}>
             <option value="">Select rating</option>
             {(RISK_OPTIONS[p.riskMethod] ?? []).map((r) => (
               <option key={r}>{r}</option>
@@ -520,14 +520,14 @@ function ProposalForm(p: ProposalFormProps) {
       </div>
       {p.securities.includes("Collateral") && (
         <div className="field" style={{ marginTop: 10 }}>
-          <label>Collateral Details</label>
-          <input value={p.collateralDetails} onChange={(e) => p.setCollateralDetails(e.target.value)} />
+          <label htmlFor="proposalCollateralDetails">Collateral Details</label>
+          <input id="proposalCollateralDetails" value={p.collateralDetails} onChange={(e) => p.setCollateralDetails(e.target.value)} />
         </div>
       )}
       {p.securities.includes("Other") && (
         <div className="field" style={{ marginTop: 10 }}>
-          <label>Other Security Details</label>
-          <input value={p.otherSecurityDetails} onChange={(e) => p.setOtherSecurityDetails(e.target.value)} />
+          <label htmlFor="proposalOtherSecurityDetails">Other Security Details</label>
+          <input id="proposalOtherSecurityDetails" value={p.otherSecurityDetails} onChange={(e) => p.setOtherSecurityDetails(e.target.value)} />
         </div>
       )}
 
@@ -535,7 +535,7 @@ function ProposalForm(p: ProposalFormProps) {
         <h3>Supporting Documents</h3>
       </div>
       <div className="row" style={{ gap: 8 }}>
-        <input placeholder="e.g. Issue Request.pdf" value={p.newDocName} onChange={(e) => p.setNewDocName(e.target.value)} />
+        <input aria-label="New supporting document name" placeholder="e.g. Issue Request.pdf" value={p.newDocName} onChange={(e) => p.setNewDocName(e.target.value)} />
         <button className="btn secondary" type="button" onClick={p.addDocument}>
           Add
         </button>

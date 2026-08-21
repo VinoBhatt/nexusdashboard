@@ -125,12 +125,12 @@ export default function Account() {
 
   const field = (key: keyof Profile, label: string, options?: string[], required = false) => (
     <div className="field">
-      <label>
+      <label htmlFor={`profile-${key}`}>
         {label}
         {required ? " *" : ""}
       </label>
       {options ? (
-        <select value={(form[key] as string) ?? ""} onChange={(e) => setForm({ ...form, [key]: e.target.value })}>
+        <select id={`profile-${key}`} value={(form[key] as string) ?? ""} onChange={(e) => setForm({ ...form, [key]: e.target.value })}>
           <option value="" disabled>
             Select…
           </option>
@@ -139,17 +139,19 @@ export default function Account() {
           ))}
         </select>
       ) : (
-        <input value={(form[key] as string) ?? ""} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />
+        <input id={`profile-${key}`} value={(form[key] as string) ?? ""} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />
       )}
     </div>
   );
 
   const upload = (docType: string, label: string) => {
     const existing = docsData?.documents.find((d) => d.docType === docType);
+    const inputId = `profile-upload-${docType.replace(/[^a-zA-Z0-9]/g, "")}`;
     return (
       <div className="field">
-        <label>{label} *</label>
+        <label htmlFor={inputId}>{label} *</label>
         <input
+          id={inputId}
           type="file"
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -174,12 +176,12 @@ export default function Account() {
         </div>
         <div className="grid cols-2">
           <div className="field">
-            <label>Your Investor ID</label>
-            <input value={data.investorRefNo ?? "—"} disabled />
+            <label htmlFor="profileInvestorRefNo">Your Investor ID</label>
+            <input id="profileInvestorRefNo" value={data.investorRefNo ?? "—"} disabled />
           </div>
           <div className="field">
-            <label>Email</label>
-            <input value={data.email} disabled />
+            <label htmlFor="profileEmail">Email</label>
+            <input id="profileEmail" value={data.email} disabled />
           </div>
           {field("displayName", "Full Legal Name", undefined, true)}
           {field("contactNumber", "Contact Number", undefined, true)}
@@ -195,8 +197,8 @@ export default function Account() {
           {field("netWorth", "Total Net Worth", NET_WORTH, true)}
           {field("incomeRange", "Gross Annual Income", GROSS_ANNUAL_INCOME, true)}
           <div className="field">
-            <label>Last Updated</label>
-            <input value={data.profileUpdatedAt ? new Date(data.profileUpdatedAt).toLocaleString() : "Never"} disabled />
+            <label htmlFor="profileUpdatedAt">Last Updated</label>
+            <input id="profileUpdatedAt" value={data.profileUpdatedAt ? new Date(data.profileUpdatedAt).toLocaleString() : "Never"} disabled />
           </div>
         </div>
         <label className="row" style={{ marginTop: 14, gap: 8, alignItems: "center" }}>
@@ -250,8 +252,8 @@ export default function Account() {
             <h3>Refer a Friend</h3>
           </div>
           <div className="field">
-            <label>Your Referral Code</label>
-            <input value={data.referralCode ?? "—"} disabled />
+            <label htmlFor="profileReferralCode">Your Referral Code</label>
+            <input id="profileReferralCode" value={data.referralCode ?? "—"} disabled />
           </div>
         </div>
 

@@ -145,8 +145,8 @@ export default function CorporateMarketplace() {
         </div>
         {mode === "primary" && (
           <div className="field">
-            <label>Search financing code</label>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search financing code" />
+            <label htmlFor="corporateMarketplaceSearch">Search financing code</label>
+            <input id="corporateMarketplaceSearch" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search financing code" />
           </div>
         )}
       </div>
@@ -279,8 +279,8 @@ export default function CorporateMarketplace() {
               </button>
             </div>
             <div className="field">
-              <label>Sub-wallet</label>
-              <select value={subwalletId} onChange={(e) => setSubwalletId(e.target.value)}>
+              <label htmlFor="investSubwallet">Sub-wallet</label>
+              <select id="investSubwallet" value={subwalletId} onChange={(e) => setSubwalletId(e.target.value)}>
                 {subwallets.map((w) => (
                   <option key={w.id} value={w.id}>
                     {w.name}
@@ -289,10 +289,11 @@ export default function CorporateMarketplace() {
               </select>
             </div>
             <div className="field" style={{ marginTop: 12 }}>
-              <label>
+              <label htmlFor="investAmount">
                 Amount to invest (RM {Math.max(target.minInvestment, MIN_INVESTMENT_FLOOR)} - {target.maxInvestment})
               </label>
               <input
+                id="investAmount"
                 type="number"
                 min={Math.max(target.minInvestment, MIN_INVESTMENT_FLOOR)}
                 max={target.maxInvestment}
@@ -366,8 +367,8 @@ export default function CorporateMarketplace() {
               </button>
             </div>
             <div className="field">
-              <label>Sub-wallet</label>
-              <select value={buySubwalletId} onChange={(e) => setBuySubwalletId(e.target.value)}>
+              <label htmlFor="buySubwallet">Sub-wallet</label>
+              <select id="buySubwallet" value={buySubwalletId} onChange={(e) => setBuySubwalletId(e.target.value)}>
                 {subwallets.map((w) => (
                   <option key={w.id} value={w.id}>
                     {w.name}
@@ -376,8 +377,8 @@ export default function CorporateMarketplace() {
               </select>
             </div>
             <div className="field" style={{ marginTop: 12 }}>
-              <label>Units to buy (1 - {buyTarget.units.toLocaleString()})</label>
-              <input type="number" min={1} max={buyTarget.units} value={buyUnits} onChange={(e) => setBuyUnits(Number(e.target.value))} />
+              <label htmlFor="buyUnits">Units to buy (1 - {buyTarget.units.toLocaleString()})</label>
+              <input id="buyUnits" type="number" min={1} max={buyTarget.units} value={buyUnits} onChange={(e) => setBuyUnits(Number(e.target.value))} />
             </div>
             <div className="banner-notice" style={{ marginTop: 12 }}>
               <div>

@@ -36,16 +36,17 @@ export default function Signup() {
           </div>
           <form onSubmit={onSubmit}>
             <div className="field">
-              <label>Full name</label>
-              <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
+              <label htmlFor="signupDisplayName">Full name</label>
+              <input id="signupDisplayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
             </div>
             <div className="field" style={{ marginTop: 10 }}>
-              <label>Email</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <label htmlFor="signupEmail">Email</label>
+              <input id="signupEmail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
             <div className="field" style={{ marginTop: 10 }}>
-              <label>Password</label>
+              <label htmlFor="signupPassword">Password</label>
               <input
+                id="signupPassword"
                 type="password"
                 minLength={8}
                 value={password}

@@ -74,16 +74,16 @@ export default function Deposit() {
             {mode === "fpx" ? (
               <div className="stack">
                 <div className="field">
-                  <label>Select bank</label>
-                  <select value={bank} onChange={(e) => setBank(e.target.value)}>
+                  <label htmlFor="depositBank">Select bank</label>
+                  <select id="depositBank" value={bank} onChange={(e) => setBank(e.target.value)}>
                     {BANKS.map((b) => (
                       <option key={b}>{b}</option>
                     ))}
                   </select>
                 </div>
                 <div className="field">
-                  <label>Deposit amount (MYR)</label>
-                  <input type="number" min={100} value={fpxAmount} onChange={(e) => setFpxAmount(Number(e.target.value))} />
+                  <label htmlFor="depositFpxAmount">Deposit amount (MYR)</label>
+                  <input id="depositFpxAmount" type="number" min={100} value={fpxAmount} onChange={(e) => setFpxAmount(Number(e.target.value))} />
                 </div>
                 <button className="btn primary" disabled={fpx.isPending} onClick={() => fpx.mutate()}>
                   Continue with FPX
@@ -102,13 +102,15 @@ export default function Deposit() {
                   </div>
                 </div>
                 <div className="field">
-                  <label>Deposit amount (MYR)</label>
-                  <input type="number" min={100} value={manualAmount} onChange={(e) => setManualAmount(Number(e.target.value))} />
+                  <label htmlFor="depositManualAmount">Deposit amount (MYR)</label>
+                  <input id="depositManualAmount" type="number" min={100} value={manualAmount} onChange={(e) => setManualAmount(Number(e.target.value))} />
                 </div>
                 <div className="upload">
-                  <strong>{receipt ? receipt.name : "Upload transfer receipt"}</strong>
+                  <label htmlFor="depositReceipt">
+                    <strong>{receipt ? receipt.name : "Upload transfer receipt"}</strong>
+                  </label>
                   <div className="sub">Accepted format: PDF, JPG, PNG</div>
-                  <input type="file" style={{ marginTop: 10 }} onChange={(e) => setReceipt(e.target.files?.[0] ?? null)} />
+                  <input id="depositReceipt" type="file" style={{ marginTop: 10 }} onChange={(e) => setReceipt(e.target.files?.[0] ?? null)} />
                 </div>
                 <button className="btn primary" disabled={manual.isPending} onClick={() => manual.mutate()}>
                   Submit Manual Transfer for Verification
