@@ -5,6 +5,11 @@ import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { statements, users, investorProfiles, transactions } from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
+import { generateTextPdf } from "../lib/pdf";
+
+function fmt(amount: number): string {
+  return `RM ${amount.toFixed(2)}`;
+}
 
 const statementsRouter = new Hono<AuthedEnv>();
 statementsRouter.use("*", requireAuth, requireRole("retail"));
@@ -107,25 +112,35 @@ statementsRouter.get("/:id/download", async (c) => {
   const { statement, holder, summary, transactions: txns } = result;
 
   const lines = [
-    `Statement,${statement.periodLabel},${statement.type}`,
-    `Account Holder,${holder.displayName},${holder.email}`,
+    "COFUNDR ACCOUNT STATEMENT",
+    `${statement.periodLabel} - ${statement.type} Statement`,
     "",
-    "Summary",
-    `Cash Balance,${summary.cashBalance.toFixed(2)}`,
-    `Total Deposits,${summary.totalDeposits.toFixed(2)}`,
-    `Total Withdrawals,${summary.totalWithdrawals.toFixed(2)}`,
-    `Total Invested,${summary.totalInvested.toFixed(2)}`,
-    `Outstanding Investment,${summary.outstanding.toFixed(2)}`,
+    `Account Holder: ${holder.displayName}`,
+    `Email: ${holder.email}`,
     "",
-    "Transactions for this period",
-    "Date,Type,Amount,Status",
-    ...txns.map((t) => `${new Date(t.occurredAt).toISOString().slice(0, 10)},${t.type},${t.amount.toFixed(2)},${t.status}`),
+    "SUMMARY",
+    `Cash Balance:            ${fmt(summary.cashBalance)}`,
+    `Total Deposits:          ${fmt(summary.totalDeposits)}`,
+    `Total Withdrawals:       ${fmt(summary.totalWithdrawals)}`,
+    `Total Invested:          ${fmt(summary.totalInvested)}`,
+    `Outstanding Investment:  ${fmt(summary.outstanding)}`,
+    "",
+    "TRANSACTIONS FOR THIS PERIOD",
+    "Date        Type                      Amount        Status",
+    "----------------------------------------------------------",
+    ...txns.map((t) => {
+      const date = new Date(t.occurredAt).toISOString().slice(0, 10);
+      const type = t.type.padEnd(24).slice(0, 24);
+      const amount = (t.amount < 0 ? "-" : " ") + fmt(Math.abs(t.amount)).padStart(11);
+      return `${date}  ${type}  ${amount}  ${t.status}`;
+    }),
   ];
   if (txns.length === 0) lines.push("No transactions in this period.");
 
-  return c.body(lines.join("\n") + "\n", 200, {
-    "Content-Type": "text/csv",
-    "Content-Disposition": `attachment; filename="${statement.periodLabel.replace(/\s+/g, "-")}-statement.csv"`,
+  const pdf = generateTextPdf(lines);
+  return c.body(pdf, 200, {
+    "Content-Type": "application/pdf",
+    "Content-Disposition": `attachment; filename="${statement.periodLabel.replace(/\s+/g, "-")}-statement.pdf"`,
   });
 });
 

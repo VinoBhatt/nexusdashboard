@@ -65,14 +65,9 @@ export default function Statements() {
                 <div className="row">
                   <span className={`status ${s.status === "Ready" ? "ok" : "pending"}`}>{s.status}</span>
                   {s.status === "Ready" && (
-                    <>
-                      <button className="btn small" onClick={() => setViewingId(s.id)}>
-                        View
-                      </button>
-                      <a className="btn small" href={downloadUrl(`/api/statements/${s.id}/download`)}>
-                        Download
-                      </a>
-                    </>
+                    <button className="btn small" onClick={() => setViewingId(s.id)}>
+                      View
+                    </button>
                   )}
                 </div>
               </div>
@@ -186,7 +181,7 @@ export default function Statements() {
 
             <div className="row" style={{ justifyContent: "flex-end", gap: 10, marginTop: 14 }}>
               <a className="btn" href={downloadUrl(`/api/statements/${viewingId}/download`)}>
-                Download CSV
+                Download PDF
               </a>
               <button className="btn primary" onClick={() => setViewingId(null)}>
                 Close
