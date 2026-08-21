@@ -1,11 +1,32 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
+import { toastFromAnywhere } from "./components/Toast";
 import "./styles/global.css";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    // React Query's default (3 retries with exponential backoff) means a
+    // real failure takes several seconds to surface at all - fine for a
+    // flaky network, unhelpful here where failures are almost always a
+    // genuine 4xx/5xx that retrying won't fix. One retry covers a
+    // transient blip without leaving the user staring at "Loading..." for
+    // 7+ seconds before the error toast (below) ever appears.
+    queries: { retry: 1 },
+  },
+  queryCache: new QueryCache({
+    onError: (error, query) => {
+      // The auth-check query (`["me"]`) is expected to 401 for anonymous
+      // visitors and already handles that silently in AuthContext - every
+      // other query failing means a page is stuck showing "Loading..."
+      // forever with no indication anything went wrong, so surface it.
+      if (query.queryKey[0] === "me") return;
+      toastFromAnywhere(error instanceof Error ? error.message : "Something went wrong loading this page.");
+    },
+  }),
+});
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

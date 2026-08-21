@@ -5,6 +5,7 @@ import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
 import { simulateSchedule, type RepaymentStructure } from "../../lib/repaymentSchedule";
+import { useEscapeToClose } from "../../lib/useEscapeToClose";
 
 interface Note {
   id: string;
@@ -53,6 +54,8 @@ export default function CorporateMarketplace() {
   const [buyTarget, setBuyTarget] = useState<Listing | null>(null);
   const [buyUnits, setBuyUnits] = useState(1);
   const [buySubwalletId, setBuySubwalletId] = useState("");
+  useEscapeToClose(!!target, () => setTarget(null));
+  useEscapeToClose(!!buyTarget, () => setBuyTarget(null));
   const qc = useQueryClient();
   const toast = useToast();
 

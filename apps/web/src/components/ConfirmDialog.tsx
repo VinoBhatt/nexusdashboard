@@ -1,3 +1,5 @@
+import { useEscapeToClose } from "../lib/useEscapeToClose";
+
 interface ConfirmDialogProps {
   open: boolean;
   title: string;
@@ -9,6 +11,7 @@ interface ConfirmDialogProps {
 }
 
 export function ConfirmDialog({ open, title, description, confirmLabel = "Confirm", danger, onConfirm, onCancel }: ConfirmDialogProps) {
+  useEscapeToClose(open, onCancel);
   if (!open) return null;
   return (
     <div className="modal show">

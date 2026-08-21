@@ -5,6 +5,7 @@ import { apiGet, apiPatch, apiPost } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
+import { useEscapeToClose } from "../../lib/useEscapeToClose";
 
 const REPAYMENT_STRUCTURES = ["Bullet Principal, Monthly Profit", "Bullet Principal & Profit", "Monthly Principal & Profit"] as const;
 const RISK_OPTIONS: Record<string, string[]> = {
@@ -77,6 +78,7 @@ export default function CampaignManagerProposals() {
   const openProposalId = params.get("id");
   const [tab, setTab] = useState<(typeof STATUS_TABS)[number]>("All");
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  useEscapeToClose(showScheduleModal, () => setShowScheduleModal(false));
   const qc = useQueryClient();
   const toast = useToast();
 

@@ -4,6 +4,7 @@ import { apiGet, apiPost, downloadUrl } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
+import { useEscapeToClose } from "../../lib/useEscapeToClose";
 
 interface Statement {
   id: string;
@@ -29,6 +30,7 @@ export default function Statements() {
   const qc = useQueryClient();
   const toast = useToast();
   const [viewingId, setViewingId] = useState<string | null>(null);
+  useEscapeToClose(!!viewingId, () => setViewingId(null));
   const { data } = useQuery({
     queryKey: ["statements"],
     queryFn: () => apiGet<{ statements: Statement[] }>("/api/statements"),

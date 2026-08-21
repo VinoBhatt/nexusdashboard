@@ -42,4 +42,34 @@ test.describe("Cross-cutting security behaviour", () => {
     await expect(page.locator(".modal.show")).toHaveCount(0);
     await expect(row).toBeVisible();
   });
+
+  test("Escape closes a confirmation dialog without deciding anything", async ({ page }) => {
+    const email = `pw-escape-guard-${Date.now()}@test.com`;
+    await page.goto("/signup");
+    await page.locator(".login-form input").first().fill("Escape Guard Tester");
+    await page.locator('input[type=email]').fill(email);
+    await page.locator('input[type=password]').fill("testpassword123");
+    await page.getByRole("button", { name: "Create account" }).click();
+    await page.waitForURL("**/app/overview");
+
+    await login(page, DEMO_ACCOUNTS.admin);
+    await page.getByRole("link", { name: "Risk & Approvals", exact: true }).click();
+
+    const row = page.locator(".list-item", { hasText: "Escape Guard Tester" });
+    await expect(row).toBeVisible();
+    await row.getByRole("button", { name: "Approve" }).click();
+    await expect(page.locator(".modal.show")).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".modal.show")).toHaveCount(0);
+    await expect(row).toBeVisible();
+  });
+
+  test("a failed query surfaces a toast instead of loading forever", async ({ page }) => {
+    await login(page, DEMO_ACCOUNTS.retail);
+    await page.route("**/api/investor/overview", (route) => route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "server_error" }) }));
+
+    await page.reload();
+    await expect(page.locator("#toast")).toContainText("server_error");
+  });
 });

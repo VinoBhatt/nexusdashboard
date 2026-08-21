@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "../../lib/api";
 import { money } from "../../lib/money";
 import { generateRecoveryTimeline, daysUntil } from "../../lib/repaymentSchedule";
+import { useEscapeToClose } from "../../lib/useEscapeToClose";
 import type { Holding } from "./SellHoldingCard";
 
 interface ScheduleRow {
@@ -34,6 +35,7 @@ function statusClass(status: ScheduleRow["status"]): string {
 }
 
 export function HoldingDetailModal({ holding, onClose }: { holding: Holding; onClose: () => void }) {
+  useEscapeToClose(true, onClose);
   const isDefault = holding.status === "Default";
   const { data } = useQuery({
     queryKey: ["portfolio", "schedule", holding.id],

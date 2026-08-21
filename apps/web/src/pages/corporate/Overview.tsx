@@ -7,6 +7,7 @@ import { LineChart } from "../../components/charts/LineChart";
 import { useToast } from "../../components/Toast";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { DataTable, type Column } from "../../components/data/DataTable";
+import { useEscapeToClose } from "../../lib/useEscapeToClose";
 
 interface Account {
   companyName: string;
@@ -59,6 +60,7 @@ export default function CorporateOverview() {
   const [approveTarget, setApproveTarget] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState("");
+  useEscapeToClose(!!rejectTarget, () => setRejectTarget(null));
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<(typeof TYPE_FILTERS)[number]>("All");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("All");
