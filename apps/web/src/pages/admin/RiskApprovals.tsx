@@ -11,6 +11,8 @@ interface Approval {
   applicantName: string;
   riskLevel: "Standard" | "Enhanced" | "Review";
   status: "Pending" | "Approved" | "Rejected";
+  decidedByEmail: string | null;
+  decidedAt: string | null;
   submittedAt: string;
 }
 interface Sector {
@@ -18,12 +20,22 @@ interface Sector {
   value: number;
 }
 
+const STATUS_TABS = ["Pending", "Approved", "Rejected", "All"] as const;
+
 export default function RiskApprovals() {
+  const [tab, setTab] = useState<(typeof STATUS_TABS)[number]>("Pending");
   const [pendingAction, setPendingAction] = useState<{ id: string; outcome: "approve" | "reject"; label: string } | null>(null);
   const qc = useQueryClient();
   const toast = useToast();
 
-  const { data } = useQuery({ queryKey: ["admin", "approvals"], queryFn: () => apiGet<{ approvals: Approval[] }>("/api/admin/approvals?status=Pending") });
+  const { data } = useQuery({
+    queryKey: ["admin", "approvals", tab],
+    queryFn: () => apiGet<{ approvals: Approval[] }>(`/api/admin/approvals${tab === "All" ? "" : `?status=${tab}`}`),
+  });
+  const { data: pendingCount } = useQuery({
+    queryKey: ["admin", "approvals", "Pending"],
+    queryFn: () => apiGet<{ approvals: Approval[] }>("/api/admin/approvals?status=Pending"),
+  });
   const { data: risk } = useQuery({ queryKey: ["admin", "risk-by-sector"], queryFn: () => apiGet<{ sectors: Sector[] }>("/api/admin/risk-by-sector") });
 
   const decide = useMutation({
@@ -45,9 +57,16 @@ export default function RiskApprovals() {
           <div className="section-head">
             <div>
               <h3>Approvals Queue</h3>
-              <p>Investor and issuer verification, new note listings and large withdrawals awaiting sign-off.</p>
+              <p>Investor and issuer verification, new note listings and large withdrawals.</p>
             </div>
-            <span className="pill amber">{approvals.length} pending</span>
+            <span className="pill amber">{pendingCount?.approvals.length ?? 0} pending</span>
+          </div>
+          <div className="row" style={{ marginBottom: 12 }}>
+            {STATUS_TABS.map((t) => (
+              <button key={t} className={`btn small ${tab === t ? "primary" : ""}`} onClick={() => setTab(t)}>
+                {t}
+              </button>
+            ))}
           </div>
           <div className="list">
             {approvals.map((a) => (
@@ -56,21 +75,30 @@ export default function RiskApprovals() {
                   <b>{a.type}</b>
                   <div className="sub">{a.applicantName}</div>
                   <div className="sub">Submitted {a.submittedAt}</div>
+                  {a.status !== "Pending" && (
+                    <div className="sub">
+                      {a.status} by {a.decidedByEmail} · {a.decidedAt}
+                    </div>
+                  )}
                 </div>
                 <div style={{ textAlign: "right", display: "grid", gap: 6 }}>
                   <span className={`pill ${a.riskLevel === "Review" ? "red" : a.riskLevel === "Enhanced" ? "amber" : "blue"}`}>{a.riskLevel}</span>
-                  <div className="row" style={{ justifyContent: "flex-end", gap: 6 }}>
-                    <button className="btn small success" onClick={() => setPendingAction({ id: a.id, outcome: "approve", label: `${a.type} - ${a.applicantName}` })}>
-                      Approve
-                    </button>
-                    <button className="btn small danger" onClick={() => setPendingAction({ id: a.id, outcome: "reject", label: `${a.type} - ${a.applicantName}` })}>
-                      Reject
-                    </button>
-                  </div>
+                  {a.status === "Pending" ? (
+                    <div className="row" style={{ justifyContent: "flex-end", gap: 6 }}>
+                      <button className="btn small success" onClick={() => setPendingAction({ id: a.id, outcome: "approve", label: `${a.type} - ${a.applicantName}` })}>
+                        Approve
+                      </button>
+                      <button className="btn small danger" onClick={() => setPendingAction({ id: a.id, outcome: "reject", label: `${a.type} - ${a.applicantName}` })}>
+                        Reject
+                      </button>
+                    </div>
+                  ) : (
+                    <span className={`status ${a.status === "Approved" ? "ok" : "default"}`}>{a.status}</span>
+                  )}
                 </div>
               </div>
             ))}
-            {approvals.length === 0 && <div className="sub">Queue is clear.</div>}
+            {approvals.length === 0 && <div className="sub">{tab === "Pending" ? "Queue is clear." : "No matching approvals."}</div>}
           </div>
         </div>
         <div className="card">

@@ -43,4 +43,34 @@ test.describe("Admin approvals", () => {
     await nameHeader.click(); // sort ascending
     await nameHeader.click(); // sort descending - just proves it's interactive, no crash
   });
+
+  test("the Approved and Rejected tabs show decided approval history, not just Pending", async ({ page }) => {
+    await login(page, DEMO_ACCOUNTS.admin);
+    await page.getByRole("link", { name: "Risk & Approvals", exact: true }).click();
+
+    await page.getByRole("button", { name: "Approved", exact: true }).click();
+    const approvedRow = page.locator(".list-item", { hasText: "Sunway Business Solutions" });
+    await expect(approvedRow).toBeVisible();
+    await expect(approvedRow).toContainText("Approved by sarah.lim@cofundr.demo");
+
+    await page.getByRole("button", { name: "Rejected", exact: true }).click();
+    const rejectedRow = page.locator(".list-item", { hasText: "Mei Ling Tan" });
+    await expect(rejectedRow).toBeVisible();
+    await expect(rejectedRow).toContainText("Rejected by sarah.lim@cofundr.demo");
+  });
+
+  test("the platform Activity Log shows both admin decisions and corporate order events", async ({ page }) => {
+    await login(page, DEMO_ACCOUNTS.admin);
+    await page.getByRole("link", { name: "Activity Log", exact: true }).click();
+
+    // Seeded admin decisions.
+    await expect(page.locator("table tr", { hasText: "Mei Ling Tan" }).filter({ hasText: "Approval Rejected" })).toBeVisible();
+    // Seeded corporate maker/checker history - confirms this log is genuinely
+    // platform-wide, not scoped to admin's own actions.
+    await expect(page.locator("table tr", { hasText: "treasury@abctreasury.demo" }).first()).toBeVisible();
+
+    await page.locator('input[placeholder*="Actor"]').fill("sarah.lim");
+    await expect(page.locator("table tr", { hasText: "sarah.lim@cofundr.demo" }).first()).toBeVisible();
+    await expect(page.locator("table tr", { hasText: "treasury@abctreasury.demo" })).toHaveCount(0);
+  });
 });

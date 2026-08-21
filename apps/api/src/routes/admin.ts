@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
 import { eq, sql, desc, isNull, and } from "drizzle-orm";
+import { alias } from "drizzle-orm/sqlite-core";
 import {
   users,
   investorProfiles,
@@ -11,11 +12,14 @@ import {
   approvals,
   metricsSnapshots,
   alerts,
+  auditLog,
 } from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
 import { runAutoInvestForNewFacility } from "../lib/autoInvest";
 import { generateRepaymentSchedule } from "../lib/repaymentSchedule";
+
+const decidedByUsers = alias(users, "decided_by_users");
 
 const admin = new Hono<AuthedEnv>();
 admin.use("*", requireAuth, requireRole("admin"));
@@ -138,10 +142,56 @@ admin.get("/risk-by-sector", async (c) => {
 admin.get("/approvals", async (c) => {
   const db = drizzle(c.env.DB);
   const status = c.req.query("status");
-  const rows = status
-    ? await db.select().from(approvals).where(eq(approvals.status, status as "Pending" | "Approved" | "Rejected")).orderBy(desc(approvals.submittedAt))
-    : await db.select().from(approvals).orderBy(desc(approvals.submittedAt));
+  const query = db
+    .select({
+      id: approvals.id,
+      type: approvals.type,
+      subjectType: approvals.subjectType,
+      subjectId: approvals.subjectId,
+      applicantName: approvals.applicantName,
+      riskLevel: approvals.riskLevel,
+      status: approvals.status,
+      decidedByEmail: decidedByUsers.email,
+      decidedAt: approvals.decidedAt,
+      notes: approvals.notes,
+      submittedAt: approvals.submittedAt,
+    })
+    .from(approvals)
+    .leftJoin(decidedByUsers, eq(approvals.decidedBy, decidedByUsers.id))
+    .orderBy(desc(approvals.submittedAt));
+  const rows = status ? await query.where(eq(approvals.status, status as "Pending" | "Approved" | "Rejected")) : await query;
   return c.json({ approvals: rows });
+});
+
+// Platform-wide audit trail: every logged action across every role (today
+// that's corporate maker/checker order events and these approval
+// decisions), not scoped to one account - the CEO oversight view that
+// nothing else on the platform provides.
+admin.get("/activity", async (c) => {
+  const db = drizzle(c.env.DB);
+  const search = (c.req.query("search") ?? "").toLowerCase();
+
+  const rows = await db
+    .select({
+      id: auditLog.id,
+      action: auditLog.action,
+      subjectType: auditLog.subjectType,
+      subjectId: auditLog.subjectId,
+      metadataJson: auditLog.metadataJson,
+      actorEmail: users.email,
+      actorRole: users.role,
+      createdAt: auditLog.createdAt,
+    })
+    .from(auditLog)
+    .innerJoin(users, eq(auditLog.actorId, users.id))
+    .orderBy(desc(auditLog.createdAt))
+    .limit(200);
+
+  const filtered = search
+    ? rows.filter((r) => [r.action, r.subjectId, r.actorEmail, r.metadataJson].filter(Boolean).join(" ").toLowerCase().includes(search))
+    : rows;
+
+  return c.json({ activity: filtered });
 });
 
 /** 18-installment-style schedule (or fewer for a short tenor), one
@@ -206,6 +256,15 @@ async function decideApproval(db: ReturnType<typeof drizzle>, id: string, decide
       }
     }
   }
+
+  await db.insert(auditLog).values({
+    id: crypto.randomUUID(),
+    actorId: decidedBy,
+    action: outcome === "Approved" ? "admin_approval_approved" : "admin_approval_rejected",
+    subjectType: "approval",
+    subjectId: approval.id,
+    metadataJson: JSON.stringify({ type: approval.type, applicantName: approval.applicantName, riskLevel: approval.riskLevel }),
+  });
 
   return { ok: true as const };
 }

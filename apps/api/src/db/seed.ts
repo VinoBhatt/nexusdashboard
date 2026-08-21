@@ -399,6 +399,70 @@ async function main() {
     );
   }
 
+  // ---- Risk & Approvals history (admin oversight) ----
+  // A second retail identity whose KYC was rejected, so the admin Investors
+  // page and approvals history both have a real non-Verified example to
+  // show, not just the two already-Verified demo accounts.
+  const rejectedUserId = "user-rejected-demo";
+  statements.push(
+    `INSERT INTO users (id, email, password_hash, role, display_name, is_demo_reviewer, created_at, updated_at) VALUES (${sqlStr(rejectedUserId)}, 'declined@cofundr.demo', ${sqlStr(passwordHash)}, 'retail', 'Mei Ling Tan', 0, ${sqlTs(now)}, ${sqlTs(now)});`
+  );
+  statements.push(
+    `INSERT INTO investor_profiles (user_id, kyc_status) VALUES (${sqlStr(rejectedUserId)}, 'Rejected');`
+  );
+
+  const adminUserId = "user-admin-demo";
+  const approvalDefs = [
+    {
+      id: "appr-1",
+      type: "Investor Verification",
+      subjectType: "user",
+      subjectId: retailId,
+      applicantName: "Joshua Kuan Chung Shearn",
+      riskLevel: "Standard",
+      status: "Approved",
+      notes: null as string | null,
+    },
+    {
+      id: "appr-2",
+      type: "Investor Verification",
+      subjectType: "user",
+      subjectId: rejectedUserId,
+      applicantName: "Mei Ling Tan",
+      riskLevel: "Review",
+      status: "Rejected",
+      notes: "Source of funds documentation did not match declared income band.",
+    },
+    {
+      id: "appr-3",
+      type: "New Note Listing",
+      subjectType: "facility",
+      subjectId: "MBIBG-26070005",
+      applicantName: "Sunway Business Solutions",
+      riskLevel: "Standard",
+      status: "Approved",
+      notes: null,
+    },
+    {
+      id: "appr-4",
+      type: "New Note Listing",
+      subjectType: "facility",
+      subjectId: "MBIBG-26070003",
+      applicantName: "Issuer ID - 1932340",
+      riskLevel: "Enhanced",
+      status: "Approved",
+      notes: null,
+    },
+  ];
+  for (const a of approvalDefs) {
+    statements.push(
+      `INSERT INTO approvals (id, type, subject_type, subject_id, applicant_name, risk_level, status, decided_by, decided_at, notes, submitted_at) VALUES (${sqlStr(a.id)}, ${sqlStr(a.type)}, ${sqlStr(a.subjectType)}, ${sqlStr(a.subjectId)}, ${sqlStr(a.applicantName)}, ${sqlStr(a.riskLevel)}, ${sqlStr(a.status)}, ${sqlStr(adminUserId)}, ${sqlTs(now)}, ${sqlStr(a.notes)}, ${sqlTs(now)});`
+    );
+    statements.push(
+      `INSERT INTO audit_log (id, actor_id, action, subject_type, subject_id, metadata_json, created_at) VALUES (${sqlStr(`audit-${a.id}`)}, ${sqlStr(adminUserId)}, ${sqlStr(a.status === "Approved" ? "admin_approval_approved" : "admin_approval_rejected")}, 'approval', ${sqlStr(a.id)}, ${sqlStr(JSON.stringify({ type: a.type, applicantName: a.applicantName, riskLevel: a.riskLevel, note: a.notes }))}, ${sqlTs(now)});`
+    );
+  }
+
   // Run from the apps/api workspace root (see the db:seed:generate script).
   writeFileSync(join(process.cwd(), "src/db/seed.sql"), statements.join("\n") + "\n");
   console.log(`Wrote ${statements.length} statements to apps/api/src/db/seed.sql`);
