@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { money } from "../../lib/money";
+import { money, shortMoney } from "../../lib/money";
+
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function formatXLabel(raw: string | undefined, index: number): string {
+  if (!raw) return String(index + 1);
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return `${MONTH_ABBR[Number(m[2]) - 1]} '${m[1].slice(2)}`;
+  return raw;
+}
 
 export function LineChart({
   data,
@@ -27,14 +36,21 @@ export function LineChart({
   if (data.length === 0) return <svg ref={ref} width="100%" height="100%" />;
 
   const { w, h } = size;
-  const p = 18;
+  const padLeft = 58;
+  const padRight = 14;
+  const padTop = 14;
+  const padBottom = 26;
+  const plotW = w - padLeft - padRight;
+  const plotH = h - padTop - padBottom;
+
   const min = Math.min(...data) * 0.985;
   const max = Math.max(...data) * 1.015;
-  const xAt = (i: number) => p + (i * (w - 2 * p)) / (data.length - 1 || 1);
-  const pts = data.map((v, i): [number, number] => [xAt(i), h - p - ((v - min) / (max - min || 1)) * (h - 2 * p)]);
+  const xAt = (i: number) => padLeft + (i * plotW) / (data.length - 1 || 1);
+  const yAt = (v: number) => padTop + plotH - ((v - min) / (max - min || 1)) * plotH;
+  const pts = data.map((v, i): [number, number] => [xAt(i), yAt(v)]);
 
   let d = `M ${pts[0][0]} ${pts[0][1]}`;
-  let area = `M ${pts[0][0]} ${h - p} L ${pts[0][0]} ${pts[0][1]}`;
+  let area = `M ${pts[0][0]} ${padTop + plotH} L ${pts[0][0]} ${pts[0][1]}`;
   for (let i = 0; i < pts.length - 1; i++) {
     const [x0, y0] = pts[i];
     const [x1, y1] = pts[i + 1];
@@ -42,9 +58,22 @@ export function LineChart({
     d += ` C ${xc} ${y0}, ${xc} ${y1}, ${x1} ${y1}`;
     area += ` C ${xc} ${y0}, ${xc} ${y1}, ${x1} ${y1}`;
   }
-  area += ` L ${pts[pts.length - 1][0]} ${h - p} Z`;
+  area += ` L ${pts[pts.length - 1][0]} ${padTop + plotH} Z`;
 
   const gradId = `chartGrad${color.replace("#", "")}`;
+
+  // Y-axis: 5 evenly spaced ticks from max (top) to min (bottom).
+  const yTicks = [0, 1, 2, 3, 4].map((i) => {
+    const value = max - (i * (max - min)) / 4;
+    return { y: padTop + (i * plotH) / 4, value };
+  });
+
+  // X-axis: skip labels so they don't overlap on narrow charts.
+  const maxXTicks = Math.max(2, Math.floor(plotW / 56));
+  const tickStep = Math.max(1, Math.ceil((data.length - 1) / (maxXTicks - 1)));
+  const xTickIndices: number[] = [];
+  for (let i = 0; i < data.length; i += tickStep) xTickIndices.push(i);
+  if (xTickIndices[xTickIndices.length - 1] !== data.length - 1) xTickIndices.push(data.length - 1);
 
   function handleMove(e: React.MouseEvent<SVGRectElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -73,9 +102,15 @@ export function LineChart({
             <stop offset="1" stopColor={color} stopOpacity="0" />
           </linearGradient>
         </defs>
-        {[...Array(5)].map((_, i) => (
-          <line key={i} x1={p} y1={p + (i * (h - 2 * p)) / 4} x2={w - p} y2={p + (i * (h - 2 * p)) / 4} stroke="#dfe8f3" />
+        {yTicks.map((t, i) => (
+          <g key={i}>
+            <line x1={padLeft} y1={t.y} x2={w - padRight} y2={t.y} stroke="#dfe8f3" />
+            <text x={padLeft - 8} y={t.y} textAnchor="end" dominantBaseline="middle" fontSize="10.5" fill="#8fa0b5">
+              {shortMoney(t.value)}
+            </text>
+          </g>
         ))}
+        <line x1={padLeft} y1={padTop} x2={padLeft} y2={padTop + plotH} stroke="#dfe8f3" />
         <path d={area} fill={`url(#${gradId})`} />
         <path d={d} fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
         {pts.map(([x, y], i) => (
@@ -89,7 +124,12 @@ export function LineChart({
             strokeWidth={hoverIndex === i ? 4 : 3}
           />
         ))}
-        {hover && <line x1={hover[0]} y1={p} x2={hover[0]} y2={h - p} stroke={color} strokeOpacity="0.25" strokeWidth="1.5" />}
+        {xTickIndices.map((i) => (
+          <text key={i} x={pts[i][0]} y={padTop + plotH + 18} textAnchor="middle" fontSize="10.5" fill="#8fa0b5">
+            {formatXLabel(labels?.[i], i)}
+          </text>
+        ))}
+        {hover && <line x1={hover[0]} y1={padTop} x2={hover[0]} y2={padTop + plotH} stroke={color} strokeOpacity="0.25" strokeWidth="1.5" />}
         <rect
           x={0}
           y={0}

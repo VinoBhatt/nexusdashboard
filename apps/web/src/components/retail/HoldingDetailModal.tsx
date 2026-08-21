@@ -9,7 +9,7 @@ interface ScheduleRow {
   dueDate: string;
   principalDue: number;
   profitDue: number;
-  status: "Paid" | "Upcoming" | "Overdue";
+  status: "Paid" | "Upcoming" | "Overdue" | "Defaulted";
 }
 interface Notification {
   id: string;
@@ -22,11 +22,14 @@ interface ScheduleResponse {
 }
 
 function statusLabel(status: ScheduleRow["status"]): string {
-  return status === "Overdue" ? "Late" : status;
+  if (status === "Overdue") return "Late";
+  if (status === "Upcoming") return "Pending";
+  return status;
 }
 function statusClass(status: ScheduleRow["status"]): string {
   if (status === "Paid") return "ok";
-  if (status === "Overdue") return "default";
+  if (status === "Overdue") return "overdue";
+  if (status === "Defaulted") return "default";
   return "pending";
 }
 
@@ -35,12 +38,11 @@ export function HoldingDetailModal({ holding, onClose }: { holding: Holding; onC
   const { data } = useQuery({
     queryKey: ["portfolio", "schedule", holding.id],
     queryFn: () => apiGet<ScheduleResponse>(`/api/portfolio/holdings/${holding.id}/schedule`),
-    enabled: !isDefault,
   });
   const schedule = data?.schedule ?? [];
   const notifications = data?.notifications ?? [];
   const timeline = isDefault ? generateRecoveryTimeline() : [];
-  const nextPayment = schedule.find((r) => r.status !== "Paid");
+  const nextPayment = schedule.find((r) => r.status === "Upcoming" || r.status === "Overdue");
 
   return (
     <div className="modal show">
@@ -90,7 +92,7 @@ export function HoldingDetailModal({ holding, onClose }: { holding: Holding; onC
           </div>
         )}
 
-        {!isDefault && notifications.length > 0 && (
+        {notifications.length > 0 && (
           <div className="field" style={{ marginTop: 14 }}>
             <label>Notifications for this note</label>
             <div className="list">
@@ -106,7 +108,37 @@ export function HoldingDetailModal({ holding, onClose }: { holding: Holding; onC
           </div>
         )}
 
-        {isDefault ? (
+        <div className="field" style={{ marginTop: 14 }}>
+          <label>Repayment breakdown ({holding.repaymentStructure})</label>
+          <div className="table-wrap">
+            <table className="table" style={{ minWidth: 0 }}>
+              <tbody>
+                <tr>
+                  <th>#</th>
+                  <th>Due Date</th>
+                  <th>Principal</th>
+                  <th>Profit</th>
+                  <th>Total</th>
+                  <th>Status</th>
+                </tr>
+                {schedule.map((row) => (
+                  <tr key={row.installmentNo}>
+                    <td>{row.installmentNo}</td>
+                    <td>{row.dueDate}</td>
+                    <td>{money(row.principalDue)}</td>
+                    <td>{money(row.profitDue)}</td>
+                    <td>{money(row.principalDue + row.profitDue)}</td>
+                    <td>
+                      <span className={`status ${statusClass(row.status)}`}>{statusLabel(row.status)}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {isDefault && (
           <div className="field" style={{ marginTop: 14 }}>
             <label>Recovery Process</label>
             <div className="timeline">
@@ -121,36 +153,6 @@ export function HoldingDetailModal({ holding, onClose }: { holding: Holding; onC
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-        ) : (
-          <div className="field" style={{ marginTop: 14 }}>
-            <label>Repayment breakdown ({holding.repaymentStructure})</label>
-            <div className="table-wrap">
-              <table className="table" style={{ minWidth: 0 }}>
-                <tbody>
-                  <tr>
-                    <th>#</th>
-                    <th>Due Date</th>
-                    <th>Principal</th>
-                    <th>Profit</th>
-                    <th>Total</th>
-                    <th>Status</th>
-                  </tr>
-                  {schedule.map((row) => (
-                    <tr key={row.installmentNo}>
-                      <td>{row.installmentNo}</td>
-                      <td>{row.dueDate}</td>
-                      <td>{money(row.principalDue)}</td>
-                      <td>{money(row.profitDue)}</td>
-                      <td>{money(row.principalDue + row.profitDue)}</td>
-                      <td>
-                        <span className={`status ${statusClass(row.status)}`}>{statusLabel(row.status)}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
           </div>
         )}

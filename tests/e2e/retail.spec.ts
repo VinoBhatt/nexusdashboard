@@ -68,10 +68,13 @@ test.describe("Retail investor", () => {
     await expect(page.locator(".list-item", { hasText: "Installment #2 payment delayed" })).toBeVisible();
   });
 
-  test("clicking a defaulted holding shows a recovery timeline instead", async ({ page }) => {
+  test("clicking a defaulted holding shows its schedule with a Defaulted status plus a recovery timeline", async ({ page }) => {
     await login(page, DEMO_ACCOUNTS.retail);
     await page.getByRole("link", { name: "On-Going Notes", exact: true }).click();
     await page.locator(".table tbody tr", { hasText: "Default" }).first().click();
+    await expect(page.locator(".modal.show")).toContainText("Repayment breakdown");
+    await expect(page.locator(".modal.show .status", { hasText: "Defaulted" })).toBeVisible();
+    await expect(page.locator(".modal.show")).not.toContainText("You will be paid");
     await expect(page.locator(".modal.show")).toContainText("Recovery Process");
     await expect(page.locator(".modal.show .pill", { hasText: "Current" })).toBeVisible();
   });

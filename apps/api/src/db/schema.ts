@@ -148,7 +148,7 @@ export const repaymentInstallments = sqliteTable("repayment_installments", {
   principalDue: real("principal_due").notNull().default(0),
   profitDue: real("profit_due").notNull().default(0),
   feeDue: real("fee_due").notNull().default(0),
-  status: text("status", { enum: ["Paid", "Upcoming", "Overdue"] })
+  status: text("status", { enum: ["Paid", "Upcoming", "Overdue", "Defaulted"] })
     .notNull()
     .default("Upcoming"),
   paidAt: integer("paid_at", { mode: "timestamp" }),

@@ -113,6 +113,24 @@ async function main() {
     );
   }
 
+  // Defaulted facilities get their own real installment history too, so the
+  // repayment breakdown table (not just the recovery timeline) can show the
+  // specific installment that was never paid, marked "Defaulted".
+  const defaultedFacilityId = "MBIDG-26070001";
+  const defaultedInstallments = [
+    { i: 1, dueDate: "2026-06-08", principal: 0, profit: 1.75, fee: 0.25, status: "Paid" },
+    { i: 2, dueDate: "2026-07-08", principal: 0, profit: 1.75, fee: 0.25, status: "Defaulted" },
+  ];
+  for (const row of defaultedInstallments) {
+    statements.push(
+      `INSERT INTO repayment_installments (id, facility_id, installment_no, due_date, principal_due, profit_due, fee_due, status) VALUES (${sqlStr(`${defaultedFacilityId}-${row.i}`)}, ${sqlStr(defaultedFacilityId)}, ${row.i}, ${sqlStr(row.dueDate)}, ${sqlNum(row.principal)}, ${sqlNum(row.profit)}, ${sqlNum(row.fee)}, ${sqlStr(row.status)});`
+    );
+  }
+  const writtenOffFacilityId = "WC1881-08082024";
+  statements.push(
+    `INSERT INTO repayment_installments (id, facility_id, installment_no, due_date, principal_due, profit_due, fee_due, status) VALUES (${sqlStr(`${writtenOffFacilityId}-1`)}, ${sqlStr(writtenOffFacilityId)}, 1, ${sqlStr("2026-05-08")}, ${sqlNum(0)}, ${sqlNum(0.08)}, ${sqlNum(0.01)}, ${sqlStr("Defaulted")});`
+  );
+
   // ---- Retail holdings (from legacy state.holdings) ----
   const holdings = [
     { id: "holding-1", facility: "MBIBG-26070005", status: "Ongoing", invested: 100, expected: 110.50, actual: 0.58, eligible: true },

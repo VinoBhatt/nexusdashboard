@@ -12,7 +12,7 @@ interface Installment {
   principalDue: number;
   profitDue: number;
   feeDue: number;
-  status: "Paid" | "Upcoming" | "Overdue";
+  status: "Paid" | "Upcoming" | "Overdue" | "Defaulted";
 }
 interface HistoryItem {
   id: string;
@@ -34,7 +34,11 @@ const scheduleColumns: Column<Installment>[] = [
     key: "status",
     label: "Status",
     sortable: true,
-    render: (r) => <span className={`status ${r.status === "Paid" ? "ok" : r.status === "Overdue" ? "overdue" : "pending"}`}>{r.status}</span>,
+    render: (r) => (
+      <span className={`status ${r.status === "Paid" ? "ok" : r.status === "Overdue" ? "overdue" : r.status === "Defaulted" ? "default" : "pending"}`}>
+        {r.status === "Upcoming" ? "Pending" : r.status === "Overdue" ? "Late" : r.status}
+      </span>
+    ),
   },
 ];
 
