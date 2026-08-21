@@ -112,6 +112,27 @@ const ICONS: Record<string, React.ReactNode> = {
       <path d="M13.73 21a2 2 0 0 1-3.46 0" />
     </svg>
   ),
+  applications: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 12h6M9 16h6M9 8h2" />
+      <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+      <polyline points="13 2 13 9 20 9" />
+    </svg>
+  ),
+  proposals: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    </svg>
+  ),
+  launch: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
+      <path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
+      <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
+      <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
+    </svg>
+  ),
 };
 
 const NAV_BY_ROLE: Record<Role, { to: string; label: string; icon: string }[]> = {
@@ -151,8 +172,15 @@ const NAV_BY_ROLE: Record<Role, { to: string; label: string; icon: string }[]> =
   issuer: [
     { to: "overview", label: "Overview", icon: "grid" },
     { to: "financing", label: "Financing", icon: "financing" },
+    { to: "issuer-proposals", label: "Proposals", icon: "proposals" },
     { to: "repayments", label: "Repayments", icon: "repayments" },
     { to: "documents", label: "Documents", icon: "documents" },
+  ],
+  campaign_manager: [
+    { to: "overview", label: "Overview", icon: "grid" },
+    { to: "cm-applications", label: "Applications", icon: "applications" },
+    { to: "cm-proposals", label: "Proposals", icon: "proposals" },
+    { to: "cm-notes", label: "Notes", icon: "launch" },
   ],
 };
 
@@ -161,6 +189,7 @@ const ROLE_LABEL: Record<Role, string> = {
   corporate: "Corporate Investor",
   admin: "CEO / Admin",
   issuer: "Issuer / Borrower",
+  campaign_manager: "Campaign Manager",
 };
 
 export function Sidebar({ open, onNavigate }: { open: boolean; onClose: () => void; onNavigate: () => void }) {

@@ -21,9 +21,13 @@ import RiskApprovals from "./pages/admin/RiskApprovals";
 import AdminActivity from "./pages/admin/Activity";
 import Reports from "./pages/admin/Reports";
 import Financing from "./pages/issuer/Financing";
+import IssuerProposals from "./pages/issuer/Proposals";
 import Repayments from "./pages/issuer/Repayments";
 import Documents from "./pages/issuer/Documents";
 import CorporateActivity from "./pages/corporate/Activity";
+import CampaignManagerApplications from "./pages/campaignManager/Applications";
+import CampaignManagerProposals from "./pages/campaignManager/Proposals";
+import CampaignManagerNotes from "./pages/campaignManager/Notes";
 
 export default function App() {
   return (
@@ -52,9 +56,13 @@ export default function App() {
             <Route path="admin-activity-log" element={<AdminActivity />} />
             <Route path="reports" element={<Reports />} />
             <Route path="financing" element={<Financing />} />
+            <Route path="issuer-proposals" element={<IssuerProposals />} />
             <Route path="repayments" element={<Repayments />} />
             <Route path="documents" element={<Documents />} />
             <Route path="activity-log" element={<CorporateActivity />} />
+            <Route path="cm-applications" element={<CampaignManagerApplications />} />
+            <Route path="cm-proposals" element={<CampaignManagerProposals />} />
+            <Route path="cm-notes" element={<CampaignManagerNotes />} />
           </Route>
           <Route path="*" element={<Navigate to="/app/overview" replace />} />
         </Routes>

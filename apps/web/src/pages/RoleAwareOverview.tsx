@@ -3,6 +3,7 @@ import RetailOverview from "./retail/Overview";
 import CorporateOverview from "./corporate/Overview";
 import AdminOverview from "./admin/Overview";
 import IssuerOverview from "./issuer/Overview";
+import CampaignManagerOverview from "./campaignManager/Overview";
 import ComingSoon from "./ComingSoon";
 
 export default function RoleAwareOverview() {
@@ -12,5 +13,6 @@ export default function RoleAwareOverview() {
   if (effectiveRole === "corporate") return <CorporateOverview />;
   if (effectiveRole === "admin") return <AdminOverview />;
   if (effectiveRole === "issuer") return <IssuerOverview />;
+  if (effectiveRole === "campaign_manager") return <CampaignManagerOverview />;
   return <ComingSoon />;
 }

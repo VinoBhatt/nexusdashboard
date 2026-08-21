@@ -37,6 +37,14 @@ export function apiPut<T>(path: string, body: unknown): Promise<T> {
   });
 }
 
+export function apiPatch<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
 export function apiPostForm<T>(path: string, form: FormData): Promise<T> {
   return request<T>(path, { method: "POST", body: form });
 }

@@ -35,6 +35,7 @@ async function main() {
     { id: "user-corporate-demo", email: "treasury@abctreasury.demo", displayName: "ABC Treasury Sdn Bhd", role: "corporate" },
     { id: "user-admin-demo", email: "sarah.lim@cofundr.demo", displayName: "Datin Sarah Lim", role: "admin" },
     { id: "user-issuer-demo", email: "finance@sunwaybiz.demo", displayName: "Sunway Business Solutions", role: "issuer" },
+    { id: "user-campaign-manager-demo", email: "ops@cofundr.demo", displayName: "Kwoo Kah Kin", role: "campaign_manager" },
   ] as const;
 
   for (const u of demoUsers) {
@@ -405,6 +406,116 @@ async function main() {
     statements.push(
       `INSERT INTO metrics_snapshots (id, account_id, metric_key, snapshot_date, value) VALUES (${sqlStr(`snap-issuer-${i + 1}`)}, ${sqlStr(issuerUserId)}, 'issuer_outstanding', ${sqlStr(snapshotDate)}, ${sqlNum(v * 1000)});`
     );
+  }
+
+  // ---- Applications & Proposals (Campaign Manager demo) ----
+  // Three fresh applications from the issuer demo account, at three
+  // different points in the operator workflow: one still awaiting review
+  // (no proposal yet), one with a Drafted proposal (not yet visible to the
+  // issuer), and one Submitted (visible to the issuer as a real proposal,
+  // and the source of the "new proposal available" banner on their
+  // Overview). All stay `Pending Review` at the facility level - only a
+  // Launched proposal flips the facility to Open.
+  const campaignManagerId = "user-campaign-manager-demo";
+  const demoApplications = [
+    {
+      id: "APP-2026-101",
+      productFamily: "Invoice Financing (Receivables)",
+      islamic: "Islamic" as const,
+      amount: 220000,
+      tenor: 90,
+      purpose: "Bridge financing against a confirmed purchase order from a regional retail chain.",
+      businessInfo: {
+        businessInsurance: "Yes",
+        otherP2PFinancing: "No",
+        annualSales: 4200000,
+        employeeCount: 38,
+        clientCount: 14,
+        documents: {
+          craConsent: "cra-consent-signed.pdf",
+          declaration: "declaration-stamped.pdf",
+          statutoryForm: "statutory-form.pdf",
+          bankStatements: "bank-statements-6mo.pdf",
+          auditedFinancials: "audited-financials-fy2025.pdf",
+          managementAccount: "management-account.pdf",
+          supplierList: "supplier-list.xlsx",
+          customerList: "customer-list.xlsx",
+          specificFinanceDoc: "purchase-order-award.pdf",
+        },
+      },
+      proposal: null,
+    },
+    {
+      id: "APP-2026-102",
+      productFamily: "Working Capital",
+      islamic: "Conventional" as const,
+      amount: 180000,
+      tenor: 120,
+      purpose: "General working capital to support seasonal inventory build-up.",
+      businessInfo: {
+        businessInsurance: "No",
+        otherP2PFinancing: "No",
+        annualSales: 2600000,
+        employeeCount: 22,
+        clientCount: 9,
+        documents: {
+          craConsent: "cra-consent-signed.pdf",
+          declaration: "declaration-stamped.pdf",
+          statutoryForm: "statutory-form.pdf",
+          bankStatements: "bank-statements-6mo.pdf",
+          auditedFinancials: "audited-financials-fy2025.pdf",
+          managementAccount: "management-account.pdf",
+          supplierList: "supplier-list.xlsx",
+          customerList: "customer-list.xlsx",
+        },
+      },
+      proposal: { id: "CWC2091-14082026", status: "Drafted" as const, riskMethod: null, riskValue: null, securities: [] as string[] },
+    },
+    {
+      id: "APP-2026-103",
+      productFamily: "Invoice Financing (Purchases)",
+      islamic: "Islamic" as const,
+      amount: 95000,
+      tenor: 60,
+      purpose: "Early payment to key suppliers to secure a volume discount.",
+      businessInfo: {
+        businessInsurance: "Yes",
+        otherP2PFinancing: "Yes",
+        annualSales: 1850000,
+        employeeCount: 16,
+        clientCount: 27,
+        documents: {
+          craConsent: "cra-consent-signed.pdf",
+          declaration: "declaration-stamped.pdf",
+          statutoryForm: "statutory-form.pdf",
+          bankStatements: "bank-statements-6mo.pdf",
+          auditedFinancials: "audited-financials-fy2025.pdf",
+          managementAccount: "management-account.pdf",
+          supplierList: "supplier-list.xlsx",
+          customerList: "customer-list.xlsx",
+          specificFinanceDoc: "supplier-invoices.pdf",
+        },
+      },
+      proposal: {
+        id: "IIF2090-12082026",
+        status: "Submitted" as const,
+        riskMethod: "Payment Risk Rating",
+        riskValue: "B",
+        securities: ["Joint and Several Directors' Guarantee (JSG)"],
+      },
+    },
+  ];
+
+  for (const app of demoApplications) {
+    statements.push(
+      `INSERT INTO financing_facilities (id, issuer_user_id, product_group, financing_type, risk_tier, rate_pct, tenor_days, days_elapsed, min_investment, max_investment, funding_progress_pct, principal_amount, service_fee_pct, issuer_name, status, repayment_structure, islamic_conventional, purpose, business_info_json, created_at) VALUES (${sqlStr(app.id)}, ${sqlStr(issuerUserId)}, ${sqlStr(app.productFamily)}, ${sqlStr(app.productFamily)}, 'B', 8, ${sqlNum(app.tenor)}, 0, 100, ${sqlNum(app.amount)}, 0, ${sqlNum(app.amount)}, 8, 'Sunway Business Solutions', 'Pending Review', 'Bullet Principal, Monthly Profit', ${sqlStr(app.islamic)}, ${sqlStr(app.purpose)}, ${sqlStr(JSON.stringify(app.businessInfo))}, ${sqlTs(now)});`
+    );
+
+    if (app.proposal) {
+      statements.push(
+        `INSERT INTO proposals (id, facility_id, prepared_by, status, risk_method, risk_value, securities_json, created_at${app.proposal.status === "Submitted" ? ", submitted_at" : ""}) VALUES (${sqlStr(app.proposal.id)}, ${sqlStr(app.id)}, ${sqlStr(campaignManagerId)}, ${sqlStr(app.proposal.status)}, ${sqlStr(app.proposal.riskMethod)}, ${sqlStr(app.proposal.riskValue)}, ${sqlStr(JSON.stringify(app.proposal.securities))}, ${sqlTs(now)}${app.proposal.status === "Submitted" ? `, ${sqlTs(now)}` : ""});`
+      );
+    }
   }
 
   // ---- Platform AUM trend (admin overview chart) ----

@@ -2,7 +2,7 @@ import { createContext, useContext, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPost } from "../lib/api";
 
-export type Role = "retail" | "corporate" | "admin" | "issuer";
+export type Role = "retail" | "corporate" | "admin" | "issuer" | "campaign_manager";
 
 export interface SessionUser {
   id: string;

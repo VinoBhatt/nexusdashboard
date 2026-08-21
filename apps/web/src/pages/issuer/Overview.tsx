@@ -18,6 +18,12 @@ interface Facility {
   status: string;
   principalAmount: number;
 }
+interface RepaymentAlert {
+  facilityId: string;
+  dueDate: string;
+  amount: number;
+  daysUntilDue: number;
+}
 interface Overview {
   profile: Profile;
   outstanding: number;
@@ -26,6 +32,8 @@ interface Overview {
   activeFacilities: number;
   nextDue: { amount: number; dueDate: string; facilityId: string } | null;
   facilities: Facility[];
+  repaymentAlerts: RepaymentAlert[];
+  pendingProposalsCount: number;
 }
 
 export default function IssuerOverview() {
@@ -49,6 +57,36 @@ export default function IssuerOverview() {
           </Link>
         }
       />
+
+      {data.repaymentAlerts.length > 0 && (
+        <div className="banner-notice danger" style={{ marginBottom: 16 }}>
+          <div>
+            <b>Repayment Centre</b>
+            <div className="sub">
+              {data.repaymentAlerts.length} repayment{data.repaymentAlerts.length === 1 ? "" : "s"} require attention -{" "}
+              {data.repaymentAlerts.filter((a) => a.daysUntilDue < 0).length} overdue,{" "}
+              {data.repaymentAlerts.filter((a) => a.daysUntilDue >= 0).length} due within 3 days.
+            </div>
+          </div>
+          <Link className="btn warn" to="/app/repayments">
+            View Due / Late Notes
+          </Link>
+        </div>
+      )}
+
+      {data.pendingProposalsCount > 0 && (
+        <div className="banner-notice" style={{ marginBottom: 16 }}>
+          <div>
+            <b>Action Required</b>
+            <div className="sub">
+              {data.pendingProposalsCount} new financing proposal{data.pendingProposalsCount === 1 ? "" : "s"} from Cofundr {data.pendingProposalsCount === 1 ? "is" : "are"} available for you to view.
+            </div>
+          </div>
+          <Link className="btn primary" to="/app/issuer-proposals">
+            View Proposals
+          </Link>
+        </div>
+      )}
 
       <div className="banner">
         <div className="banner-inner">

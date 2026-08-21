@@ -8,6 +8,7 @@ export const DEMO_ACCOUNTS = {
   corporateChecker: "checker@abctreasury.demo",
   admin: "sarah.lim@cofundr.demo",
   issuer: "finance@sunwaybiz.demo",
+  campaignManager: "ops@cofundr.demo",
 } as const;
 
 /** The login page only exposes the 4 primary demo buttons now (no free-text

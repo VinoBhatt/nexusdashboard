@@ -12,6 +12,7 @@ import exportRouter from "./routes/export";
 import corporate from "./routes/corporate";
 import admin from "./routes/admin";
 import issuer from "./routes/issuer";
+import campaignManager from "./routes/campaignManager";
 import { handleScheduled } from "./scheduled";
 
 export interface Env {
@@ -34,6 +35,7 @@ app.route("/api/export", exportRouter);
 app.route("/api/corporate", corporate);
 app.route("/api/admin", admin);
 app.route("/api/issuer", issuer);
+app.route("/api/campaign-manager", campaignManager);
 
 app.notFound((c) => c.json({ error: "not_found" }, 404));
 

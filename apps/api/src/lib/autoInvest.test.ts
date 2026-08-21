@@ -25,6 +25,10 @@ function makeFacility(overrides: Partial<Parameters<typeof matchesRule>[1]> = {}
     campaignStart: null,
     campaignEnd: null,
     repaymentStructure: "Bullet Principal, Monthly Profit" as const,
+    islamicConventional: null,
+    counterpartyName: null,
+    counterpartyRegistration: null,
+    businessInfoJson: null,
     createdAt: new Date(),
     ...overrides,
   };

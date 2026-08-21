@@ -9,7 +9,7 @@ import { sql } from "drizzle-orm";
 // metrics_snapshots. Corporate/admin/issuer-specific tables
 // (corporate_accounts, orders, issuer_profiles, ...) land in later phases.
 
-export const roles = ["retail", "corporate", "admin", "issuer"] as const;
+export const roles = ["retail", "corporate", "admin", "issuer", "campaign_manager"] as const;
 export type Role = (typeof roles)[number];
 
 const id = () => text("id").primaryKey();
@@ -121,7 +121,7 @@ export const financingFacilities = sqliteTable("financing_facilities", {
   principalAmount: real("principal_amount").notNull(),
   serviceFeePct: real("service_fee_pct").notNull().default(0),
   issuerName: text("issuer_name").notNull(),
-  status: text("status", { enum: ["Pending Review", "Open", "Ongoing", "Completed", "Default", "Rejected"] })
+  status: text("status", { enum: ["Draft", "Pending Review", "Open", "Ongoing", "Completed", "Default", "Rejected"] })
     .notNull()
     .default("Open"),
   purpose: text("purpose"),
@@ -135,6 +135,14 @@ export const financingFacilities = sqliteTable("financing_facilities", {
   })
     .notNull()
     .default("Bullet Principal, Monthly Profit"),
+  // ---- Application detail (Phase: Issuer Portal / Campaign Manager parity) ----
+  islamicConventional: text("islamic_conventional", { enum: ["Islamic", "Conventional"] }),
+  counterpartyName: text("counterparty_name"),
+  counterpartyRegistration: text("counterparty_registration"),
+  // { businessInsurance, otherP2PFinancing, annualSales, employeeCount, clientCount } -
+  // denormalized JSON, mirrors the documents table's metadata-only pattern rather
+  // than a new normalized table for a handful of application-intake answers.
+  businessInfoJson: text("business_info_json"),
   ...timestamps,
 });
 
@@ -418,4 +426,43 @@ export const issuerProfiles = sqliteTable("issuer_profiles", {
   kybStatus: text("kyb_status").notNull().default("Pending"),
   availableLine: real("available_line").notNull().default(0),
   onTimeRate: real("on_time_rate").notNull().default(100),
+});
+
+// ---- Campaign Manager / Platform Operator: proposal lifecycle (Functional
+// Handbook v1.0 s.2.1/4.3) - deliberately separate from `approvals` (which
+// remains the KYC/KYB/note-listing compliance queue). A proposal is the
+// commercial-terms package an operator prepares against a facility the
+// issuer already applied for; financing amount/tenor/rate/repayment
+// structure stay on financingFacilities (single source of truth for the
+// repayment-schedule generator) - this table only holds the proposal-
+// specific risk/security/fee/launch fields layered on top.
+export const proposals = sqliteTable("proposals", {
+  id: id(), // e.g. IIF2075-16072026 - product prefix + sequence + creation date
+  facilityId: text("facility_id")
+    .notNull()
+    .references(() => financingFacilities.id),
+  preparedBy: text("prepared_by")
+    .notNull()
+    .references(() => users.id),
+  status: text("status", { enum: ["Drafted", "Submitted", "Scheduled", "Launched"] }).notNull().default("Drafted"),
+  riskMethod: text("risk_method"),
+  riskValue: text("risk_value"),
+  securitiesJson: text("securities_json"),
+  corporateGuaranteeSource: text("corporate_guarantee_source"),
+  corporateGuaranteeOther: text("corporate_guarantee_other"),
+  collateralDetails: text("collateral_details"),
+  otherSecurityDetails: text("other_security_details"),
+  processingFee: real("processing_fee").notNull().default(0),
+  platformFee: real("platform_fee").notNull().default(0),
+  documentsJson: text("documents_json"),
+  noteName: text("note_name"),
+  noteMessage: text("note_message"),
+  recallReason: text("recall_reason"),
+  promotionalStart: integer("promotional_start", { mode: "timestamp" }),
+  launchStart: integer("launch_start", { mode: "timestamp" }),
+  launchEnd: integer("launch_end", { mode: "timestamp" }),
+  ...timestamps,
+  submittedAt: integer("submitted_at", { mode: "timestamp" }),
+  scheduledAt: integer("scheduled_at", { mode: "timestamp" }),
+  launchedAt: integer("launched_at", { mode: "timestamp" }),
 });

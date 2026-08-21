@@ -7,6 +7,7 @@ const DEMO_ACCOUNTS = [
   { role: "corporate", email: "treasury@abctreasury.demo", label: "Corporate Investor - Maker", sub: "Proposes orders, deposits & investments" },
   { role: "corporate", email: "checker@abctreasury.demo", label: "Corporate Investor - Checker", sub: "Approves or rejects pending orders" },
   { role: "issuer", email: "finance@sunwaybiz.demo", label: "Issuer / Borrower", sub: "Financing & repayments" },
+  { role: "campaign_manager", email: "ops@cofundr.demo", label: "Campaign Manager", sub: "Reviews applications & launches notes" },
   { role: "admin", email: "sarah.lim@cofundr.demo", label: "CEO / Admin", sub: "Platform oversight" },
 ] as const;
 
