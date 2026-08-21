@@ -389,6 +389,7 @@ export const orders = sqliteTable("orders", {
     .default("Allocation"),
   facilityId: text("facility_id").references(() => financingFacilities.id),
   reason: text("reason"),
+  decisionNote: text("decision_note"),
   status: text("status", { enum: ["Pending Checker", "Approved", "Rejected"] })
     .notNull()
     .default("Pending Checker"),

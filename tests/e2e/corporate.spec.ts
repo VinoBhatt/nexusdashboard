@@ -24,9 +24,11 @@ test.describe("Corporate maker/checker", () => {
 
     await login(checkerPage, DEMO_ACCOUNTS.corporateChecker);
     await expect(checkerPage.getByText("Signed in as Checker")).toBeVisible();
+    // The checker sees a prominent callout naming what's waiting on them.
+    await expect(checkerPage.getByText(/awaiting your approval/)).toBeVisible();
     await checkerPage.reload();
 
-    await checkerPage.locator(".list-item", { hasText: "Allocation" }).first().getByRole("button", { name: "Approve" }).click();
+    await checkerPage.locator("table tr", { hasText: "Allocation" }).first().getByRole("button", { name: "Approve" }).click();
     // ConfirmDialog renders a plain .modal.show div, not a native <dialog>.
     await checkerPage.locator(".modal.show").getByRole("button", { name: "Approve" }).click();
     await expect(checkerPage.locator("#toast")).toContainText("Order approved");
@@ -49,7 +51,7 @@ test.describe("Corporate maker/checker", () => {
 
     await login(checkerPage, DEMO_ACCOUNTS.corporateChecker);
     await checkerPage.getByRole("link", { name: "Overview", exact: true }).click();
-    await checkerPage.locator(".list-item", { hasText: "Investment" }).first().getByRole("button", { name: "Approve" }).click();
+    await checkerPage.locator("table tr", { hasText: "Investment" }).first().getByRole("button", { name: "Approve" }).click();
     await checkerPage.locator(".modal.show").getByRole("button", { name: "Approve" }).click();
     await expect(checkerPage.locator("#toast")).toContainText("Order approved");
 
@@ -76,14 +78,18 @@ test.describe("Corporate maker/checker", () => {
 
     await login(checkerPage, DEMO_ACCOUNTS.corporateChecker);
     await checkerPage.getByRole("link", { name: "Overview", exact: true }).click();
-    await checkerPage.locator(".list-item", { hasText: "Withdrawal" }).first().getByRole("button", { name: "Reject" }).click();
-    await checkerPage.locator(".modal.show").getByRole("button", { name: "Reject" }).click();
+    await checkerPage.locator("table tr", { hasText: "Withdrawal" }).first().getByRole("button", { name: "Reject" }).click();
+    await checkerPage.locator(".modal.show textarea").fill("Treasury needs this cash for an upcoming repayment obligation.");
+    await checkerPage.locator(".modal.show").getByRole("button", { name: "Reject Order" }).click();
     await expect(checkerPage.locator("#toast")).toContainText("Order rejected");
+    // The rejection reason is visible to both roles in the queue, not just logged silently.
+    await expect(checkerPage.locator("table tr", { hasText: "Withdrawal" }).first()).toContainText("upcoming repayment obligation");
 
     await makerPage.getByRole("link", { name: "Overview", exact: true }).click();
     await makerPage.reload();
     const cashAfter = parseMoney(await makerPage.locator(".chip", { hasText: "Treasury cash" }).locator("strong").innerText());
     expect(cashAfter).toBe(cashBefore);
+    await expect(makerPage.locator("table tr", { hasText: "Withdrawal" }).first()).toContainText("upcoming repayment obligation");
 
     await makerCtx.close();
     await checkerCtx.close();
@@ -120,6 +126,16 @@ test.describe("Corporate maker/checker", () => {
     const approveAttempt = await apiFetch(page, `/api/corporate/orders/${id}/approve`, { method: "POST" });
     expect(approveAttempt.status).toBe(403);
     expect(approveAttempt.body).toContain("Only the Checker can approve orders");
+  });
+
+  test("the Activity Log shows who created and decided each order", async ({ page }) => {
+    await login(page, DEMO_ACCOUNTS.corporateMaker);
+    await page.getByRole("link", { name: "Activity Log", exact: true }).click();
+    await expect(page.locator("table tr", { hasText: "ORD-2039" }).filter({ hasText: "Approved" })).toBeVisible();
+    await expect(page.locator("table tr", { hasText: "ORD-2039" }).filter({ hasText: "Created" })).toBeVisible();
+    const rejectedRow = page.locator("table tr", { hasText: "ORD-2040" }).filter({ hasText: "Rejected" });
+    await expect(rejectedRow).toBeVisible();
+    await expect(rejectedRow).toContainText("rebalancing budget");
   });
 
   test("the checker demo persona is reachable from the login screen", async ({ page }) => {

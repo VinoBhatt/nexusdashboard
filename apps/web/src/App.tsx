@@ -21,6 +21,7 @@ import RiskApprovals from "./pages/admin/RiskApprovals";
 import Financing from "./pages/issuer/Financing";
 import Repayments from "./pages/issuer/Repayments";
 import Documents from "./pages/issuer/Documents";
+import CorporateActivity from "./pages/corporate/Activity";
 
 export default function App() {
   return (
@@ -49,6 +50,7 @@ export default function App() {
             <Route path="financing" element={<Financing />} />
             <Route path="repayments" element={<Repayments />} />
             <Route path="documents" element={<Documents />} />
+            <Route path="activity-log" element={<CorporateActivity />} />
           </Route>
           <Route path="*" element={<Navigate to="/app/overview" replace />} />
         </Routes>

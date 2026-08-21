@@ -301,8 +301,33 @@ async function main() {
     `INSERT INTO orders (id, corporate_account_id, subwallet_id, amount, status, created_by, approved_by, created_at, decided_at) VALUES ('ORD-2039', ${sqlStr(corpAccountId)}, 'wallet-high-yield', 40000, 'Approved', ${sqlStr(corpMakerId)}, ${sqlStr(corpCheckerId)}, ${sqlTs(now)}, ${sqlTs(now)});`
   );
   statements.push(
-    `INSERT INTO orders (id, corporate_account_id, subwallet_id, amount, status, created_by, approved_by, created_at, decided_at) VALUES ('ORD-2040', ${sqlStr(corpAccountId)}, 'wallet-client-fund-b', 60000, 'Rejected', ${sqlStr(corpMakerId)}, ${sqlStr(corpCheckerId)}, ${sqlTs(now)}, ${sqlTs(now)});`
+    `INSERT INTO orders (id, corporate_account_id, subwallet_id, amount, status, created_by, approved_by, decision_note, created_at, decided_at) VALUES ('ORD-2040', ${sqlStr(corpAccountId)}, 'wallet-client-fund-b', 60000, 'Rejected', ${sqlStr(corpMakerId)}, ${sqlStr(corpCheckerId)}, ${sqlStr("Amount exceeds this quarter's rebalancing budget for Client Fund B.")}, ${sqlTs(now)}, ${sqlTs(now)});`
   );
+
+  // Activity log entries mirroring the order history above, so the new
+  // Activity Log page has real data to show on first login too.
+  const corpActivityDefs = [
+    { id: "audit-corp-1", actor: corpMakerUserId, action: "corporate_order_created", orderId: "ORD-2039", type: "Allocation", amount: 40000, note: null },
+    { id: "audit-corp-2", actor: corpCheckerUserId, action: "corporate_order_approved", orderId: "ORD-2039", type: "Allocation", amount: 40000, note: null },
+    { id: "audit-corp-3", actor: corpMakerUserId, action: "corporate_order_created", orderId: "ORD-2040", type: "Allocation", amount: 60000, note: null },
+    {
+      id: "audit-corp-4",
+      actor: corpCheckerUserId,
+      action: "corporate_order_rejected",
+      orderId: "ORD-2040",
+      type: "Allocation",
+      amount: 60000,
+      note: "Amount exceeds this quarter's rebalancing budget for Client Fund B.",
+    },
+    { id: "audit-corp-5", actor: corpMakerUserId, action: "corporate_order_created", orderId: "ORD-2041", type: "Allocation", amount: 75000, note: null },
+    { id: "audit-corp-6", actor: corpMakerUserId, action: "corporate_order_created", orderId: "ORD-2042", type: "Allocation", amount: 52000, note: null },
+  ];
+  for (const a of corpActivityDefs) {
+    const metadata = JSON.stringify({ corporateAccountId: corpAccountId, type: a.type, amount: a.amount, note: a.note });
+    statements.push(
+      `INSERT INTO audit_log (id, actor_id, action, subject_type, subject_id, metadata_json, created_at) VALUES (${sqlStr(a.id)}, ${sqlStr(a.actor)}, ${sqlStr(a.action)}, 'order', ${sqlStr(a.orderId)}, ${sqlStr(metadata)}, ${sqlTs(now)});`
+    );
+  }
 
   // A real corporate holding so On-Going Notes / Account Balance / Statements
   // aren't empty on first login - shares the same note as the retail demo's

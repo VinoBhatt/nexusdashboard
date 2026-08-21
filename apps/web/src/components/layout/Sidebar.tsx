@@ -138,6 +138,7 @@ const NAV_BY_ROLE: Record<Role, { to: string; label: string; icon: string }[]> =
     { to: "account-balance", label: "Account Balance", icon: "balance" },
     { to: "statements", label: "Statements", icon: "statements" },
     { to: "alerts", label: "Alerts", icon: "alerts" },
+    { to: "activity-log", label: "Activity Log", icon: "documents" },
   ],
   admin: [
     { to: "overview", label: "Overview", icon: "grid" },

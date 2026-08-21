@@ -1,8 +1,9 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { drizzle } from "drizzle-orm/d1";
-import { eq, desc } from "drizzle-orm";
-import { subwallets, orders, corporateUsers, users, metricsSnapshots, financingFacilities, holdings, transactions, corporateAccounts } from "../db/schema";
+import { eq, desc, inArray } from "drizzle-orm";
+import { alias } from "drizzle-orm/sqlite-core";
+import { subwallets, orders, corporateUsers, users, metricsSnapshots, financingFacilities, holdings, transactions, corporateAccounts, auditLog } from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
 import { resolveCorporateContext, getCorporateAccount } from "../auth/corporateContext";
@@ -10,14 +11,13 @@ import { resolveCorporateContext, getCorporateAccount } from "../auth/corporateC
 const corporate = new Hono<AuthedEnv>();
 corporate.use("*", requireAuth, requireRole("corporate"));
 
-corporate.get("/overview", async (c) => {
-  const db = drizzle(c.env.DB);
-  const ctx = await resolveCorporateContext(c.env.DB, c.get("user").id);
-  if (!ctx) return c.json({ error: "not_found" }, 404);
+const makerCorpUsers = alias(corporateUsers, "maker_corp_users");
+const makerUsers = alias(users, "maker_users");
+const checkerCorpUsers = alias(corporateUsers, "checker_corp_users");
+const checkerUsers = alias(users, "checker_users");
 
-  const account = await getCorporateAccount(c.env.DB, ctx.corporateAccountId);
-  const wallets = await db.select().from(subwallets).where(eq(subwallets.corporateAccountId, ctx.corporateAccountId));
-  const orderRows = await db
+async function loadOrders(db: ReturnType<typeof drizzle>, corporateAccountId: string) {
+  return db
     .select({
       id: orders.id,
       amount: orders.amount,
@@ -26,14 +26,46 @@ corporate.get("/overview", async (c) => {
       subwalletId: orders.subwalletId,
       facilityId: orders.facilityId,
       reason: orders.reason,
-      makerEmail: users.email,
+      decisionNote: orders.decisionNote,
+      makerEmail: makerUsers.email,
+      checkerEmail: checkerUsers.email,
       createdAt: orders.createdAt,
+      decidedAt: orders.decidedAt,
     })
     .from(orders)
-    .innerJoin(corporateUsers, eq(orders.createdBy, corporateUsers.id))
-    .innerJoin(users, eq(corporateUsers.userId, users.id))
-    .where(eq(orders.corporateAccountId, ctx.corporateAccountId))
+    .innerJoin(makerCorpUsers, eq(orders.createdBy, makerCorpUsers.id))
+    .innerJoin(makerUsers, eq(makerCorpUsers.userId, makerUsers.id))
+    .leftJoin(checkerCorpUsers, eq(orders.approvedBy, checkerCorpUsers.id))
+    .leftJoin(checkerUsers, eq(checkerCorpUsers.userId, checkerUsers.id))
+    .where(eq(orders.corporateAccountId, corporateAccountId))
     .orderBy(desc(orders.createdAt));
+}
+
+async function logOrderEvent(
+  db: ReturnType<typeof drizzle>,
+  actorId: string,
+  action: "corporate_order_created" | "corporate_order_approved" | "corporate_order_rejected",
+  order: { id: string; corporateAccountId: string; type: string; amount: number },
+  note?: string | null
+) {
+  await db.insert(auditLog).values({
+    id: crypto.randomUUID(),
+    actorId,
+    action,
+    subjectType: "order",
+    subjectId: order.id,
+    metadataJson: JSON.stringify({ corporateAccountId: order.corporateAccountId, type: order.type, amount: order.amount, note: note ?? null }),
+  });
+}
+
+corporate.get("/overview", async (c) => {
+  const db = drizzle(c.env.DB);
+  const ctx = await resolveCorporateContext(c.env.DB, c.get("user").id);
+  if (!ctx) return c.json({ error: "not_found" }, 404);
+
+  const account = await getCorporateAccount(c.env.DB, ctx.corporateAccountId);
+  const wallets = await db.select().from(subwallets).where(eq(subwallets.corporateAccountId, ctx.corporateAccountId));
+  const orderRows = await loadOrders(db, ctx.corporateAccountId);
 
   return c.json({ account, subwallets: wallets, orders: orderRows, myCorpRole: ctx.corpRole });
 });
@@ -54,24 +86,39 @@ corporate.get("/orders", async (c) => {
   const db = drizzle(c.env.DB);
   const ctx = await resolveCorporateContext(c.env.DB, c.get("user").id);
   if (!ctx) return c.json({ error: "not_found" }, 404);
+  const rows = await loadOrders(db, ctx.corporateAccountId);
+  return c.json({ orders: rows, myCorpRole: ctx.corpRole });
+});
+
+// Activity log: every create/approve/reject on this account's orders, newest
+// first, with the acting person's identity - gives both the Maker and the
+// Checker a shared audit trail of who did what and when, not just the
+// current status of each order.
+corporate.get("/activity", async (c) => {
+  const db = drizzle(c.env.DB);
+  const ctx = await resolveCorporateContext(c.env.DB, c.get("user").id);
+  if (!ctx) return c.json({ error: "not_found" }, 404);
+
+  const orderRows = await db.select({ id: orders.id }).from(orders).where(eq(orders.corporateAccountId, ctx.corporateAccountId));
+  const orderIds = orderRows.map((o) => o.id);
+  if (orderIds.length === 0) return c.json({ activity: [] });
+
   const rows = await db
     .select({
-      id: orders.id,
-      amount: orders.amount,
-      status: orders.status,
-      type: orders.type,
-      subwalletId: orders.subwalletId,
-      facilityId: orders.facilityId,
-      reason: orders.reason,
-      makerEmail: users.email,
-      createdAt: orders.createdAt,
+      id: auditLog.id,
+      action: auditLog.action,
+      subjectId: auditLog.subjectId,
+      metadataJson: auditLog.metadataJson,
+      actorEmail: users.email,
+      createdAt: auditLog.createdAt,
     })
-    .from(orders)
-    .innerJoin(corporateUsers, eq(orders.createdBy, corporateUsers.id))
-    .innerJoin(users, eq(corporateUsers.userId, users.id))
-    .where(eq(orders.corporateAccountId, ctx.corporateAccountId))
-    .orderBy(desc(orders.createdAt));
-  return c.json({ orders: rows, myCorpRole: ctx.corpRole });
+    .from(auditLog)
+    .innerJoin(users, eq(auditLog.actorId, users.id))
+    .where(inArray(auditLog.subjectId, orderIds))
+    .orderBy(desc(auditLog.createdAt))
+    .limit(100);
+
+  return c.json({ activity: rows });
 });
 
 const createOrderSchema = z.object({
@@ -131,13 +178,18 @@ corporate.post("/orders", async (c) => {
     status: "Pending Checker",
     createdBy: ctx.corpUserId,
   });
+  await logOrderEvent(db, c.get("user").id, "corporate_order_created", { id, corporateAccountId: ctx.corporateAccountId, type, amount });
   return c.json({ ok: true, id }, 201);
 });
+
+const decisionSchema = z.object({ note: z.string().max(500).optional() });
 
 corporate.post("/orders/:id/approve", async (c) => {
   const ctx = await resolveCorporateContext(c.env.DB, c.get("user").id);
   if (!ctx) return c.json({ error: "not_found" }, 404);
   if (ctx.corpRole !== "checker") return c.json({ error: "forbidden", message: "Only the Checker can approve orders." }, 403);
+  const parsed = decisionSchema.safeParse(await c.req.json().catch(() => ({})));
+  const note = parsed.success ? parsed.data.note : undefined;
 
   const db = drizzle(c.env.DB);
   const rows = await db.select().from(orders).where(eq(orders.id, c.req.param("id"))).limit(1);
@@ -210,7 +262,11 @@ corporate.post("/orders/:id/approve", async (c) => {
     });
   }
 
-  await db.update(orders).set({ status: "Approved", approvedBy: ctx.corpUserId, decidedAt: new Date() }).where(eq(orders.id, order.id));
+  await db
+    .update(orders)
+    .set({ status: "Approved", approvedBy: ctx.corpUserId, decidedAt: new Date(), decisionNote: note ?? null })
+    .where(eq(orders.id, order.id));
+  await logOrderEvent(db, c.get("user").id, "corporate_order_approved", order, note);
   return c.json({ ok: true });
 });
 
@@ -218,6 +274,8 @@ corporate.post("/orders/:id/reject", async (c) => {
   const ctx = await resolveCorporateContext(c.env.DB, c.get("user").id);
   if (!ctx) return c.json({ error: "not_found" }, 404);
   if (ctx.corpRole !== "checker") return c.json({ error: "forbidden", message: "Only the Checker can reject orders." }, 403);
+  const parsed = decisionSchema.safeParse(await c.req.json().catch(() => ({})));
+  const note = parsed.success ? parsed.data.note : undefined;
 
   const db = drizzle(c.env.DB);
   const rows = await db.select().from(orders).where(eq(orders.id, c.req.param("id"))).limit(1);
@@ -225,7 +283,11 @@ corporate.post("/orders/:id/reject", async (c) => {
   if (!order || order.corporateAccountId !== ctx.corporateAccountId) return c.json({ error: "not_found" }, 404);
   if (order.status !== "Pending Checker") return c.json({ error: "already_decided" }, 409);
 
-  await db.update(orders).set({ status: "Rejected", approvedBy: ctx.corpUserId, decidedAt: new Date() }).where(eq(orders.id, order.id));
+  await db
+    .update(orders)
+    .set({ status: "Rejected", approvedBy: ctx.corpUserId, decidedAt: new Date(), decisionNote: note ?? null })
+    .where(eq(orders.id, order.id));
+  await logOrderEvent(db, c.get("user").id, "corporate_order_rejected", order, note);
   return c.json({ ok: true });
 });
 
