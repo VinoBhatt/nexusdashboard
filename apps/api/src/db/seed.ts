@@ -131,6 +131,23 @@ async function main() {
     `INSERT INTO repayment_installments (id, facility_id, installment_no, due_date, principal_due, profit_due, fee_due, status) VALUES (${sqlStr(`${writtenOffFacilityId}-1`)}, ${sqlStr(writtenOffFacilityId)}, 1, ${sqlStr("2026-05-08")}, ${sqlNum(0)}, ${sqlNum(0.08)}, ${sqlNum(0.01)}, ${sqlStr("Defaulted")});`
   );
 
+  // Completed facilities settle their single bullet installment in full -
+  // real, non-trivial Paid history so Platform Revenue (profit share + fees
+  // actually collected) isn't near-zero on a fresh demo.
+  const completedFacilityDefs = [
+    { id: "MBSG-25080014", principal: 27300, rate: 6, tenor: 30 },
+    { id: "MBSG-25080015", principal: 14000, rate: 6, tenor: 30 },
+    { id: "MBSG-25080016", principal: 40200, rate: 8, tenor: 30 },
+    { id: "MBSG-25080017", principal: 12700, rate: 6, tenor: 30 },
+  ];
+  for (const f of completedFacilityDefs) {
+    const profit = +((f.principal * f.rate * f.tenor) / 100 / 365).toFixed(2);
+    const fee = +(profit * 0.12).toFixed(2);
+    statements.push(
+      `INSERT INTO repayment_installments (id, facility_id, installment_no, due_date, principal_due, profit_due, fee_due, status) VALUES (${sqlStr(`${f.id}-1`)}, ${sqlStr(f.id)}, 1, '2026-07-17', ${sqlNum(f.principal)}, ${sqlNum(profit)}, ${sqlNum(fee)}, 'Paid');`
+    );
+  }
+
   // ---- Retail holdings (from legacy state.holdings) ----
   const holdings = [
     { id: "holding-1", facility: "MBIBG-26070005", status: "Ongoing", invested: 100, expected: 110.50, actual: 0.58, eligible: true },

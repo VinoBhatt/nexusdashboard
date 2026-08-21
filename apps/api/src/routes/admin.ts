@@ -13,11 +13,14 @@ import {
   metricsSnapshots,
   alerts,
   auditLog,
+  holdings,
 } from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
 import { runAutoInvestForNewFacility } from "../lib/autoInvest";
 import { generateRepaymentSchedule } from "../lib/repaymentSchedule";
+import { generateTextPdf } from "../lib/pdf";
+import { toCsv, csvResponse } from "../lib/csv";
 
 const decidedByUsers = alias(users, "decided_by_users");
 
@@ -38,9 +41,22 @@ admin.get("/overview", async (c) => {
   const [investorCount] = await db.select({ n: sql<number>`count(*)` }).from(investorProfiles);
   const [corpCount] = await db.select({ n: sql<number>`count(*)` }).from(corporateAccounts);
   const [pending] = await db.select({ n: sql<number>`count(*)` }).from(approvals).where(eq(approvals.status, "Pending"));
+  const [ticketAgg] = await db.select({ avgTicket: sql<number>`coalesce(avg(${holdings.amountInvested}),0)` }).from(holdings);
+  const [installmentAgg] = await db
+    .select({
+      paid: sql<number>`count(case when ${repaymentInstallments.status}='Paid' then 1 end)`,
+      overdue: sql<number>`count(case when ${repaymentInstallments.status}='Overdue' then 1 end)`,
+      defaulted: sql<number>`count(case when ${repaymentInstallments.status}='Defaulted' then 1 end)`,
+    })
+    .from(repaymentInstallments);
 
   const totalAUM = facilityAgg.totalPrincipal;
   const defaultRate = totalAUM > 0 ? (facilityAgg.defaultedAmount / totalAUM) * 100 : 0;
+  const decidedInstallments = installmentAgg.paid + installmentAgg.overdue + installmentAgg.defaulted;
+  // Share of installments that have actually come due and were paid on time
+  // (excludes ones still Upcoming, which haven't been tested yet) - a real
+  // repayment-collection metric, not just a restated default rate.
+  const collectionRate = decidedInstallments > 0 ? (installmentAgg.paid / decidedInstallments) * 100 : 100;
 
   return c.json({
     totalAUM,
@@ -50,6 +66,8 @@ admin.get("/overview", async (c) => {
     activeInvestors: investorCount.n + corpCount.n,
     activeIssuers: facilityAgg.issuerCount,
     pendingApprovals: pending.n,
+    avgTicketSize: ticketAgg.avgTicket,
+    collectionRate,
   });
 });
 
@@ -137,6 +155,87 @@ admin.get("/risk-by-sector", async (c) => {
     .map((r) => ({ name: r.sector, value: Math.round((r.total / grand) * 100) }))
     .sort((a, b) => b.value - a.value);
   return c.json({ sectors });
+});
+
+const PIPELINE_STAGES = ["Pending Review", "Open", "Ongoing", "Completed", "Default", "Rejected"] as const;
+
+// The financing funnel: how many facilities (and how much principal) sit at
+// each stage from application through to completion or default - not
+// visible anywhere else on the platform today.
+admin.get("/pipeline", async (c) => {
+  const db = drizzle(c.env.DB);
+  const rows = await db
+    .select({
+      status: financingFacilities.status,
+      count: sql<number>`count(*)`,
+      principal: sql<number>`coalesce(sum(${financingFacilities.principalAmount}),0)`,
+    })
+    .from(financingFacilities)
+    .groupBy(financingFacilities.status);
+  const byStatus = new Map(rows.map((r) => [r.status, r]));
+  const stages = PIPELINE_STAGES.map((status) => ({
+    status,
+    count: byStatus.get(status)?.count ?? 0,
+    principal: byStatus.get(status)?.principal ?? 0,
+  }));
+  return c.json({ stages });
+});
+
+// Campaign launches (facilities with a real campaign_start), platform-wide
+// and by month - a "how much origination activity are we generating" view.
+admin.get("/campaigns", async (c) => {
+  const db = drizzle(c.env.DB);
+  const rows = await db
+    .select({ campaignStart: financingFacilities.campaignStart, principal: financingFacilities.principalAmount })
+    .from(financingFacilities);
+  const launched = rows.filter((r) => r.campaignStart);
+
+  const now = new Date();
+  const thisMonthKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+  const byMonth = new Map<string, { count: number; principal: number }>();
+  for (const r of launched) {
+    const key = (r.campaignStart as string).slice(0, 7);
+    const bucket = byMonth.get(key) ?? { count: 0, principal: 0 };
+    bucket.count += 1;
+    bucket.principal += r.principal;
+    byMonth.set(key, bucket);
+  }
+  const trend = [...byMonth.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([month, v]) => ({ month, ...v }));
+
+  return c.json({
+    totalLaunched: launched.length,
+    launchedThisMonth: byMonth.get(thisMonthKey)?.count ?? 0,
+    trend,
+  });
+});
+
+// The company's own economics, not the investors' - Cofundr keeps 20% of
+// the profit it pays out to investors, plus whatever service fee is
+// collected from issuers per installment. Neither was tracked anywhere
+// before; this is the platform's own P&L view, distinct from AUM/yield
+// numbers that describe investor-facing performance.
+const PLATFORM_PROFIT_SHARE_PCT = 20;
+
+admin.get("/revenue", async (c) => {
+  const db = drizzle(c.env.DB);
+  const [agg] = await db
+    .select({
+      profitPaid: sql<number>`coalesce(sum(case when ${repaymentInstallments.status}='Paid' then ${repaymentInstallments.profitDue} else 0 end),0)`,
+      feesPaid: sql<number>`coalesce(sum(case when ${repaymentInstallments.status}='Paid' then ${repaymentInstallments.feeDue} else 0 end),0)`,
+      feesScheduled: sql<number>`coalesce(sum(${repaymentInstallments.feeDue}),0)`,
+    })
+    .from(repaymentInstallments);
+
+  const platformProfitShare = agg.profitPaid * (PLATFORM_PROFIT_SHARE_PCT / 100);
+
+  return c.json({
+    profitSharePct: PLATFORM_PROFIT_SHARE_PCT,
+    totalProfitPaidToInvestors: agg.profitPaid,
+    platformProfitShare,
+    totalFeesCollected: agg.feesPaid,
+    totalFeesScheduled: agg.feesScheduled,
+    totalPlatformRevenue: platformProfitShare + agg.feesPaid,
+  });
 });
 
 admin.get("/approvals", async (c) => {
@@ -268,6 +367,160 @@ async function decideApproval(db: ReturnType<typeof drizzle>, id: string, decide
 
   return { ok: true as const };
 }
+
+// ---- Reporting tool: CSV exports and a PDF platform summary ----
+
+admin.get("/export/investors.csv", async (c) => {
+  const db = drizzle(c.env.DB);
+  const retailRows = await db
+    .select({ id: users.id, name: users.displayName, kyc: investorProfiles.kycStatus, portfolio: investorProfiles.totalInvested })
+    .from(users)
+    .innerJoin(investorProfiles, eq(users.id, investorProfiles.userId))
+    .where(eq(users.role, "retail"));
+  const corpRows = await db
+    .select({ id: corporateAccounts.id, name: corporateAccounts.companyName, portfolio: corporateAccounts.deployedFunds })
+    .from(corporateAccounts);
+  const rows = [
+    ...retailRows.map((r) => ({ id: r.id, name: r.name, type: "Retail", kyc: r.kyc, portfolio: r.portfolio })),
+    ...corpRows.map((r) => ({ id: r.id, name: r.name, type: "Corporate", kyc: "Verified", portfolio: r.portfolio })),
+  ];
+  return csvResponse(c, "investors.csv", toCsv(rows));
+});
+
+admin.get("/export/issuers.csv", async (c) => {
+  const db = drizzle(c.env.DB);
+  const rows = await db
+    .select({
+      issuerName: financingFacilities.issuerName,
+      sector: sql<string>`max(${financingFacilities.financingType})`,
+      outstanding: sql<number>`sum(${financingFacilities.principalAmount})`,
+      tier: sql<string>`max(${financingFacilities.riskTier})`,
+    })
+    .from(financingFacilities)
+    .groupBy(financingFacilities.issuerName);
+  return csvResponse(c, "issuers.csv", toCsv(rows));
+});
+
+admin.get("/export/approvals.csv", async (c) => {
+  const db = drizzle(c.env.DB);
+  const rows = await db
+    .select({
+      id: approvals.id,
+      type: approvals.type,
+      applicantName: approvals.applicantName,
+      riskLevel: approvals.riskLevel,
+      status: approvals.status,
+      decidedByEmail: decidedByUsers.email,
+      submittedAt: approvals.submittedAt,
+      decidedAt: approvals.decidedAt,
+      notes: approvals.notes,
+    })
+    .from(approvals)
+    .leftJoin(decidedByUsers, eq(approvals.decidedBy, decidedByUsers.id))
+    .orderBy(desc(approvals.submittedAt));
+  return csvResponse(c, "approvals.csv", toCsv(rows));
+});
+
+admin.get("/export/activity.csv", async (c) => {
+  const db = drizzle(c.env.DB);
+  const rows = await db
+    .select({
+      id: auditLog.id,
+      action: auditLog.action,
+      actorEmail: users.email,
+      actorRole: users.role,
+      subjectType: auditLog.subjectType,
+      subjectId: auditLog.subjectId,
+      metadataJson: auditLog.metadataJson,
+      createdAt: auditLog.createdAt,
+    })
+    .from(auditLog)
+    .innerJoin(users, eq(auditLog.actorId, users.id))
+    .orderBy(desc(auditLog.createdAt))
+    .limit(500);
+  return csvResponse(c, "activity.csv", toCsv(rows));
+});
+
+function fmtMoney(n: number): string {
+  return `RM ${n.toFixed(2)}`;
+}
+
+admin.get("/reports/platform-summary.pdf", async (c) => {
+  const db = drizzle(c.env.DB);
+
+  const [facilityAgg] = await db
+    .select({
+      totalPrincipal: sql<number>`coalesce(sum(${financingFacilities.principalAmount}),0)`,
+      defaultedAmount: sql<number>`coalesce(sum(case when ${financingFacilities.status}='Default' then ${financingFacilities.principalAmount} else 0 end),0)`,
+      avgRate: sql<number>`coalesce(avg(${financingFacilities.ratePct}),0)`,
+      issuerCount: sql<number>`count(distinct ${financingFacilities.issuerName})`,
+    })
+    .from(financingFacilities);
+  const [investorCount] = await db.select({ n: sql<number>`count(*)` }).from(investorProfiles);
+  const [corpCount] = await db.select({ n: sql<number>`count(*)` }).from(corporateAccounts);
+  const [ticketAgg] = await db.select({ avgTicket: sql<number>`coalesce(avg(${holdings.amountInvested}),0)` }).from(holdings);
+  const pipelineRows = await db
+    .select({ status: financingFacilities.status, count: sql<number>`count(*)`, principal: sql<number>`coalesce(sum(${financingFacilities.principalAmount}),0)` })
+    .from(financingFacilities)
+    .groupBy(financingFacilities.status);
+  const byStatus = new Map(pipelineRows.map((r) => [r.status, r]));
+  const sectorRows = await db
+    .select({ sector: financingFacilities.financingType, total: sql<number>`sum(${financingFacilities.principalAmount})` })
+    .from(financingFacilities)
+    .groupBy(financingFacilities.financingType);
+  const sectorGrand = sectorRows.reduce((s, r) => s + r.total, 0) || 1;
+  const [revenueAgg] = await db
+    .select({
+      profitPaid: sql<number>`coalesce(sum(case when ${repaymentInstallments.status}='Paid' then ${repaymentInstallments.profitDue} else 0 end),0)`,
+      feesPaid: sql<number>`coalesce(sum(case when ${repaymentInstallments.status}='Paid' then ${repaymentInstallments.feeDue} else 0 end),0)`,
+      feesScheduled: sql<number>`coalesce(sum(${repaymentInstallments.feeDue}),0)`,
+    })
+    .from(repaymentInstallments);
+  const platformProfitShare = revenueAgg.profitPaid * (PLATFORM_PROFIT_SHARE_PCT / 100);
+
+  const totalAUM = facilityAgg.totalPrincipal;
+  const defaultRate = totalAUM > 0 ? (facilityAgg.defaultedAmount / totalAUM) * 100 : 0;
+  const generatedAt = new Date().toISOString().slice(0, 19).replace("T", " ");
+
+  const lines = [
+    "COFUNDR PLATFORM SUMMARY REPORT",
+    `Generated ${generatedAt} UTC`,
+    "",
+    "KEY METRICS",
+    `Total Platform AUM:        ${fmtMoney(totalAUM)}`,
+    `Average Profit Rate:       ${facilityAgg.avgRate.toFixed(2)}% p.a.`,
+    `Platform Default Rate:     ${defaultRate.toFixed(2)}%`,
+    `Average Ticket Size:       ${fmtMoney(ticketAgg.avgTicket)}`,
+    `Active Investors:          ${investorCount.n + corpCount.n}`,
+    `Active Issuers:            ${facilityAgg.issuerCount}`,
+    "",
+    "PLATFORM REVENUE",
+    `Profit Paid to Investors:  ${fmtMoney(revenueAgg.profitPaid)}`,
+    `Platform Profit Share (${PLATFORM_PROFIT_SHARE_PCT}%): ${fmtMoney(platformProfitShare)}`,
+    `Fees Collected:            ${fmtMoney(revenueAgg.feesPaid)}`,
+    `Fees Scheduled (lifetime): ${fmtMoney(revenueAgg.feesScheduled)}`,
+    `Total Platform Revenue:    ${fmtMoney(platformProfitShare + revenueAgg.feesPaid)}`,
+    "",
+    "FINANCING PIPELINE",
+    "Stage                Count        Principal",
+    "----------------------------------------------",
+    ...PIPELINE_STAGES.map((status) => {
+      const row = byStatus.get(status);
+      return `${status.padEnd(20)}  ${String(row?.count ?? 0).padStart(5)}   ${fmtMoney(row?.principal ?? 0).padStart(14)}`;
+    }),
+    "",
+    "RISK EXPOSURE BY SECTOR",
+    ...sectorRows
+      .sort((a, b) => b.total - a.total)
+      .map((r) => `${r.sector.padEnd(24)}  ${(Math.round((r.total / sectorGrand) * 100)).toString().padStart(3)}%`),
+  ];
+
+  const pdf = generateTextPdf(lines);
+  return c.body(pdf, 200, {
+    "Content-Type": "application/pdf",
+    "Content-Disposition": `attachment; filename="platform-summary-${new Date().toISOString().slice(0, 10)}.pdf"`,
+  });
+});
 
 admin.post("/approvals/:id/approve", async (c) => {
   const db = drizzle(c.env.DB);

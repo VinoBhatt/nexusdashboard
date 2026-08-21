@@ -100,8 +100,15 @@ test.describe("Corporate maker/checker", () => {
     const cashBefore = parseMoney(await page.locator(".chip", { hasText: "Treasury cash" }).locator("strong").innerText());
 
     await page.getByRole("link", { name: "Deposit", exact: true }).click();
-    await page.locator('input[type=number]').fill("5000");
-    await page.getByRole("button", { name: "Deposit to Treasury" }).click();
+    // Wait for the Maker branch (form) to actually be up before filling -
+    // the page briefly shows a role-check fallback with no input at all
+    // while /api/corporate/overview is still resolving.
+    const depositButton = page.getByRole("button", { name: "Deposit to Treasury" });
+    await expect(depositButton).toBeVisible();
+    const amountInput = page.locator('input[type=number]');
+    await amountInput.fill("5000");
+    await expect(amountInput).toHaveValue("5000");
+    await depositButton.click();
     await expect(page.locator("#toast")).toContainText("Treasury credited");
 
     await page.getByRole("link", { name: "Overview", exact: true }).click();

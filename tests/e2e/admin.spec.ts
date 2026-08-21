@@ -73,4 +73,42 @@ test.describe("Admin approvals", () => {
     await expect(page.locator("table tr", { hasText: "sarah.lim@cofundr.demo" }).first()).toBeVisible();
     await expect(page.locator("table tr", { hasText: "treasury@abctreasury.demo" })).toHaveCount(0);
   });
+
+  test("Overview shows the financing pipeline, campaigns launched and platform revenue", async ({ page }) => {
+    await login(page, DEMO_ACCOUNTS.admin);
+
+    await expect(page.getByText("Average Profit Rate")).toBeVisible();
+    await expect(page.getByText("Average ticket size")).toBeVisible();
+
+    await expect(page.getByText("Financing Pipeline")).toBeVisible();
+    await expect(page.locator(".bar", { hasText: "Ongoing" })).toBeVisible();
+    await expect(page.locator(".bar", { hasText: "Rejected" })).toBeVisible();
+
+    await expect(page.getByRole("heading", { name: "Campaigns Launched" })).toBeVisible();
+
+    await expect(page.getByRole("heading", { name: "Platform Revenue" })).toBeVisible();
+    await expect(page.getByText(/Platform profit share \(20%\)/)).toBeVisible();
+    // Seeded Paid installment history makes these genuinely non-zero.
+    const revenue = await apiFetch(page, "/api/admin/revenue");
+    const revenueJson = JSON.parse(revenue.body);
+    expect(revenueJson.totalProfitPaidToInvestors).toBeGreaterThan(0);
+    expect(revenueJson.platformProfitShare).toBeCloseTo(revenueJson.totalProfitPaidToInvestors * 0.2, 2);
+    expect(revenueJson.totalFeesCollected).toBeGreaterThan(0);
+  });
+
+  test("Reports page offers a real PDF platform summary and CSV exports", async ({ page }) => {
+    await login(page, DEMO_ACCOUNTS.admin);
+    await page.getByRole("link", { name: "Reports", exact: true }).click();
+
+    await expect(page.getByRole("link", { name: "Download Platform Summary" })).toHaveAttribute("href", "/api/admin/reports/platform-summary.pdf");
+    await expect(page.getByRole("link", { name: "Export CSV" }).first()).toHaveAttribute("href", "/api/admin/export/investors.csv");
+
+    const pdfRes = await apiFetch(page, "/api/admin/reports/platform-summary.pdf");
+    expect(pdfRes.status).toBe(200);
+    expect(pdfRes.body).toContain("%PDF");
+
+    const csvRes = await apiFetch(page, "/api/admin/export/approvals.csv");
+    expect(csvRes.status).toBe(200);
+    expect(csvRes.body).toContain("applicantName");
+  });
 });

@@ -146,6 +146,7 @@ const NAV_BY_ROLE: Record<Role, { to: string; label: string; icon: string }[]> =
     { to: "issuers", label: "Issuers", icon: "issuers" },
     { to: "risk-approvals", label: "Risk & Approvals", icon: "risk" },
     { to: "admin-activity-log", label: "Activity Log", icon: "documents" },
+    { to: "reports", label: "Reports", icon: "statements" },
   ],
   issuer: [
     { to: "overview", label: "Overview", icon: "grid" },

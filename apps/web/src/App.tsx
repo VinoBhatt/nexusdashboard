@@ -19,6 +19,7 @@ import Investors from "./pages/admin/Investors";
 import Issuers from "./pages/admin/Issuers";
 import RiskApprovals from "./pages/admin/RiskApprovals";
 import AdminActivity from "./pages/admin/Activity";
+import Reports from "./pages/admin/Reports";
 import Financing from "./pages/issuer/Financing";
 import Repayments from "./pages/issuer/Repayments";
 import Documents from "./pages/issuer/Documents";
@@ -49,6 +50,7 @@ export default function App() {
             <Route path="issuers" element={<Issuers />} />
             <Route path="risk-approvals" element={<RiskApprovals />} />
             <Route path="admin-activity-log" element={<AdminActivity />} />
+            <Route path="reports" element={<Reports />} />
             <Route path="financing" element={<Financing />} />
             <Route path="repayments" element={<Repayments />} />
             <Route path="documents" element={<Documents />} />
