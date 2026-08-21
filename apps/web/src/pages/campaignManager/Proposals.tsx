@@ -390,7 +390,15 @@ export default function CampaignManagerProposals() {
       <div className="card">
         <div className="list">
           {rows.map((p) => (
-            <div key={p.id} className="list-item" style={{ cursor: "pointer" }} onClick={() => setParams({ id: p.id })}>
+            <div
+              key={p.id}
+              className="list-item"
+              style={{ cursor: "pointer" }}
+              onClick={() => setParams({ id: p.id })}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setParams({ id: p.id }); } }}
+              tabIndex={0}
+              role="button"
+            >
               <div>
                 <b>{p.id}</b>
                 <div className="sub">

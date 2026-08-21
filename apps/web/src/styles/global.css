@@ -115,3 +115,5 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .logout-btn:hover{background:rgba(255,255,255,.12)}
 .logout-btn svg{width:15px;height:15px}
 .role-tag{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.1);color:#cfe1f2;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}

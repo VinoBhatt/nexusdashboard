@@ -125,7 +125,15 @@ export default function IssuerProposals() {
       <div className="card">
         <div className="list">
           {(data?.proposals ?? []).map((p) => (
-            <div key={p.id} className="list-item" style={{ cursor: "pointer" }} onClick={() => setOpenId(p.id)}>
+            <div
+              key={p.id}
+              className="list-item"
+              style={{ cursor: "pointer" }}
+              onClick={() => setOpenId(p.id)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpenId(p.id); } }}
+              tabIndex={0}
+              role="button"
+            >
               <div>
                 <b>{p.id}</b>
                 <div className="sub">

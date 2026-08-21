@@ -28,6 +28,7 @@ import CorporateActivity from "./pages/corporate/Activity";
 import CampaignManagerApplications from "./pages/campaignManager/Applications";
 import CampaignManagerProposals from "./pages/campaignManager/Proposals";
 import CampaignManagerNotes from "./pages/campaignManager/Notes";
+import CampaignManagerReports from "./pages/campaignManager/Reports";
 
 export default function App() {
   return (
@@ -63,6 +64,7 @@ export default function App() {
             <Route path="cm-applications" element={<CampaignManagerApplications />} />
             <Route path="cm-proposals" element={<CampaignManagerProposals />} />
             <Route path="cm-notes" element={<CampaignManagerNotes />} />
+            <Route path="cm-reports" element={<CampaignManagerReports />} />
           </Route>
           <Route path="*" element={<Navigate to="/app/overview" replace />} />
         </Routes>

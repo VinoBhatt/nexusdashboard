@@ -8,6 +8,8 @@ import { requireRole } from "../middleware/requireRole";
 import { generateRepaymentSchedule } from "../lib/repaymentSchedule";
 import { activateFacility } from "../lib/facilityLaunch";
 import { autoLaunchDueProposals } from "../lib/proposalLifecycle";
+import { generateTextPdf } from "../lib/pdf";
+import { toCsv, csvResponse } from "../lib/csv";
 
 const campaignManager = new Hono<AuthedEnv>();
 campaignManager.use("*", requireAuth, requireRole("campaign_manager"));
@@ -403,6 +405,167 @@ campaignManager.post("/notes/:id/payment", async (c) => {
   }
 
   return c.json({ ok: true });
+});
+
+// ---- Regulatory reporting: origination, risk, and repayment-performance
+// exports an operator needs for periodic submissions to the regulator -
+// distinct from admin's platform-KPI report (revenue/AUM/investors), this
+// is scoped to the campaign manager's own domain (applications, proposals,
+// notes, repayment collection). ----
+
+function fmtMoney(n: number): string {
+  return `RM ${n.toFixed(2)}`;
+}
+
+function countBy<T extends string>(rows: { key: T }[]) {
+  return rows.reduce<Record<string, { count: number; principal: number }>>((acc, r) => {
+    const bucket = acc[r.key] ?? { count: 0, principal: 0 };
+    bucket.count += 1;
+    return { ...acc, [r.key]: bucket };
+  }, {});
+}
+
+campaignManager.get("/reports/regulatory-summary.pdf", async (c) => {
+  const db = drizzle(c.env.DB);
+  const facilities = await db.select().from(financingFacilities);
+  const installments = await db.select().from(repaymentInstallments);
+  const allProposals = await db.select({ status: proposals.status }).from(proposals);
+
+  const notes = facilities.filter((f) => ["Open", "Ongoing", "Completed", "Default"].includes(f.status));
+  const totalPrincipalLaunched = notes.reduce((s, f) => s + f.principalAmount, 0);
+  const defaulted = facilities.filter((f) => f.status === "Default");
+  const defaultedPrincipal = defaulted.reduce((s, f) => s + f.principalAmount, 0);
+
+  const riskTierBuckets = new Map<string, { count: number; principal: number }>();
+  for (const f of notes) {
+    const bucket = riskTierBuckets.get(f.riskTier) ?? { count: 0, principal: 0 };
+    bucket.count += 1;
+    bucket.principal += f.principalAmount;
+    riskTierBuckets.set(f.riskTier, bucket);
+  }
+
+  const productBuckets = new Map<string, { count: number; principal: number }>();
+  for (const f of notes) {
+    const bucket = productBuckets.get(f.financingType) ?? { count: 0, principal: 0 };
+    bucket.count += 1;
+    bucket.principal += f.principalAmount;
+    productBuckets.set(f.financingType, bucket);
+  }
+
+  const paid = installments.filter((i) => i.status === "Paid");
+  const overdue = installments.filter((i) => i.status === "Overdue");
+  const defaultedInstallments = installments.filter((i) => i.status === "Defaulted");
+  const decided = paid.length + overdue.length + defaultedInstallments.length;
+  const collectionRate = decided > 0 ? (paid.length / decided) * 100 : 100;
+  const paidAmount = paid.reduce((s, i) => s + i.principalDue + i.profitDue, 0);
+  const overdueAmount = overdue.reduce((s, i) => s + i.principalDue + i.profitDue, 0);
+
+  const applicationStatusCounts = countBy(facilities.map((f) => ({ key: f.status })));
+  const proposalStatusCounts = countBy(allProposals.map((p) => ({ key: p.status })));
+
+  const generatedAt = new Date().toISOString().slice(0, 19).replace("T", " ");
+
+  const lines = [
+    "COFUNDR CAMPAIGN MANAGER - REGULATORY SUMMARY REPORT",
+    `Generated ${generatedAt} UTC`,
+    "",
+    "ORIGINATION SUMMARY",
+    `Notes Launched (Open/Ongoing/Completed/Default): ${notes.length}`,
+    `Total Principal Launched:  ${fmtMoney(totalPrincipalLaunched)}`,
+    `Facilities in Default:     ${defaulted.length} (${fmtMoney(defaultedPrincipal)})`,
+    "",
+    "APPLICATION PIPELINE",
+    ...Object.entries(applicationStatusCounts).map(([status, v]) => `${status.padEnd(20)}  ${String(v.count).padStart(5)}`),
+    "",
+    "PROPOSAL LIFECYCLE",
+    ...Object.entries(proposalStatusCounts).map(([status, v]) => `${status.padEnd(20)}  ${String(v.count).padStart(5)}`),
+    "",
+    "RISK TIER DISTRIBUTION",
+    ...[...riskTierBuckets.entries()]
+      .sort((a, b) => b[1].principal - a[1].principal)
+      .map(([tier, v]) => `${tier.padEnd(20)}  ${String(v.count).padStart(5)}   ${fmtMoney(v.principal).padStart(14)}`),
+    "",
+    "PRODUCT / SECTOR DISTRIBUTION",
+    ...[...productBuckets.entries()]
+      .sort((a, b) => b[1].principal - a[1].principal)
+      .map(([product, v]) => `${product.padEnd(32)}  ${String(v.count).padStart(5)}   ${fmtMoney(v.principal).padStart(14)}`),
+    "",
+    "REPAYMENT COLLECTION PERFORMANCE",
+    `Paid Installments:        ${paid.length} (${fmtMoney(paidAmount)})`,
+    `Overdue Installments:     ${overdue.length} (${fmtMoney(overdueAmount)})`,
+    `Defaulted Installments:   ${defaultedInstallments.length}`,
+    `Collection Rate:          ${collectionRate.toFixed(2)}%`,
+  ];
+
+  const pdf = generateTextPdf(lines);
+  return c.body(pdf, 200, {
+    "Content-Type": "application/pdf",
+    "Content-Disposition": `attachment; filename="regulatory-summary-${new Date().toISOString().slice(0, 10)}.pdf"`,
+  });
+});
+
+campaignManager.get("/export/notes.csv", async (c) => {
+  const db = drizzle(c.env.DB);
+  const rows = await db
+    .select({
+      id: financingFacilities.id,
+      issuerName: financingFacilities.issuerName,
+      financingType: financingFacilities.financingType,
+      islamicConventional: financingFacilities.islamicConventional,
+      riskTier: financingFacilities.riskTier,
+      principalAmount: financingFacilities.principalAmount,
+      ratePct: financingFacilities.ratePct,
+      tenorDays: financingFacilities.tenorDays,
+      status: financingFacilities.status,
+      campaignStart: financingFacilities.campaignStart,
+      campaignEnd: financingFacilities.campaignEnd,
+      createdAt: financingFacilities.createdAt,
+    })
+    .from(financingFacilities)
+    .orderBy(desc(financingFacilities.createdAt));
+  return csvResponse(c, "notes.csv", toCsv(rows));
+});
+
+campaignManager.get("/export/proposals.csv", async (c) => {
+  const db = drizzle(c.env.DB);
+  const rows = await db
+    .select({
+      id: proposals.id,
+      facilityId: proposals.facilityId,
+      status: proposals.status,
+      riskMethod: proposals.riskMethod,
+      riskValue: proposals.riskValue,
+      processingFee: proposals.processingFee,
+      platformFee: proposals.platformFee,
+      createdAt: proposals.createdAt,
+      submittedAt: proposals.submittedAt,
+      scheduledAt: proposals.scheduledAt,
+      launchedAt: proposals.launchedAt,
+    })
+    .from(proposals)
+    .orderBy(desc(proposals.createdAt));
+  return csvResponse(c, "proposals.csv", toCsv(rows));
+});
+
+campaignManager.get("/export/repayments.csv", async (c) => {
+  const db = drizzle(c.env.DB);
+  const rows = await db
+    .select({
+      id: repaymentInstallments.id,
+      facilityId: repaymentInstallments.facilityId,
+      issuerName: financingFacilities.issuerName,
+      installmentNo: repaymentInstallments.installmentNo,
+      dueDate: repaymentInstallments.dueDate,
+      principalDue: repaymentInstallments.principalDue,
+      profitDue: repaymentInstallments.profitDue,
+      feeDue: repaymentInstallments.feeDue,
+      status: repaymentInstallments.status,
+      paidAt: repaymentInstallments.paidAt,
+    })
+    .from(repaymentInstallments)
+    .innerJoin(financingFacilities, eq(repaymentInstallments.facilityId, financingFacilities.id))
+    .orderBy(repaymentInstallments.dueDate);
+  return csvResponse(c, "repayments.csv", toCsv(rows));
 });
 
 export default campaignManager;

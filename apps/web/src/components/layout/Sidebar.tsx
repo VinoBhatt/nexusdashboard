@@ -181,6 +181,7 @@ const NAV_BY_ROLE: Record<Role, { to: string; label: string; icon: string }[]> =
     { to: "cm-applications", label: "Applications", icon: "applications" },
     { to: "cm-proposals", label: "Proposals", icon: "proposals" },
     { to: "cm-notes", label: "Notes", icon: "launch" },
+    { to: "cm-reports", label: "Reports", icon: "statements" },
   ],
 };
 
