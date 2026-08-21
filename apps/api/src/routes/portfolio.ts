@@ -1,19 +1,34 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { drizzle } from "drizzle-orm/d1";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, type SQL } from "drizzle-orm";
 import { holdings, financingFacilities, secondaryListings, repaymentInstallments, alerts } from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
 import { generateRepaymentSchedule } from "../lib/repaymentSchedule";
+import { resolveCorporateContext } from "../auth/corporateContext";
 
 const portfolio = new Hono<AuthedEnv>();
-portfolio.use("*", requireAuth, requireRole("retail"));
+portfolio.use("*", requireAuth, requireRole("retail", "corporate"));
+
+// A corporate holding is owned by the shared corporate account, not the
+// individual maker who proposed it - resolves to the right ownership
+// condition for whichever role is asking.
+async function ownershipCondition(c: import("hono").Context<AuthedEnv>): Promise<SQL | null> {
+  const user = c.get("user");
+  if (user.effectiveRole === "corporate") {
+    const ctx = await resolveCorporateContext(c.env.DB, user.id);
+    if (!ctx) return null;
+    return eq(holdings.corporateAccountId, ctx.corporateAccountId);
+  }
+  return eq(holdings.investorId, user.id);
+}
 
 portfolio.get("/holdings", async (c) => {
   const db = drizzle(c.env.DB);
-  const user = c.get("user");
   const status = c.req.query("status");
+  const owned = await ownershipCondition(c);
+  if (!owned) return c.json({ error: "not_found" }, 404);
 
   const rows = await db
     .select({
@@ -36,22 +51,19 @@ portfolio.get("/holdings", async (c) => {
     })
     .from(holdings)
     .innerJoin(financingFacilities, eq(holdings.facilityId, financingFacilities.id))
-    .where(
-      status && status !== "All"
-        ? and(eq(holdings.investorId, user.id), eq(holdings.status, status as "Ongoing" | "Completed" | "Default"))
-        : eq(holdings.investorId, user.id)
-    );
+    .where(status && status !== "All" ? and(owned, eq(holdings.status, status as "Ongoing" | "Completed" | "Default")) : owned);
 
   return c.json({ holdings: rows });
 });
 
 portfolio.get("/holdings/:id", async (c) => {
   const db = drizzle(c.env.DB);
-  const user = c.get("user");
+  const owned = await ownershipCondition(c);
+  if (!owned) return c.json({ error: "not_found" }, 404);
   const rows = await db
     .select()
     .from(holdings)
-    .where(and(eq(holdings.id, c.req.param("id")), eq(holdings.investorId, user.id)))
+    .where(and(eq(holdings.id, c.req.param("id")), owned))
     .limit(1);
   if (!rows[0]) return c.json({ error: "not_found" }, 404);
   return c.json({ holding: rows[0] });
@@ -63,12 +75,13 @@ portfolio.get("/holdings/:id", async (c) => {
 // "Upcoming" throughout since there's no real payment history to report yet.
 portfolio.get("/holdings/:id/schedule", async (c) => {
   const db = drizzle(c.env.DB);
-  const user = c.get("user");
+  const owned = await ownershipCondition(c);
+  if (!owned) return c.json({ error: "not_found" }, 404);
   const rows = await db
     .select({ holding: holdings, facility: financingFacilities })
     .from(holdings)
     .innerJoin(financingFacilities, eq(holdings.facilityId, financingFacilities.id))
-    .where(and(eq(holdings.id, c.req.param("id")), eq(holdings.investorId, user.id)))
+    .where(and(eq(holdings.id, c.req.param("id")), owned))
     .limit(1);
   const row = rows[0];
   if (!row) return c.json({ error: "not_found" }, 404);
@@ -123,6 +136,9 @@ export function calculateSecondaryPrice(ratePct: number, tenorDays: number, days
 
 portfolio.post("/holdings/:id/list-for-sale", async (c) => {
   const user = c.get("user");
+  if (user.effectiveRole !== "retail") {
+    return c.json({ error: "forbidden", message: "Corporate accounts cannot list holdings for sale yet." }, 403);
+  }
   const parsed = listForSaleSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) return c.json({ error: "invalid_input" }, 400);
 

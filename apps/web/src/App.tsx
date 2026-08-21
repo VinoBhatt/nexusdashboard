@@ -5,14 +5,14 @@ import AppShell from "./components/layout/AppShell";
 import Login from "./pages/auth/Login";
 import Signup from "./pages/auth/Signup";
 import RoleAwareOverview from "./pages/RoleAwareOverview";
-import NotesAvailable from "./pages/retail/NotesAvailable";
+import RoleAwareMarketplace from "./pages/RoleAwareMarketplace";
+import RoleAwareDeposit from "./pages/RoleAwareDeposit";
+import RoleAwareWithdrawal from "./pages/RoleAwareWithdrawal";
 import OngoingNotes from "./pages/retail/OngoingNotes";
 import CompletedNotes from "./pages/retail/CompletedNotes";
 import AutoInvest from "./pages/retail/AutoInvest";
 import AccountBalance from "./pages/retail/AccountBalance";
 import Alerts from "./pages/retail/Alerts";
-import Deposit from "./pages/retail/Deposit";
-import Withdrawal from "./pages/retail/Withdrawal";
 import Statements from "./pages/retail/Statements";
 import Account from "./pages/retail/Account";
 import Investors from "./pages/admin/Investors";
@@ -33,14 +33,14 @@ export default function App() {
           <Route path="/app" element={<AppShell />}>
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<RoleAwareOverview />} />
-            <Route path="notes-available" element={<NotesAvailable />} />
+            <Route path="notes-available" element={<RoleAwareMarketplace />} />
             <Route path="ongoing-notes" element={<OngoingNotes />} />
             <Route path="completed-notes" element={<CompletedNotes />} />
             <Route path="auto-invest" element={<AutoInvest />} />
             <Route path="account-balance" element={<AccountBalance />} />
             <Route path="alerts" element={<Alerts />} />
-            <Route path="deposit" element={<Deposit />} />
-            <Route path="withdrawal" element={<Withdrawal />} />
+            <Route path="deposit" element={<RoleAwareDeposit />} />
+            <Route path="withdrawal" element={<RoleAwareWithdrawal />} />
             <Route path="statements" element={<Statements />} />
             <Route path="account" element={<Account />} />
             <Route path="investors" element={<Investors />} />

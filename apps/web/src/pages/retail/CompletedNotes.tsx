@@ -6,6 +6,7 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { DataTable, type Column } from "../../components/data/DataTable";
 import { SellHoldingCard, type Holding } from "../../components/retail/SellHoldingCard";
 import { HoldingDetailModal } from "../../components/retail/HoldingDetailModal";
+import { useAuth } from "../../context/AuthContext";
 
 const columns: Column<Holding>[] = [
   { key: "facilityId", label: "Facility", sortable: true },
@@ -17,6 +18,8 @@ const columns: Column<Holding>[] = [
 ];
 
 export default function CompletedNotes() {
+  const { user } = useAuth();
+  const isRetail = (user?.effectiveRole ?? user?.role) === "retail";
   const [selected, setSelected] = useState<Holding | null>(null);
   const { data } = useQuery({
     queryKey: ["portfolio", "holdings", "Completed"],
@@ -52,7 +55,7 @@ export default function CompletedNotes() {
         <DataTable columns={columns} rows={holdings} emptyMessage="No completed notes yet." onRowClick={setSelected} />
       </div>
 
-      <SellHoldingCard holdings={holdings} />
+      {isRetail && <SellHoldingCard holdings={holdings} />}
 
       {selected && <HoldingDetailModal holding={selected} onClose={() => setSelected(null)} />}
     </>

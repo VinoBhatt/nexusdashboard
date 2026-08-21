@@ -170,6 +170,9 @@ export const holdings = sqliteTable("holdings", {
   actualReturn: real("actual_return").notNull().default(0),
   eligibleForSale: integer("eligible_for_sale", { mode: "boolean" }).notNull().default(false),
   source: text("source", { enum: ["manual", "auto"] }).notNull().default("manual"),
+  // Shared corporate holdings still set investorId to the maker who proposed
+  // the investment (audit trail) - this is the real ownership key for those.
+  corporateAccountId: text("corporate_account_id").references(() => corporateAccounts.id),
   ...timestamps,
 });
 
@@ -218,6 +221,7 @@ export const transactions = sqliteTable("transactions", {
   amount: real("amount").notNull(),
   status: text("status", { enum: ["Confirmed", "Pending", "Paid", "Failed"] }).notNull(),
   referenceJson: text("reference_json"),
+  corporateAccountId: text("corporate_account_id").references(() => corporateAccounts.id),
   occurredAt: integer("occurred_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
@@ -305,6 +309,7 @@ export const statements = sqliteTable("statements", {
   type: text("type", { enum: ["Monthly", "Annual"] }).notNull(),
   status: text("status", { enum: ["Generating", "Ready"] }).notNull().default("Generating"),
   fileKey: text("file_key"),
+  corporateAccountId: text("corporate_account_id").references(() => corporateAccounts.id),
   ...timestamps,
   readyAt: integer("ready_at", { mode: "timestamp" }),
 });
@@ -347,6 +352,7 @@ export const corporateAccounts = sqliteTable("corporate_accounts", {
   makerCheckerEnabled: integer("maker_checker_enabled", { mode: "boolean" }).notNull().default(true),
   approvalThreshold: real("approval_threshold").notNull().default(50000),
   orderLimit: real("order_limit").notNull().default(150000),
+  cashBalance: real("cash_balance").notNull().default(0),
   ...timestamps,
 });
 
@@ -378,6 +384,11 @@ export const orders = sqliteTable("orders", {
     .references(() => corporateAccounts.id),
   subwalletId: text("subwallet_id").references(() => subwallets.id),
   amount: real("amount").notNull(),
+  type: text("type", { enum: ["Allocation", "Investment", "Withdrawal"] })
+    .notNull()
+    .default("Allocation"),
+  facilityId: text("facility_id").references(() => financingFacilities.id),
+  reason: text("reason"),
   status: text("status", { enum: ["Pending Checker", "Approved", "Rejected"] })
     .notNull()
     .default("Pending Checker"),

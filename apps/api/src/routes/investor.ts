@@ -8,16 +8,49 @@ import {
   holdings,
   financingFacilities,
   repaymentInstallments,
+  corporateAccounts,
 } from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
+import { resolveCorporateContext } from "../auth/corporateContext";
 
 const investor = new Hono<AuthedEnv>();
-investor.use("*", requireAuth, requireRole("retail"));
+investor.use("*", requireAuth, requireRole("retail", "corporate"));
+
+// A corporate account has no per-user investor_profiles row - its "profile"
+// is the shared treasury, computed fresh from corporateAccounts + the
+// transactions/holdings ledger rather than stored as running totals that
+// could drift out of sync with individual deposit/invest/withdraw actions.
+async function corporateProfile(db: ReturnType<typeof drizzle>, corporateAccountId: string) {
+  const accountRows = await db.select().from(corporateAccounts).where(eq(corporateAccounts.id, corporateAccountId)).limit(1);
+  const account = accountRows[0];
+  if (!account) return null;
+  const rows = await db.select().from(holdings).where(eq(holdings.corporateAccountId, corporateAccountId));
+  const txns = await db.select().from(transactions).where(eq(transactions.corporateAccountId, corporateAccountId));
+  const totalInvested = rows.reduce((sum, h) => sum + h.amountInvested, 0);
+  const outstanding = rows.filter((h) => h.status === "Ongoing" || h.status === "Default").reduce((sum, h) => sum + h.amountInvested, 0);
+  const totalDeposits = txns.filter((t) => t.type === "Treasury Deposit").reduce((sum, t) => sum + t.amount, 0);
+  const totalWithdrawals = txns.filter((t) => t.type === "Corporate Withdrawal").reduce((sum, t) => sum + Math.abs(t.amount), 0);
+  return {
+    cashBalance: account.cashBalance,
+    totalDeposits,
+    totalWithdrawals,
+    totalInvested,
+    outstanding,
+  };
+}
 
 investor.get("/overview", async (c) => {
   const db = drizzle(c.env.DB);
   const user = c.get("user");
+
+  if (user.effectiveRole === "corporate") {
+    const ctx = await resolveCorporateContext(c.env.DB, user.id);
+    if (!ctx) return c.json({ error: "not_found" }, 404);
+    const profile = await corporateProfile(db, ctx.corporateAccountId);
+    if (!profile) return c.json({ error: "not_found" }, 404);
+    return c.json({ profile, upcomingPayments: [], defaultedHoldings: [] });
+  }
 
   const profileRows = await db
     .select()
@@ -66,6 +99,19 @@ investor.get("/overview", async (c) => {
 investor.get("/activities", async (c) => {
   const db = drizzle(c.env.DB);
   const user = c.get("user");
+
+  if (user.effectiveRole === "corporate") {
+    const ctx = await resolveCorporateContext(c.env.DB, user.id);
+    if (!ctx) return c.json({ error: "not_found" }, 404);
+    const rows = await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.corporateAccountId, ctx.corporateAccountId))
+      .orderBy(desc(transactions.occurredAt))
+      .limit(50);
+    return c.json({ activities: rows });
+  }
+
   const rows = await db
     .select()
     .from(transactions)

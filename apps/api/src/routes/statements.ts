@@ -2,21 +2,35 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { drizzle } from "drizzle-orm/d1";
 import { eq, desc, and, gte, lte } from "drizzle-orm";
-import { statements, users, investorProfiles, transactions } from "../db/schema";
+import { statements, users, investorProfiles, transactions, corporateAccounts, holdings } from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
 import { generateTextPdf } from "../lib/pdf";
+import { resolveCorporateContext } from "../auth/corporateContext";
+import type { AuthedUser } from "../auth/session";
 
 function fmt(amount: number): string {
   return `RM ${amount.toFixed(2)}`;
 }
 
 const statementsRouter = new Hono<AuthedEnv>();
-statementsRouter.use("*", requireAuth, requireRole("retail"));
+statementsRouter.use("*", requireAuth, requireRole("retail", "corporate"));
 
 statementsRouter.get("/", async (c) => {
   const db = drizzle(c.env.DB);
   const user = c.get("user");
+
+  if (user.effectiveRole === "corporate") {
+    const ctx = await resolveCorporateContext(c.env.DB, user.id);
+    if (!ctx) return c.json({ error: "not_found" }, 404);
+    const rows = await db
+      .select()
+      .from(statements)
+      .where(eq(statements.corporateAccountId, ctx.corporateAccountId))
+      .orderBy(desc(statements.createdAt));
+    return c.json({ statements: rows });
+  }
+
   const rows = await db
     .select()
     .from(statements)
@@ -34,9 +48,18 @@ statementsRouter.post("/generate", async (c) => {
 
   const db = drizzle(c.env.DB);
   const id = crypto.randomUUID();
+
+  let corporateAccountId: string | null = null;
+  if (user.effectiveRole === "corporate") {
+    const ctx = await resolveCorporateContext(c.env.DB, user.id);
+    if (!ctx) return c.json({ error: "not_found" }, 404);
+    corporateAccountId = ctx.corporateAccountId;
+  }
+
   await db.insert(statements).values({
     id,
     ownerId: user.id,
+    corporateAccountId,
     periodLabel: parsed.data.period,
     type: parsed.data.type,
     status: "Generating",
@@ -67,19 +90,60 @@ function periodRange(periodLabel: string, type: "Monthly" | "Annual"): { startTs
   return { startTs: Math.floor(Date.UTC(year, month, 1) / 1000), endTs: Math.floor(Date.UTC(year, month + 1, 1) / 1000) - 1 };
 }
 
-async function loadStatementData(db: ReturnType<typeof drizzle>, statementId: string, userId: string) {
+async function loadStatementData(db: ReturnType<typeof drizzle>, statementId: string, user: AuthedUser, env: { DB: D1Database }) {
   const rows = await db.select().from(statements).where(eq(statements.id, statementId)).limit(1);
   const statement = rows[0];
-  if (!statement || statement.ownerId !== userId) return { error: "not_found" as const };
+  if (!statement) return { error: "not_found" as const };
+
+  if (user.effectiveRole === "corporate") {
+    const ctx = await resolveCorporateContext(env.DB, user.id);
+    if (!ctx || statement.corporateAccountId !== ctx.corporateAccountId) return { error: "not_found" as const };
+    if (statement.status !== "Ready") return { error: "not_ready" as const };
+
+    const [account] = await db.select().from(corporateAccounts).where(eq(corporateAccounts.id, ctx.corporateAccountId)).limit(1);
+    const { startTs, endTs } = periodRange(statement.periodLabel, statement.type);
+    const txns = await db
+      .select()
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.corporateAccountId, ctx.corporateAccountId),
+          gte(transactions.occurredAt, new Date(startTs * 1000)),
+          lte(transactions.occurredAt, new Date(endTs * 1000))
+        )
+      )
+      .orderBy(transactions.occurredAt);
+    const heldRows = await db.select().from(holdings).where(eq(holdings.corporateAccountId, ctx.corporateAccountId));
+    const totalInvested = heldRows.reduce((sum, h) => sum + h.amountInvested, 0);
+    const outstanding = heldRows.filter((h) => h.status === "Ongoing" || h.status === "Default").reduce((sum, h) => sum + h.amountInvested, 0);
+    const allTxns = await db.select().from(transactions).where(eq(transactions.corporateAccountId, ctx.corporateAccountId));
+    const totalDeposits = allTxns.filter((t) => t.type === "Treasury Deposit").reduce((sum, t) => sum + t.amount, 0);
+    const totalWithdrawals = allTxns.filter((t) => t.type === "Corporate Withdrawal").reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
+    return {
+      statement,
+      holder: { displayName: account?.companyName ?? "Corporate Account", email: user.email },
+      summary: {
+        cashBalance: account?.cashBalance ?? 0,
+        totalDeposits,
+        totalWithdrawals,
+        totalInvested,
+        outstanding,
+      },
+      transactions: txns,
+    };
+  }
+
+  if (statement.ownerId !== user.id) return { error: "not_found" as const };
   if (statement.status !== "Ready") return { error: "not_ready" as const };
 
-  const [userRow] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-  const [profile] = await db.select().from(investorProfiles).where(eq(investorProfiles.userId, userId)).limit(1);
+  const [userRow] = await db.select().from(users).where(eq(users.id, user.id)).limit(1);
+  const [profile] = await db.select().from(investorProfiles).where(eq(investorProfiles.userId, user.id)).limit(1);
   const { startTs, endTs } = periodRange(statement.periodLabel, statement.type);
   const txns = await db
     .select()
     .from(transactions)
-    .where(and(eq(transactions.accountId, userId), gte(transactions.occurredAt, new Date(startTs * 1000)), lte(transactions.occurredAt, new Date(endTs * 1000))))
+    .where(and(eq(transactions.accountId, user.id), gte(transactions.occurredAt, new Date(startTs * 1000)), lte(transactions.occurredAt, new Date(endTs * 1000))))
     .orderBy(transactions.occurredAt);
 
   return {
@@ -99,7 +163,7 @@ async function loadStatementData(db: ReturnType<typeof drizzle>, statementId: st
 statementsRouter.get("/:id/view", async (c) => {
   const db = drizzle(c.env.DB);
   const user = c.get("user");
-  const result = await loadStatementData(db, c.req.param("id"), user.id);
+  const result = await loadStatementData(db, c.req.param("id"), user, c.env);
   if ("error" in result) return c.json({ error: result.error }, result.error === "not_found" ? 404 : 409);
   return c.json(result);
 });
@@ -107,7 +171,7 @@ statementsRouter.get("/:id/view", async (c) => {
 statementsRouter.get("/:id/download", async (c) => {
   const db = drizzle(c.env.DB);
   const user = c.get("user");
-  const result = await loadStatementData(db, c.req.param("id"), user.id);
+  const result = await loadStatementData(db, c.req.param("id"), user, c.env);
   if ("error" in result) return c.json({ error: result.error }, result.error === "not_found" ? 404 : 409);
   const { statement, holder, summary, transactions: txns } = result;
 

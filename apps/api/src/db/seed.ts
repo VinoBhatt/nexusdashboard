@@ -265,7 +265,7 @@ async function main() {
     `INSERT INTO users (id, email, password_hash, role, display_name, is_demo_reviewer, created_at, updated_at) VALUES (${sqlStr(corpCheckerUserId)}, 'checker@abctreasury.demo', ${sqlStr(passwordHash)}, 'corporate', 'ABC Treasury Checker', 0, ${sqlTs(now)}, ${sqlTs(now)});`
   );
   statements.push(
-    `INSERT INTO corporate_accounts (id, company_name, deployed_funds, nav, weighted_yield, collection_rate, realised, performing, overdue, defaulted, watchlist, maker_checker_enabled, approval_threshold, order_limit, created_at) VALUES (${sqlStr(corpAccountId)}, 'ABC Treasury Sdn Bhd', 8950000, 9370000, 12.45, 96.72, 471000, 8180000, 485000, 285000, 485000, 1, 50000, 150000, ${sqlTs(now)});`
+    `INSERT INTO corporate_accounts (id, company_name, deployed_funds, nav, weighted_yield, collection_rate, realised, performing, overdue, defaulted, watchlist, maker_checker_enabled, approval_threshold, order_limit, cash_balance, created_at) VALUES (${sqlStr(corpAccountId)}, 'ABC Treasury Sdn Bhd', 8950000, 9370000, 12.45, 96.72, 471000, 8180000, 485000, 285000, 485000, 1, 50000, 150000, 500000, ${sqlTs(now)});`
   );
   statements.push(
     `INSERT INTO corporate_users (id, corporate_account_id, user_id, corp_role) VALUES (${sqlStr(corpMakerId)}, ${sqlStr(corpAccountId)}, ${sqlStr(corpMakerUserId)}, 'maker');`
@@ -295,6 +295,25 @@ async function main() {
       `INSERT INTO orders (id, corporate_account_id, subwallet_id, amount, status, created_by, created_at) VALUES (${sqlStr(o.id)}, ${sqlStr(corpAccountId)}, ${sqlStr(o.wallet)}, ${sqlNum(o.amount)}, 'Pending Checker', ${sqlStr(corpMakerId)}, ${sqlTs(now)});`
     );
   }
+  // Already-decided history so the queue isn't just two pending items on a
+  // fresh demo login - shows what an Approved and a Rejected order look like.
+  statements.push(
+    `INSERT INTO orders (id, corporate_account_id, subwallet_id, amount, status, created_by, approved_by, created_at, decided_at) VALUES ('ORD-2039', ${sqlStr(corpAccountId)}, 'wallet-high-yield', 40000, 'Approved', ${sqlStr(corpMakerId)}, ${sqlStr(corpCheckerId)}, ${sqlTs(now)}, ${sqlTs(now)});`
+  );
+  statements.push(
+    `INSERT INTO orders (id, corporate_account_id, subwallet_id, amount, status, created_by, approved_by, created_at, decided_at) VALUES ('ORD-2040', ${sqlStr(corpAccountId)}, 'wallet-client-fund-b', 60000, 'Rejected', ${sqlStr(corpMakerId)}, ${sqlStr(corpCheckerId)}, ${sqlTs(now)}, ${sqlTs(now)});`
+  );
+
+  // A real corporate holding so On-Going Notes / Account Balance / Statements
+  // aren't empty on first login - shares the same note as the retail demo's
+  // "late payment" scenario, so the corporate portfolio view demonstrates
+  // the same Late-status story.
+  statements.push(
+    `INSERT INTO holdings (id, investor_id, corporate_account_id, facility_id, status, amount_invested, expected_return, actual_return, eligible_for_sale, created_at) VALUES ('holding-corp-1', ${sqlStr(corpMakerUserId)}, ${sqlStr(corpAccountId)}, 'MBIBG-26070005', 'Ongoing', 50000, 53500, 290, 0, ${sqlTs(now)});`
+  );
+  statements.push(
+    `INSERT INTO transactions (id, account_id, corporate_account_id, type, amount, status, reference_json, occurred_at) VALUES ('txn-corp-invest-1', ${sqlStr(corpMakerUserId)}, ${sqlStr(corpAccountId)}, 'Corporate Investment', -50000, 'Confirmed', ${sqlStr(JSON.stringify({ facilityId: "MBIBG-26070005" }))}, ${sqlTs(now)});`
+  );
 
   // ---- Corporate NAV trend chart (from legacy state.lineCorp, in millions) ----
   const lineCorp = [8.4, 8.5, 8.58, 8.63, 8.71, 8.76, 8.84, 8.92, 9.01, 9.12, 9.24, 9.37];

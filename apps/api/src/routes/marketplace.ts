@@ -8,7 +8,18 @@ import { requireRole } from "../middleware/requireRole";
 import { investInFacility } from "../lib/invest";
 
 const marketplace = new Hono<AuthedEnv>();
-marketplace.use("*", requireAuth, requireRole("retail"));
+marketplace.use("*", requireAuth);
+
+// Corporate accounts can browse notes too, but they invest through
+// corporate.ts's maker-proposes/checker-approves order flow, not the two
+// immediate-execution routes below (invest, secondary buy) - those stay
+// retail-only, gated per-path instead of at the router level. Scoped via
+// `.use(path, ...)` rather than passing the middleware inline to `.get()` -
+// the latter breaks Hono's `:id` path-param type inference.
+marketplace.use("/notes", requireRole("retail", "corporate"));
+marketplace.use("/notes/:id", requireRole("retail", "corporate"));
+marketplace.use("/notes/:id/invest", requireRole("retail"));
+marketplace.use("/secondary/:id/buy", requireRole("retail"));
 
 // Demo-friendly: a random subset each request, so reloading the page
 // surfaces a different-feeling set of notes instead of the same static list.

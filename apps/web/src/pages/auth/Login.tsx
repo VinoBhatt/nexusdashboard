@@ -4,7 +4,8 @@ import { useAuth } from "../../context/AuthContext";
 
 const DEMO_ACCOUNTS = [
   { role: "retail", email: "joshua@cofundr.demo", label: "Retail Investor", sub: "Personal portfolio & wallet" },
-  { role: "corporate", email: "treasury@abctreasury.demo", label: "Corporate Investor", sub: "Treasury & maker-checker" },
+  { role: "corporate", email: "treasury@abctreasury.demo", label: "Corporate Investor - Maker", sub: "Proposes orders, deposits & investments" },
+  { role: "corporate", email: "checker@abctreasury.demo", label: "Corporate Investor - Checker", sub: "Approves or rejects pending orders" },
   { role: "issuer", email: "finance@sunwaybiz.demo", label: "Issuer / Borrower", sub: "Financing & repayments" },
   { role: "admin", email: "sarah.lim@cofundr.demo", label: "CEO / Admin", sub: "Platform oversight" },
 ] as const;
@@ -75,7 +76,7 @@ export default function Login() {
           <div className="role-grid" id="roleGrid">
             {DEMO_ACCOUNTS.map((d) => (
               <button
-                key={d.role}
+                key={d.email}
                 type="button"
                 className="role-card"
                 disabled={submitting}

@@ -6,6 +6,7 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { DataTable, type Column } from "../../components/data/DataTable";
 import { SellHoldingCard, type Holding } from "../../components/retail/SellHoldingCard";
 import { HoldingDetailModal } from "../../components/retail/HoldingDetailModal";
+import { useAuth } from "../../context/AuthContext";
 
 const FILTERS = ["All", "Ongoing", "Default"] as const;
 
@@ -37,6 +38,8 @@ const columns: Column<Holding>[] = [
 ];
 
 export default function OngoingNotes() {
+  const { user } = useAuth();
+  const isRetail = (user?.effectiveRole ?? user?.role) === "retail";
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [selected, setSelected] = useState<Holding | null>(null);
 
@@ -116,7 +119,7 @@ export default function OngoingNotes() {
         <DataTable columns={columns} rows={shown} emptyMessage="No on-going notes match this filter." onRowClick={setSelected} />
       </div>
 
-      <SellHoldingCard holdings={active} />
+      {isRetail && <SellHoldingCard holdings={active} />}
 
       {selected && <HoldingDetailModal holding={selected} onClose={() => setSelected(null)} />}
     </>

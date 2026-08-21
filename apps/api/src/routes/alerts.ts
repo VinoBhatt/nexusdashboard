@@ -6,7 +6,7 @@ import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
 
 const alertsRoute = new Hono<AuthedEnv>();
-alertsRoute.use("*", requireAuth, requireRole("retail"));
+alertsRoute.use("*", requireAuth, requireRole("retail", "corporate"));
 
 alertsRoute.get("/", async (c) => {
   const db = drizzle(c.env.DB);

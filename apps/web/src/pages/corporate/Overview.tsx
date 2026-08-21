@@ -19,6 +19,7 @@ interface Account {
   defaulted: number;
   watchlist: number;
   orderLimit: number;
+  cashBalance: number;
 }
 interface Subwallet {
   id: string;
@@ -30,7 +31,10 @@ interface Order {
   id: string;
   amount: number;
   status: "Pending Checker" | "Approved" | "Rejected";
-  subwalletId: string;
+  type: "Allocation" | "Investment" | "Withdrawal";
+  subwalletId: string | null;
+  facilityId: string | null;
+  reason: string | null;
   makerEmail: string;
 }
 interface OverviewResponse {
@@ -107,6 +111,10 @@ export default function CorporateOverview() {
             <h1>Deployed Funds Performance</h1>
             <p>{account.companyName}</p>
             <div className="chip-stack">
+              <div className="chip">
+                <span>Treasury cash</span>
+                <strong>{money(account.cashBalance)}</strong>
+              </div>
               <div className="chip">
                 <span>Pending approvals</span>
                 <strong>{pending.length} orders</strong>
@@ -202,9 +210,15 @@ export default function CorporateOverview() {
               {orders.map((o) => (
                 <div key={o.id} className="list-item">
                   <div>
-                    <b>{o.id}</b>
+                    <b>{o.id}</b>{" "}
+                    <span className={`pill ${o.type === "Investment" ? "blue" : o.type === "Withdrawal" ? "amber" : ""}`}>{o.type}</span>
                     <div className="sub">
-                      {subwallets.find((w) => w.id === o.subwalletId)?.name} · {o.makerEmail}
+                      {o.type === "Investment"
+                        ? o.facilityId
+                        : o.type === "Withdrawal"
+                          ? o.reason ?? "Withdrawal"
+                          : subwallets.find((w) => w.id === o.subwalletId)?.name}{" "}
+                      · {o.makerEmail}
                     </div>
                   </div>
                   <div style={{ textAlign: "right" }}>
@@ -236,8 +250,8 @@ export default function CorporateOverview() {
           <div className="card">
             <div className="section-head">
               <div>
-                <h3>Create Order</h3>
-                <p>Maker drafts a new deployment order.</p>
+                <h3>Create Allocation Order</h3>
+                <p>General sub-wallet capital allocation. Note investments and withdrawals are proposed from Notes Available and Withdrawal instead.</p>
               </div>
             </div>
             {myCorpRole === "maker" ? (

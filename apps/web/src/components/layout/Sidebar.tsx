@@ -128,7 +128,17 @@ const NAV_BY_ROLE: Record<Role, { to: string; label: string; icon: string }[]> =
     { to: "alerts", label: "Alerts", icon: "alerts" },
     { to: "account", label: "Account", icon: "account" },
   ],
-  corporate: [{ to: "overview", label: "Overview", icon: "grid" }],
+  corporate: [
+    { to: "overview", label: "Overview", icon: "grid" },
+    { to: "notes-available", label: "Notes Available", icon: "marketplace" },
+    { to: "ongoing-notes", label: "On-Going Notes", icon: "portfolio" },
+    { to: "completed-notes", label: "Completed Notes", icon: "repayments" },
+    { to: "deposit", label: "Deposit", icon: "deposit" },
+    { to: "withdrawal", label: "Withdrawal", icon: "withdrawal" },
+    { to: "account-balance", label: "Account Balance", icon: "balance" },
+    { to: "statements", label: "Statements", icon: "statements" },
+    { to: "alerts", label: "Alerts", icon: "alerts" },
+  ],
   admin: [
     { to: "overview", label: "Overview", icon: "grid" },
     { to: "investors", label: "Investors", icon: "investors" },
