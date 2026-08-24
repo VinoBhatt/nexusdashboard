@@ -128,12 +128,14 @@ export default function Signup() {
                   <b>Investor</b>
                   <span>Track returns, invest in financing notes, and manage your portfolio.</span>
                 </div>
+                <span className="cta-arrow" aria-hidden="true">→</span>
               </button>
               <button type="button" className="role-card" onClick={() => setRole("issuer")} style={{ cursor: "pointer" }}>
                 <div>
                   <b>Issuer</b>
                   <span>Apply for financing, track repayments, and manage your company's facilities.</span>
                 </div>
+                <span className="cta-arrow" aria-hidden="true">→</span>
               </button>
             </div>
             <div className="sub" style={{ marginTop: 14 }}>
@@ -158,6 +160,7 @@ export default function Signup() {
             ))}
           </div>
 
+          <div key={step} className="wizard-step">
           {step === "account" && (
             <div className="stack">
               <div className="field">
@@ -282,6 +285,7 @@ export default function Signup() {
               </label>
             </div>
           )}
+          </div>
 
           {error && (
             <div className="banner-notice" style={{ marginTop: 12 }}>
@@ -295,6 +299,7 @@ export default function Signup() {
             </button>
             {step === "agreements" ? (
               <button type="button" className="btn primary" disabled={submitting} onClick={onSubmit}>
+                {submitting && <span className="spinner" aria-hidden="true" />}
                 Create account
               </button>
             ) : (

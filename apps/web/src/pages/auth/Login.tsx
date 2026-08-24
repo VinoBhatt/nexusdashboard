@@ -16,11 +16,12 @@ const DEMO_PASSWORD = "demopassword";
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [submitting, setSubmitting] = useState(false);
+  const [loadingEmail, setLoadingEmail] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const submitting = loadingEmail !== null;
 
   async function doLogin(loginEmail: string, loginPassword: string) {
-    setSubmitting(true);
+    setLoadingEmail(loginEmail);
     setError("");
     try {
       await login(loginEmail, loginPassword);
@@ -28,7 +29,7 @@ export default function Login() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Login failed");
     } finally {
-      setSubmitting(false);
+      setLoadingEmail(null);
     }
   }
 
@@ -75,6 +76,7 @@ export default function Login() {
               <b>Onboard a new account</b>
               <span>Walk through the real investor or issuer sign-up wizard, from scratch</span>
             </div>
+            <span className="cta-arrow" aria-hidden="true">→</span>
           </Link>
 
           <div className="field">
@@ -85,7 +87,7 @@ export default function Login() {
               <button
                 key={d.email}
                 type="button"
-                className="role-card"
+                className={`role-card${loadingEmail === d.email ? " loading" : ""}`}
                 disabled={submitting}
                 onClick={() => doLogin(d.email, DEMO_PASSWORD)}
               >
@@ -93,6 +95,7 @@ export default function Login() {
                   <b>{d.label}</b>
                   <span>{d.sub}</span>
                 </div>
+                {loadingEmail === d.email && <span className="spinner dark" aria-hidden="true" />}
               </button>
             ))}
           </div>
