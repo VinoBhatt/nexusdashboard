@@ -67,11 +67,17 @@ export default function Login() {
               <div>{error}</div>
             </div>
           )}
-          <div className="sub" style={{ marginTop: 14 }}>
-            No account? <Link to="/signup">Create a retail investor account</Link>
-          </div>
-
           <div className="field" style={{ marginTop: 18 }}>
+            <label>New here?</label>
+          </div>
+          <Link to="/signup" className="role-card" style={{ marginBottom: 18 }}>
+            <div>
+              <b>Onboard a new account</b>
+              <span>Walk through the real investor or issuer sign-up wizard, from scratch</span>
+            </div>
+          </Link>
+
+          <div className="field">
             <label>Try the demo</label>
           </div>
           <div className="role-grid" id="roleGrid">
