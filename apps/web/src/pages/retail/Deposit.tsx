@@ -4,6 +4,7 @@ import { apiGet, apiPost, apiPostForm } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 const BANKS = ["Maybank2u", "CIMB Clicks", "Public Bank", "Hong Leong Bank", "RHB Bank", "Bank Islam"];
 
@@ -16,7 +17,7 @@ export default function Deposit() {
   const qc = useQueryClient();
   const toast = useToast();
 
-  const { data } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["investor", "overview"],
     queryFn: () => apiGet<{ profile: { cashBalance: number } }>("/api/investor/overview"),
   });
@@ -44,6 +45,9 @@ export default function Deposit() {
     },
     onError: (e: Error) => toast(e.message),
   });
+
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
 
   return (
     <>

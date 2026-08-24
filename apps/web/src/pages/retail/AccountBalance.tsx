@@ -3,6 +3,7 @@ import { apiGet, downloadUrl } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { DataTable, type Column } from "../../components/data/DataTable";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 interface Profile {
   cashBalance: number;
@@ -37,7 +38,7 @@ const columns: Column<Activity>[] = [
 ];
 
 export default function AccountBalance() {
-  const { data } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["investor", "overview"],
     queryFn: () => apiGet<{ profile: Profile }>("/api/investor/overview"),
   });
@@ -46,8 +47,9 @@ export default function AccountBalance() {
     queryFn: () => apiGet<{ activities: Activity[] }>("/api/investor/activities"),
   });
 
-  if (!data) return <PageHeader title="Account Balance" description="Loading…" />;
-  const { profile } = data;
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
+  const { profile } = data!;
 
   return (
     <>

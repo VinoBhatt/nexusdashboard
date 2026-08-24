@@ -3,6 +3,7 @@ import { apiGet } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { DataTable, type Column } from "../../components/data/DataTable";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 interface Installment {
   id: string;
@@ -50,8 +51,11 @@ const historyColumns: Column<HistoryItem>[] = [
 ];
 
 export default function Repayments() {
-  const { data } = useQuery({ queryKey: ["issuer", "repayments", "schedule"], queryFn: () => apiGet<{ schedule: Installment[] }>("/api/issuer/repayments/schedule") });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["issuer", "repayments", "schedule"], queryFn: () => apiGet<{ schedule: Installment[] }>("/api/issuer/repayments/schedule") });
   const { data: history } = useQuery({ queryKey: ["issuer", "repayments", "history"], queryFn: () => apiGet<{ history: HistoryItem[] }>("/api/issuer/repayments/history") });
+
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
 
   const schedule = data?.schedule ?? [];
 

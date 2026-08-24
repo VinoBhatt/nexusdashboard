@@ -9,6 +9,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { DataTable, type Column } from "../../components/data/DataTable";
 import { CopyButton } from "../../components/CopyButton";
 import { NATURE_OF_JOB, NATURE_OF_BUSINESS, GROSS_ANNUAL_INCOME, NET_WORTH, SOURCE_OF_FUNDS, BANKS, STATES, COUNTRIES } from "../../lib/profileOptions";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 interface Profile {
   displayName: string;
@@ -68,7 +69,7 @@ export default function Account() {
   const toast = useToast();
   const qc = useQueryClient();
 
-  const { data } = useQuery({ queryKey: ["account", "profile"], queryFn: () => apiGet<Profile>("/api/account/profile") });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["account", "profile"], queryFn: () => apiGet<Profile>("/api/account/profile") });
   const { data: docsData } = useQuery({ queryKey: ["account", "documents"], queryFn: () => apiGet<{ documents: Doc[] }>("/api/account/documents") });
 
   useEffect(() => {
@@ -110,7 +111,8 @@ export default function Account() {
     },
   });
 
-  if (!data) return <PageHeader title="My Profile" description="Loading…" />;
+  if (isLoading) return <SkeletonPage />;
+  if (isError || !data) return <QueryError onRetry={() => refetch()} />;
 
   const field = (key: keyof Profile, label: string, options?: string[], required = false) => (
     <div className="field">

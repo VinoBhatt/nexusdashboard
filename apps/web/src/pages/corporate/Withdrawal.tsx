@@ -4,6 +4,7 @@ import { apiGet, apiPost } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 interface OverviewResponse {
   account: { cashBalance: number };
@@ -16,7 +17,7 @@ export default function CorporateWithdrawal() {
   const qc = useQueryClient();
   const toast = useToast();
 
-  const { data } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["corporate", "overview"],
     queryFn: () => apiGet<OverviewResponse>("/api/corporate/overview"),
   });
@@ -31,6 +32,9 @@ export default function CorporateWithdrawal() {
   });
 
   const myCorpRole = data?.myCorpRole;
+
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
 
   return (
     <>

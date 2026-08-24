@@ -4,6 +4,7 @@ import { apiGet, apiPost } from "../../lib/api";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { useToast } from "../../components/Toast";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 interface Approval {
   id: string;
@@ -28,7 +29,7 @@ export default function RiskApprovals() {
   const qc = useQueryClient();
   const toast = useToast();
 
-  const { data } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["admin", "approvals", tab],
     queryFn: () => apiGet<{ approvals: Approval[] }>(`/api/admin/approvals${tab === "All" ? "" : `?status=${tab}`}`),
   });
@@ -63,6 +64,9 @@ export default function RiskApprovals() {
   });
 
   const approvals = data?.approvals ?? [];
+
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
 
   return (
     <>

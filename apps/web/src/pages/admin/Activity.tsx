@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "../../lib/api";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { DataTable, type Column } from "../../components/data/DataTable";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 interface ActivityRow {
   id: string;
@@ -47,7 +48,7 @@ function parseMetadata(json: string | null): Metadata {
 
 export default function AdminActivity() {
   const [search, setSearch] = useState("");
-  const { data } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["admin", "activity", search],
     queryFn: () => apiGet<{ activity: ActivityRow[] }>(`/api/admin/activity?search=${encodeURIComponent(search)}`),
   });
@@ -93,6 +94,9 @@ export default function AdminActivity() {
       },
     },
   ];
+
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
 
   return (
     <>

@@ -4,6 +4,7 @@ import { apiGet, apiPostForm } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 export default function Withdrawal() {
   const [amount, setAmount] = useState(50);
@@ -12,7 +13,7 @@ export default function Withdrawal() {
   const qc = useQueryClient();
   const toast = useToast();
 
-  const { data } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["investor", "overview"],
     queryFn: () => apiGet<{ profile: { cashBalance: number } }>("/api/investor/overview"),
   });
@@ -32,6 +33,9 @@ export default function Withdrawal() {
     },
     onError: (e: Error) => toast(e.message === "insufficient_balance" ? "Insufficient balance cash." : e.message),
   });
+
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
 
   return (
     <>

@@ -7,6 +7,7 @@ import { DataTable, type Column } from "../../components/data/DataTable";
 import { SellHoldingCard, type Holding } from "../../components/retail/SellHoldingCard";
 import { HoldingDetailModal } from "../../components/retail/HoldingDetailModal";
 import { useCanListForSale } from "../../lib/useCanListForSale";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 const FILTERS = ["All", "Ongoing", "Default"] as const;
 
@@ -42,10 +43,14 @@ export default function OngoingNotes() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [selected, setSelected] = useState<Holding | null>(null);
 
-  const { data } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["portfolio", "holdings", "all"],
     queryFn: () => apiGet<{ holdings: Holding[] }>(`/api/portfolio/holdings`),
   });
+
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
+
   const active = (data?.holdings ?? []).filter((h) => h.status !== "Completed");
   const shown = filter === "All" ? active : active.filter((h) => h.status === filter);
   const totalInvested = active.reduce((sum, h) => sum + h.amountInvested, 0);

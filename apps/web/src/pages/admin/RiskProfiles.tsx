@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "../../lib/api";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 interface RiskInvestor {
   id: string;
@@ -33,11 +34,14 @@ export default function RiskProfiles() {
   const [search, setSearch] = useState("");
   const [tier, setTier] = useState("All");
 
-  const { data } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["admin", "risk-profiles", search, tier],
     queryFn: () => apiGet<{ investors: RiskInvestor[] }>(`/api/admin/risk-profiles?search=${encodeURIComponent(search)}&tier=${tier}`),
   });
   const rows = data?.investors ?? [];
+
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
 
   return (
     <>

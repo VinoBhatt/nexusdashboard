@@ -7,6 +7,7 @@ import { DataTable, type Column } from "../../components/data/DataTable";
 import { SellHoldingCard, type Holding } from "../../components/retail/SellHoldingCard";
 import { HoldingDetailModal } from "../../components/retail/HoldingDetailModal";
 import { useCanListForSale } from "../../lib/useCanListForSale";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 const columns: Column<Holding>[] = [
   { key: "facilityId", label: "Facility", sortable: true },
@@ -20,10 +21,14 @@ const columns: Column<Holding>[] = [
 export default function CompletedNotes() {
   const canListForSale = useCanListForSale();
   const [selected, setSelected] = useState<Holding | null>(null);
-  const { data } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["portfolio", "holdings", "Completed"],
     queryFn: () => apiGet<{ holdings: Holding[] }>(`/api/portfolio/holdings?status=Completed`),
   });
+
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
+
   const holdings = data?.holdings ?? [];
   const totalProfit = holdings.reduce((sum, h) => sum + (h.actualReturn - h.amountInvested), 0);
 

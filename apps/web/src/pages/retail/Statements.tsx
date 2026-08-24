@@ -6,6 +6,7 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
 import { useFocusTrap } from "../../lib/useFocusTrap";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 interface Statement {
   id: string;
@@ -34,7 +35,7 @@ export default function Statements() {
   const viewingModalRef = useRef<HTMLDivElement>(null);
   useEscapeToClose(!!viewingId, () => setViewingId(null));
   useFocusTrap(!!viewingId, viewingModalRef);
-  const { data } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["statements"],
     queryFn: () => apiGet<{ statements: Statement[] }>("/api/statements"),
   });
@@ -51,6 +52,9 @@ export default function Statements() {
       qc.invalidateQueries({ queryKey: ["statements"] });
     },
   });
+
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
 
   return (
     <>

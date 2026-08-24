@@ -7,6 +7,7 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
 import { useFocusTrap } from "../../lib/useFocusTrap";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 const REPAYMENT_STRUCTURES = ["Bullet Principal, Monthly Profit", "Bullet Principal & Profit", "Monthly Principal & Profit"] as const;
 const RISK_OPTIONS: Record<string, string[]> = {
@@ -85,7 +86,7 @@ export default function CampaignManagerProposals() {
   const qc = useQueryClient();
   const toast = useToast();
 
-  const { data: list } = useQuery({ queryKey: ["cm", "proposals"], queryFn: () => apiGet<{ proposals: ProposalRow[] }>("/api/campaign-manager/proposals") });
+  const { data: list, isLoading, isError, refetch } = useQuery({ queryKey: ["cm", "proposals"], queryFn: () => apiGet<{ proposals: ProposalRow[] }>("/api/campaign-manager/proposals") });
   const { data: draftFacility } = useQuery({
     queryKey: ["cm", "application", draftFacilityId],
     queryFn: () => apiGet<{ facility: Facility }>(`/api/campaign-manager/applications/${draftFacilityId}`),
@@ -244,6 +245,9 @@ export default function CampaignManagerProposals() {
   function toggleSecurity(option: string) {
     setSecurities((prev) => (prev.includes(option) ? prev.filter((s) => s !== option) : [...prev, option]));
   }
+
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
 
   // ---- Create-from-application form ----
   if (draftFacilityId && draftFacility) {

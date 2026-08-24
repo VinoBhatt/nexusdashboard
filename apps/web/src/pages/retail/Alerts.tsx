@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { apiGet } from "../../lib/api";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 interface Alert {
   id: string;
@@ -11,8 +12,11 @@ interface Alert {
 }
 
 export default function Alerts() {
-  const { data } = useQuery({ queryKey: ["alerts"], queryFn: () => apiGet<{ alerts: Alert[] }>("/api/alerts") });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["alerts"], queryFn: () => apiGet<{ alerts: Alert[] }>("/api/alerts") });
   const alerts = data?.alerts ?? [];
+
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
 
   return (
     <>

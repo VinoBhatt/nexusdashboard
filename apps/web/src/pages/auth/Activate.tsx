@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import { apiGet, apiPostForm } from "../../lib/api";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 import {
   NATURE_OF_JOB,
   GROSS_ANNUAL_INCOME,
@@ -32,7 +33,7 @@ export default function Activate() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const { data: status } = useQuery({ queryKey: ["activate", "status"], queryFn: () => apiGet<ActivationStatus>("/api/activate/status") });
+  const { data: status, isLoading, isError, refetch } = useQuery({ queryKey: ["activate", "status"], queryFn: () => apiGet<ActivationStatus>("/api/activate/status") });
 
   // Individual Investor
   const [jobType, setJobType] = useState("");
@@ -132,6 +133,9 @@ export default function Activate() {
   }
 
   const alreadyActivated = status?.activated.individual || status?.activated.corporate || status?.activated.issuer;
+
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
 
   if (alreadyActivated) {
     return (

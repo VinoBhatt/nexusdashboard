@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { apiGet } from "../../lib/api";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 interface Approval {
   id: string;
@@ -31,12 +32,15 @@ function confidenceBadge(score: number | null) {
 export default function KycQueue() {
   const [statusFilter, setStatusFilter] = useState("Pending");
   const { data: stats } = useQuery({ queryKey: ["admin", "kyc-queue-stats"], queryFn: () => apiGet<Stats>("/api/admin/kyc-queue-stats") });
-  const { data } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["admin", "approvals", statusFilter],
     queryFn: () => apiGet<{ approvals: Approval[] }>(`/api/admin/approvals${statusFilter === "All" ? "" : `?status=${statusFilter}`}`),
   });
 
   const rows = data?.approvals ?? [];
+
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
 
   return (
     <>

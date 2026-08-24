@@ -5,6 +5,7 @@ import { apiGet } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { DataTable, type Column } from "../../components/data/DataTable";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 interface Application {
   id: string;
@@ -28,7 +29,7 @@ interface BusinessInfo {
 export default function CampaignManagerApplications() {
   const [openId, setOpenId] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { data } = useQuery({ queryKey: ["cm", "applications"], queryFn: () => apiGet<{ applications: Application[] }>("/api/campaign-manager/applications") });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["cm", "applications"], queryFn: () => apiGet<{ applications: Application[] }>("/api/campaign-manager/applications") });
   const { data: detail } = useQuery({
     queryKey: ["cm", "application", openId],
     queryFn: () => apiGet<{ facility: Application; businessInfo: BusinessInfo }>(`/api/campaign-manager/applications/${openId}`),
@@ -42,6 +43,9 @@ export default function CampaignManagerApplications() {
     { key: "createdAt", label: "Date Applied", sortable: true, render: (a) => new Date(a.createdAt).toLocaleDateString("en-GB") },
     { key: "id", label: "Action", render: (a) => <button className="btn small" onClick={() => setOpenId(a.id)}>View</button> },
   ];
+
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
 
   if (openId && detail) {
     const { facility, businessInfo } = detail;

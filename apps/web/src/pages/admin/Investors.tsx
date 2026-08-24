@@ -4,6 +4,7 @@ import { apiGet } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { DataTable, type Column } from "../../components/data/DataTable";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 interface Investor {
   id: string;
@@ -19,7 +20,7 @@ export default function Investors() {
   const [type, setType] = useState("All");
   const [status, setStatus] = useState("All");
 
-  const { data } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["admin", "investors", search, type, status],
     queryFn: () =>
       apiGet<{ investors: Investor[] }>(
@@ -34,6 +35,9 @@ export default function Investors() {
     { key: "portfolio", label: "Portfolio Value", sortable: true, render: (r) => money(r.portfolio) },
     { key: "status", label: "Status", sortable: true, render: (r) => <span className={`status ${r.status === "Active" ? "ok" : r.status === "Under review" ? "overdue" : "pending"}`}>{r.status}</span> },
   ];
+
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
 
   return (
     <>

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPostForm } from "../../lib/api";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 const DOC_TYPES = ["Certificate of Incorporation", "Latest Audited Financials", "Bank Statements (6 months)", "Director IC / Passport", "Board Resolution"];
 
@@ -18,7 +19,7 @@ export default function Documents() {
   const qc = useQueryClient();
   const toast = useToast();
 
-  const { data } = useQuery({ queryKey: ["issuer", "documents"], queryFn: () => apiGet<{ documents: DocRow[] }>("/api/issuer/documents") });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["issuer", "documents"], queryFn: () => apiGet<{ documents: DocRow[] }>("/api/issuer/documents") });
 
   const upload = useMutation({
     mutationFn: () => {
@@ -35,6 +36,9 @@ export default function Documents() {
     },
     onError: (e: Error) => toast(e.message),
   });
+
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
 
   return (
     <>

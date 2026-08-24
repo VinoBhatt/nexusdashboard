@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPost } from "../../lib/api";
 import { useToast } from "../../components/Toast";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 interface Approval {
   id: string;
@@ -54,7 +55,7 @@ export default function CtosRecord() {
   const [requestDocsOpen, setRequestDocsOpen] = useState(false);
   const [requestDocsNotes, setRequestDocsNotes] = useState("");
 
-  const { data } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["admin", "kyc-review", approvalId],
     queryFn: () => apiGet<CaseDetail>(`/api/admin/kyc-review/${approvalId}`),
     enabled: !!approvalId,
@@ -88,8 +89,9 @@ export default function CtosRecord() {
     onError: (e: Error) => toast(e.message),
   });
 
-  if (!data) return <div className="sub">Loading…</div>;
-  const { approval, kycProfile, ctos } = data;
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
+  const { approval, kycProfile, ctos } = data!;
   const band = bandLabel(approval.confidenceScore ?? 0);
   const decided = approval.status !== "Pending";
 

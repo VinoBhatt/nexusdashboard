@@ -4,6 +4,7 @@ import { apiGet, apiPatch, apiPost } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 const PRODUCT_FAMILIES = ["Invoice Financing", "Invoice Financing (Receivables)", "Invoice Financing (Purchases)", "Working Capital", "Insurance Premium Financing"];
 
@@ -65,7 +66,7 @@ export default function Financing() {
   const qc = useQueryClient();
   const toast = useToast();
 
-  const { data } = useQuery({ queryKey: ["issuer", "applications"], queryFn: () => apiGet<{ applications: Application[] }>("/api/issuer/applications") });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["issuer", "applications"], queryFn: () => apiGet<{ applications: Application[] }>("/api/issuer/applications") });
   const editing = data?.applications.find((a) => a.id === editingId) ?? null;
 
   const [islamicConventional, setIslamicConventional] = useState<"Islamic" | "Conventional">("Islamic");
@@ -182,6 +183,9 @@ export default function Financing() {
   }
 
   const requiresSpecificDoc = productFamily !== "Working Capital";
+
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
 
   if (editingId || isCreating || start.isPending) {
     return (

@@ -5,6 +5,7 @@ import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
 import { DataTable, type Column } from "../../components/data/DataTable";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 interface Rule {
   investorId: string;
@@ -56,7 +57,7 @@ export default function AutoInvest() {
   const toast = useToast();
   const qc = useQueryClient();
 
-  const { data } = useQuery({ queryKey: ["autoinvest", "rule"], queryFn: () => apiGet<{ rule: Rule }>("/api/autoinvest/rule") });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["autoinvest", "rule"], queryFn: () => apiGet<{ rule: Rule }>("/api/autoinvest/rule") });
   const { data: historyData } = useQuery({ queryKey: ["autoinvest", "history"], queryFn: () => apiGet<{ history: HistoryRow[] }>("/api/autoinvest/history") });
 
   useEffect(() => {
@@ -95,8 +96,9 @@ export default function AutoInvest() {
     setForm((f) => ({ ...f, riskTiers: f.riskTiers.includes(tier) ? f.riskTiers.filter((t) => t !== tier) : [...f.riskTiers, tier] }));
   }
 
-  if (!data) return <PageHeader title="Auto Invest" description="Loading…" />;
-  const rule = data.rule;
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
+  const rule = data!.rule;
 
   return (
     <>

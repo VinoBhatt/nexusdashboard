@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 interface ProposalRow {
   id: string;
@@ -38,12 +39,15 @@ const STATUS_LABEL: Record<string, string> = { Submitted: "Submitted", Scheduled
 
 export default function IssuerProposals() {
   const [openId, setOpenId] = useState<string | null>(null);
-  const { data } = useQuery({ queryKey: ["issuer", "proposals"], queryFn: () => apiGet<{ proposals: ProposalRow[] }>("/api/issuer/proposals") });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["issuer", "proposals"], queryFn: () => apiGet<{ proposals: ProposalRow[] }>("/api/issuer/proposals") });
   const { data: detail } = useQuery({
     queryKey: ["issuer", "proposal", openId],
     queryFn: () => apiGet<{ proposal: ProposalDetail; facility: Facility }>(`/api/issuer/proposals/${openId}`),
     enabled: !!openId,
   });
+
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
 
   if (openId && detail) {
     const { proposal, facility } = detail;

@@ -4,6 +4,7 @@ import { apiGet } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { DataTable, type Column } from "../../components/data/DataTable";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 interface Issuer {
   name: string;
@@ -16,7 +17,7 @@ interface Issuer {
 export default function Issuers() {
   const [search, setSearch] = useState("");
 
-  const { data } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["admin", "issuers", search],
     queryFn: () => apiGet<{ issuers: Issuer[] }>(`/api/admin/issuers?search=${encodeURIComponent(search)}`),
   });
@@ -28,6 +29,9 @@ export default function Issuers() {
     { key: "tier", label: "Risk Tier", sortable: true },
     { key: "status", label: "Status", sortable: true, render: (r) => <span className={`status ${r.status === "Performing" ? "ok" : r.status === "Default" ? "default" : "pending"}`}>{r.status}</span> },
   ];
+
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
 
   return (
     <>

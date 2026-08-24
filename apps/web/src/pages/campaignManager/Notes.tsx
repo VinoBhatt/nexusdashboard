@@ -5,6 +5,7 @@ import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
 import { DataTable, type Column } from "../../components/data/DataTable";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
 
 interface Note {
   id: string;
@@ -52,7 +53,7 @@ export default function CampaignManagerNotes() {
   const qc = useQueryClient();
   const toast = useToast();
 
-  const { data } = useQuery({ queryKey: ["cm", "notes"], queryFn: () => apiGet<{ notes: Note[] }>("/api/campaign-manager/notes") });
+  const { data, isLoading, isError, refetch: refetchNotes } = useQuery({ queryKey: ["cm", "notes"], queryFn: () => apiGet<{ notes: Note[] }>("/api/campaign-manager/notes") });
   const { data: detail, refetch } = useQuery({
     queryKey: ["cm", "note", openId],
     queryFn: () => apiGet<NoteDetail>(`/api/campaign-manager/notes/${openId}`),
@@ -86,6 +87,9 @@ export default function CampaignManagerNotes() {
     { key: "principalAmount", label: "Amount (RM)", sortable: true, render: (n) => money(n.principalAmount) },
     { key: "status", label: "Status", sortable: true, render: (n) => <span className={`status ${statusClass(n.status)}`}>{n.status}</span> },
   ];
+
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetchNotes()} />;
 
   if (openId && detail) {
     const { facility, schedule, positions, fundedAmount, uniqueInvestors } = detail;
