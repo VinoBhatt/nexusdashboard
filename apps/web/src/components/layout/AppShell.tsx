@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { Sidebar } from "./Sidebar";
 import { DrawerContext } from "./DrawerContext";
@@ -7,6 +7,7 @@ import { DrawerContext } from "./DrawerContext";
 export default function AppShell() {
   const { user, isLoading } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const location = useLocation();
 
   if (isLoading) return null;
   if (!user) return <Navigate to="/login" replace />;
@@ -28,7 +29,9 @@ export default function AppShell() {
           }}
         />
         <DrawerContext.Provider value={() => setDrawerOpen((v) => !v)}>
-          <Outlet />
+          <div key={location.pathname} className="page-fade">
+            <Outlet />
+          </div>
         </DrawerContext.Provider>
       </main>
     </div>

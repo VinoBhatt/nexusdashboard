@@ -152,7 +152,10 @@ export default function Signup() {
       <div className="login-card" style={{ gridTemplateColumns: "1fr", maxWidth: 640 }}>
         <div className="login-form">
           <h3>{role === "retail" ? "Investor Onboarding" : "Issuer Onboarding"}</h3>
-          <div className="row" style={{ gap: 8, margin: "14px 0" }}>
+          <div className="progress" style={{ marginTop: 14 }}>
+            <span style={{ width: `${((STEPS.findIndex((s) => s.key === step) + 1) / STEPS.length) * 100}%` }} />
+          </div>
+          <div className="row" style={{ gap: 8, margin: "10px 0 14px" }}>
             {STEPS.map((s) => (
               <button key={s.key} type="button" className={`btn small ${step === s.key ? "primary" : "secondary"}`} onClick={() => setStep(s.key)}>
                 {s.label}
