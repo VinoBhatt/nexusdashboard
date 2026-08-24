@@ -1,40 +1,18 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPost } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
-import { simulateSchedule, type RepaymentStructure } from "../../lib/repaymentSchedule";
+import { simulateSchedule } from "../../lib/repaymentSchedule";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
 import { useFocusTrap } from "../../lib/useFocusTrap";
+import { SkeletonPage, QueryError } from "../../components/QueryState";
+import { PrimaryNoteCard } from "../../components/marketplace/PrimaryNoteCard";
+import { SecondaryListingCard } from "../../components/marketplace/SecondaryListingCard";
+import { RepaymentScheduleTable } from "../../components/marketplace/RepaymentScheduleTable";
+import type { Note, Listing } from "../../lib/marketplaceTypes";
 
-interface Note {
-  id: string;
-  issuerName: string;
-  riskTier: string;
-  ratePct: number;
-  tenorDays: number;
-  minInvestment: number;
-  maxInvestment: number;
-  financingType: string;
-  fundingProgressPct: number;
-  noteName: string | null;
-  principalAmount: number;
-  repaymentStructure: RepaymentStructure;
-}
-interface Listing {
-  id: string;
-  units: number;
-  pricePerUnit: number;
-  status: string;
-  facilityId: string;
-  noteName: string | null;
-  issuerName: string;
-  ratePct: number;
-  tenorDays: number;
-  daysElapsed: number;
-  repaymentStructure: RepaymentStructure;
-}
 interface Subwallet {
   id: string;
   name: string;
@@ -64,7 +42,7 @@ export default function CorporateMarketplace() {
   const qc = useQueryClient();
   const toast = useToast();
 
-  const { data } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["marketplace", mode],
     queryFn: (): Promise<{ notes: Note[] } | { listings: Listing[] }> =>
       mode === "primary" ? apiGet<{ notes: Note[] }>("/api/marketplace/notes?mode=primary") : apiGet<{ listings: Listing[] }>("/api/marketplace/notes?mode=secondary"),
@@ -96,11 +74,11 @@ export default function CorporateMarketplace() {
     onError: (e: Error) => toast(e.message),
   });
 
-  const notes = (mode === "primary" ? (data as { notes: Note[] } | undefined)?.notes : []) ?? [];
+  const notes = useMemo(() => (mode === "primary" ? (data as { notes: Note[] } | undefined)?.notes ?? [] : []), [mode, data]);
   const listings = (mode === "secondary" ? (data as { listings: Listing[] } | undefined)?.listings : []) ?? [];
   const subwallets = overview?.subwallets ?? [];
   const myCorpRole = overview?.myCorpRole;
-  const filteredNotes = notes.filter((n) => n.id.toLowerCase().includes(search.toLowerCase()));
+  const filteredNotes = useMemo(() => notes.filter((n) => n.id.toLowerCase().includes(search.toLowerCase())), [notes, search]);
 
   function openPropose(note: Note) {
     setTarget(note);
@@ -128,6 +106,9 @@ export default function CorporateMarketplace() {
   const buyProfit = buyTarget ? buyUnits - buyCost : 0;
   const buyValid = !!buyTarget && buyUnits >= 1 && buyUnits <= buyTarget.units && !!buySubwalletId;
   const buySchedule = buyTarget ? simulateSchedule(buyUnits, buyTarget.ratePct, buyTarget.tenorDays, buyTarget.repaymentStructure) : [];
+
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
 
   return (
     <>
@@ -158,110 +139,36 @@ export default function CorporateMarketplace() {
 
       <div className="note-grid">
         {mode === "primary"
-          ? filteredNotes.map((n) => {
-              const outstandingBalance = n.principalAmount * (1 - n.fundingProgressPct / 100);
-              return (
-                <div key={n.id} className="note">
-                  <div className="row" style={{ justifyContent: "space-between" }}>
-                    <div>
-                      <h4>{n.noteName ?? n.id}</h4>
-                      <small>
-                        Reference Number {n.id} · {n.financingType} · {n.repaymentStructure}
-                      </small>
-                    </div>
-                    <span className={`pill ${n.fundingProgressPct >= 100 ? "amber" : "blue"}`}>
-                      {n.fundingProgressPct >= 100 ? "Fully Funded" : "Open"}
-                    </span>
-                  </div>
-                  <div className="mini-metrics">
-                    <div>
-                      <span>Credit Risk Rating</span>
-                      <b>{n.riskTier}</b>
-                    </div>
-                    <div>
-                      <span>Profit Rate p.a.</span>
-                      <b>{n.ratePct}%</b>
-                    </div>
-                    <div>
-                      <span>Note Tenure</span>
-                      <b>{n.tenorDays} day(s)</b>
-                    </div>
-                    <div>
-                      <span>Financing Amount</span>
-                      <b>{money(n.principalAmount)}</b>
-                    </div>
-                    <div>
-                      <span>Outstanding Balance</span>
-                      <b>
-                        {money(outstandingBalance)} ({(100 - n.fundingProgressPct).toFixed(1)}%)
-                      </b>
-                    </div>
-                    <div>
-                      <span>Investment range</span>
-                      <b>
-                        RM {n.minInvestment} - {n.maxInvestment}
-                      </b>
-                    </div>
-                  </div>
-                  <div className="sub" style={{ marginTop: 12 }}>
-                    {n.issuerName}
-                  </div>
-                  <div className="progress">
-                    <span style={{ width: `${n.fundingProgressPct}%` }} />
-                  </div>
-                  <div className="row" style={{ justifyContent: "flex-end", marginTop: 12 }}>
-                    {myCorpRole === "maker" ? (
-                      <button className="btn small primary" disabled={n.fundingProgressPct >= 100} onClick={() => openPropose(n)}>
-                        {n.fundingProgressPct >= 100 ? "Fully Funded" : "Propose Investment"}
-                      </button>
-                    ) : (
-                      <span className="sub">Only the Maker can propose an investment.</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          : listings.map((l) => {
-              const returnPct = ((1 / l.pricePerUnit - 1) * 100).toFixed(2);
-              return (
-                <div key={l.id} className="note">
-                  <div className="row" style={{ justifyContent: "space-between" }}>
-                    <div>
-                      <h4>{l.noteName ?? l.facilityId}</h4>
-                      <small>
-                        Listing {l.id} · {l.repaymentStructure}
-                      </small>
-                    </div>
-                  </div>
-                  <div className="mini-metrics">
-                    <div>
-                      <span>Units available</span>
-                      <b>{l.units.toLocaleString()}</b>
-                    </div>
-                    <div>
-                      <span>Price / unit</span>
-                      <b>RM {l.pricePerUnit}</b>
-                    </div>
-                    <div>
-                      <span>Simulated Return</span>
-                      <b>{returnPct}%</b>
-                    </div>
-                  </div>
-                  <div className="sub" style={{ marginTop: 12 }}>
-                    {l.issuerName} · {l.ratePct}% p.a. · {l.tenorDays} day(s)
-                  </div>
-                  <div className="row" style={{ justifyContent: "flex-end", marginTop: 12 }}>
-                    {myCorpRole === "maker" ? (
-                      <button className="btn small primary" onClick={() => openBuy(l)}>
-                        Propose Purchase
-                      </button>
-                    ) : (
-                      <span className="sub">Only the Maker can propose a purchase.</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+          ? filteredNotes.map((n) => (
+              <PrimaryNoteCard
+                key={n.id}
+                note={n}
+                action={
+                  myCorpRole === "maker" ? (
+                    <button className="btn small primary" disabled={n.fundingProgressPct >= 100} onClick={() => openPropose(n)}>
+                      {n.fundingProgressPct >= 100 ? "Fully Funded" : "Propose Investment"}
+                    </button>
+                  ) : (
+                    <span className="sub">Only the Maker can propose an investment.</span>
+                  )
+                }
+              />
+            ))
+          : listings.map((l) => (
+              <SecondaryListingCard
+                key={l.id}
+                listing={l}
+                action={
+                  myCorpRole === "maker" ? (
+                    <button className="btn small primary" onClick={() => openBuy(l)}>
+                      Propose Purchase
+                    </button>
+                  ) : (
+                    <span className="sub">Only the Maker can propose a purchase.</span>
+                  )
+                }
+              />
+            ))}
         {mode === "primary" && filteredNotes.length === 0 && <div className="card">No matching opportunities.</div>}
         {mode === "secondary" && listings.length === 0 && <div className="card">No open listings.</div>}
       </div>
@@ -313,31 +220,7 @@ export default function CorporateMarketplace() {
                 <span>Profit of {money(simulatedReturn - amount)} on {money(amount)} invested, if approved.</span>
               </div>
             </div>
-            <div className="field" style={{ marginTop: 14 }}>
-              <label>Repayment breakdown ({target.repaymentStructure})</label>
-              <div className="table-wrap">
-                <table className="table" style={{ minWidth: 0 }}>
-                  <tbody>
-                    <tr>
-                      <th>#</th>
-                      <th>Due Date</th>
-                      <th>Principal</th>
-                      <th>Profit</th>
-                      <th>Total</th>
-                    </tr>
-                    {schedule.map((row) => (
-                      <tr key={row.installmentNo}>
-                        <td>{row.installmentNo}</td>
-                        <td>{row.dueDate}</td>
-                        <td>{money(row.principalDue)}</td>
-                        <td>{money(row.profitDue)}</td>
-                        <td>{money(row.principalDue + row.profitDue)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <RepaymentScheduleTable schedule={schedule} structure={target.repaymentStructure} />
             <div className="row" style={{ justifyContent: "flex-end", gap: 10, marginTop: 14 }}>
               <button className="btn" onClick={() => setTarget(null)}>
                 Cancel
@@ -393,31 +276,7 @@ export default function CorporateMarketplace() {
                 </span>
               </div>
             </div>
-            <div className="field" style={{ marginTop: 14 }}>
-              <label>Repayment breakdown ({buyTarget.repaymentStructure})</label>
-              <div className="table-wrap">
-                <table className="table" style={{ minWidth: 0 }}>
-                  <tbody>
-                    <tr>
-                      <th>#</th>
-                      <th>Due Date</th>
-                      <th>Principal</th>
-                      <th>Profit</th>
-                      <th>Total</th>
-                    </tr>
-                    {buySchedule.map((row) => (
-                      <tr key={row.installmentNo}>
-                        <td>{row.installmentNo}</td>
-                        <td>{row.dueDate}</td>
-                        <td>{money(row.principalDue)}</td>
-                        <td>{money(row.profitDue)}</td>
-                        <td>{money(row.principalDue + row.profitDue)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <RepaymentScheduleTable schedule={buySchedule} structure={buyTarget.repaymentStructure} />
             <div className="row" style={{ justifyContent: "flex-end", gap: 10, marginTop: 14 }}>
               <button className="btn" onClick={() => setBuyTarget(null)}>
                 Cancel
