@@ -139,7 +139,7 @@ corporate.post("/orders", async (c) => {
   if (ctx.corpRole !== "maker") return c.json({ error: "forbidden", message: "Only the Maker can create an order." }, 403);
 
   const parsed = createOrderSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "invalid_input" }, 400);
+  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
   const { type } = parsed.data;
 
   const db = drizzle(c.env.DB);

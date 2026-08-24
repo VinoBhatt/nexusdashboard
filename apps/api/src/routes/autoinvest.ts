@@ -40,7 +40,7 @@ const ruleSchema = z.object({
 autoinvest.put("/rule", async (c) => {
   const user = c.get("user");
   const parsed = ruleSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "invalid_input" }, 400);
+  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
   const { enabled, minRatePct, maxTenorDays, riskTiers, amountPerNote, budgetCap } = parsed.data;
 
   const db = drizzle(c.env.DB);

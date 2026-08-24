@@ -148,7 +148,7 @@ portfolio.post("/holdings/:id/list-for-sale", async (c) => {
     }
   }
   const parsed = listForSaleSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "invalid_input" }, 400);
+  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
 
   const db = drizzle(c.env.DB);
   const owned = await ownershipCondition(c);

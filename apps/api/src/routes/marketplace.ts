@@ -76,7 +76,7 @@ const investSchema = z.object({ amount: z.number().min(100) });
 marketplace.post("/notes/:id/invest", async (c) => {
   const user = c.get("user");
   const parsed = investSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "invalid_input" }, 400);
+  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
   const { amount } = parsed.data;
 
   const db = drizzle(c.env.DB);
@@ -105,7 +105,7 @@ const buySchema = z.object({ units: z.number().positive() });
 marketplace.post("/secondary/:id/buy", async (c) => {
   const user = c.get("user");
   const parsed = buySchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "invalid_input" }, 400);
+  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
   const { units: unitsToBuy } = parsed.data;
 
   const db = drizzle(c.env.DB);

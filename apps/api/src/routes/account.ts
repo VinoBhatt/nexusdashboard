@@ -64,7 +64,7 @@ const updateSchema = z.object({
 account.put("/profile", async (c) => {
   const user = c.get("user");
   const parsed = updateSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "invalid_input" }, 400);
+  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
 
   const db = drizzle(c.env.DB);
   const { displayName, ...profileFields } = parsed.data;

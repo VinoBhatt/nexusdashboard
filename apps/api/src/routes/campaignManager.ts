@@ -166,7 +166,7 @@ const createProposalSchema = proposalFieldsSchema.extend({ facilityId: z.string(
 campaignManager.post("/proposals", async (c) => {
   const user = c.get("user");
   const parsed = createProposalSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "invalid_input" }, 400);
+  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
   if (!validRiskValue(parsed.data.riskMethod, parsed.data.riskValue)) return c.json({ error: "invalid_risk_rating" }, 400);
 
   const db = drizzle(c.env.DB);
@@ -216,7 +216,7 @@ async function loadDraftProposal(db: ReturnType<typeof drizzle>, id: string) {
 
 campaignManager.patch("/proposals/:id", async (c) => {
   const parsed = proposalFieldsSchema.partial().safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "invalid_input" }, 400);
+  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
   if (!validRiskValue(parsed.data.riskMethod, parsed.data.riskValue)) return c.json({ error: "invalid_risk_rating" }, 400);
 
   const db = drizzle(c.env.DB);
@@ -283,7 +283,7 @@ const scheduleSchema = z.object({
 
 campaignManager.post("/proposals/:id/schedule", async (c) => {
   const parsed = scheduleSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "invalid_input" }, 400);
+  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
   const promotionalStart = new Date(parsed.data.promotionalStart);
   const launchStart = new Date(parsed.data.launchStart);
   const launchEnd = new Date(parsed.data.launchEnd);
@@ -371,7 +371,7 @@ const disburseSchema = z.object({ disbursementDate: z.string() });
 
 campaignManager.post("/notes/:id/disburse", async (c) => {
   const parsed = disburseSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "invalid_input" }, 400);
+  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
   const db = drizzle(c.env.DB);
   const [facility] = await db.select().from(financingFacilities).where(eq(financingFacilities.id, c.req.param("id"))).limit(1);
   if (!facility || facility.status !== "Open") return c.json({ error: "not_disbursable" }, 409);
@@ -384,7 +384,7 @@ const paymentSchema = z.object({ installmentId: z.string() });
 
 campaignManager.post("/notes/:id/payment", async (c) => {
   const parsed = paymentSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "invalid_input" }, 400);
+  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
   const db = drizzle(c.env.DB);
   const [installment] = await db
     .select()

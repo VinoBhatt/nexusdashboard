@@ -96,10 +96,12 @@ admin.get("/investors", async (c) => {
     .select({ id: users.id, name: users.displayName, kyc: investorProfiles.kycStatus, portfolio: investorProfiles.totalInvested })
     .from(users)
     .innerJoin(investorProfiles, eq(users.id, investorProfiles.userId))
-    .where(eq(users.role, "retail"));
+    .where(eq(users.role, "retail"))
+    .limit(500);
   const corpRows = await db
     .select({ id: corporateAccounts.id, name: corporateAccounts.companyName, portfolio: corporateAccounts.deployedFunds })
-    .from(corporateAccounts);
+    .from(corporateAccounts)
+    .limit(500);
 
   let combined = [
     ...retailRows.map((r) => ({
@@ -139,7 +141,8 @@ admin.get("/risk-profiles", async (c) => {
     .from(users)
     .innerJoin(investorProfiles, eq(users.id, investorProfiles.userId))
     .leftJoin(kycProfiles, eq(kycProfiles.userId, users.id))
-    .where(eq(users.role, "retail"));
+    .where(eq(users.role, "retail"))
+    .limit(500);
 
   let filtered = rows;
   if (search) filtered = filtered.filter((r) => r.name.toLowerCase().includes(search));
@@ -163,7 +166,8 @@ admin.get("/issuers", async (c) => {
       hasActive: sql<number>`max(case when ${financingFacilities.status} in ('Ongoing','Open') then 1 else 0 end)`,
     })
     .from(financingFacilities)
-    .groupBy(financingFacilities.issuerName);
+    .groupBy(financingFacilities.issuerName)
+    .limit(500);
 
   let issuers = rows.map((r) => ({
     name: r.issuerName,
@@ -346,7 +350,7 @@ const requestDocsSchema = z.object({ notes: z.string().min(1).max(500) });
 admin.post("/kyc-review/:id/request-docs", async (c) => {
   const db = drizzle(c.env.DB);
   const parsed = requestDocsSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "invalid_input" }, 400);
+  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
   const id = c.req.param("id");
   const [approval] = await db.select().from(approvals).where(eq(approvals.id, id)).limit(1);
   if (!approval) return c.json({ error: "not_found" }, 404);

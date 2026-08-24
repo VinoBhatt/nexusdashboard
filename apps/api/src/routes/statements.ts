@@ -44,7 +44,7 @@ const generateSchema = z.object({ period: z.string().min(1), type: z.enum(["Mont
 statementsRouter.post("/generate", async (c) => {
   const user = c.get("user");
   const parsed = generateSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "invalid_input" }, 400);
+  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
 
   const db = drizzle(c.env.DB);
   const id = crypto.randomUUID();

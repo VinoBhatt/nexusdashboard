@@ -146,7 +146,7 @@ const startApplicationSchema = z.object({
 issuer.post("/applications", async (c) => {
   const user = c.get("user");
   const parsed = startApplicationSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "invalid_input" }, 400);
+  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
 
   const db = drizzle(c.env.DB);
   const [profile] = await db.select().from(issuerProfiles).where(eq(issuerProfiles.userId, user.id)).limit(1);
@@ -199,7 +199,7 @@ issuer.patch("/applications/:id", async (c) => {
   const user = c.get("user");
   const id = c.req.param("id");
   const parsed = patchApplicationSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "invalid_input" }, 400);
+  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
 
   const db = drizzle(c.env.DB);
   const facility = await loadOwnedDraft(db, user.id, id);

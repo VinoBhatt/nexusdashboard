@@ -80,7 +80,7 @@ const loginSchema = z.object({ email: z.string().email(), password: z.string().m
 
 auth.post("/login", async (c) => {
   const parsed = loginSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "invalid_input" }, 400);
+  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
   const { email, password } = parsed.data;
 
   const db = drizzle(c.env.DB);
@@ -114,7 +114,7 @@ auth.post("/switch-role", requireAuth, async (c) => {
   const user = c.get("user");
   if (!user.isDemoReviewer) return c.json({ error: "forbidden" }, 403);
   const parsed = switchRoleSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "invalid_input" }, 400);
+  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
 
   const token = readSessionCookie(c.req.header("cookie"))!;
   await setActiveRole(c.env.DB, token, parsed.data.role as Role);
