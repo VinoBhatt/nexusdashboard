@@ -58,15 +58,27 @@ export function DataTable<T>({
     <div>
       <div className="table-wrap">
         <table className="table">
-          <tbody>
+          <thead>
             <tr>
               {columns.map((col) => (
-                <th key={col.key} style={col.sortable ? { cursor: "pointer", userSelect: "none" } : undefined} onClick={() => col.sortable && toggleSort(col.key)}>
-                  {col.label}
-                  {col.sortable && sortKey === col.key ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                <th
+                  key={col.key}
+                  scope="col"
+                  aria-sort={col.sortable && sortKey === col.key ? (sortDir === "asc" ? "ascending" : "descending") : col.sortable ? "none" : undefined}
+                >
+                  {col.sortable ? (
+                    <button type="button" className="th-sort-btn" onClick={() => toggleSort(col.key)}>
+                      {col.label}
+                      {sortKey === col.key ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                    </button>
+                  ) : (
+                    col.label
+                  )}
                 </th>
               ))}
             </tr>
+          </thead>
+          <tbody>
             {pageRows.map((row, i) => (
               <tr
                 key={i}

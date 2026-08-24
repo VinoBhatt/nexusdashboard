@@ -5,6 +5,7 @@ import AppShell from "./components/layout/AppShell";
 import Login from "./pages/auth/Login";
 import Signup from "./pages/auth/Signup";
 import Activate from "./pages/auth/Activate";
+import NotFound from "./pages/NotFound";
 import RoleAwareOverview from "./pages/RoleAwareOverview";
 import RoleAwareMarketplace from "./pages/RoleAwareMarketplace";
 import RoleAwareDeposit from "./pages/RoleAwareDeposit";
@@ -79,8 +80,9 @@ export default function App() {
             <Route path="cm-proposals" element={<CampaignManagerProposals />} />
             <Route path="cm-notes" element={<CampaignManagerNotes />} />
             <Route path="cm-reports" element={<CampaignManagerReports />} />
+            <Route path="*" element={<NotFound />} />
           </Route>
-          <Route path="*" element={<Navigate to="/app/overview" replace />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </ToastProvider>
     </AuthProvider>
