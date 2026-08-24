@@ -1,11 +1,12 @@
 import { test, expect } from "@playwright/test";
-import { login, logout, apiFetch, signupRetail, DEMO_ACCOUNTS } from "./helpers";
+import { login, logout, apiFetch, signupRetail, activateIndividual, DEMO_ACCOUNTS } from "./helpers";
 
 test.describe("Admin approvals", () => {
-  test("approving a fresh signup's KYC actually verifies the account", async ({ page }) => {
+  test("approving a fresh activation's KYC actually verifies the account", async ({ page }) => {
     const email = `pw-newbie-${Date.now()}@test.com`;
 
     await signupRetail(page, { displayName: "Playwright Newbie", email });
+    await activateIndividual(page);
 
     // Confirm the account starts unverified before any admin action.
     const profileBefore = await apiFetch(page, "/api/account/profile");

@@ -13,27 +13,53 @@ export interface SessionUser {
   effectiveRole: Role;
 }
 
-export interface InvestorProfileSignup {
-  contactNumber?: string;
-  identificationType?: "NRIC" | "Passport";
-  identificationNumber?: string;
-  sourceOfFunds?: string;
-  jobType?: string;
-  incomeRange?: string;
-}
-export interface IssuerProfileSignup {
-  companyName: string;
-  registrationNumber?: string;
-  sector?: string;
-  registeredAddress?: string;
+// Barrier 1: a lightweight, role-less signup capturing identity only
+// (email/password + the mocked IC-scan/selfie result reviewed in step 4).
+export interface KycProfileSignup {
+  fullName: string;
+  icNumber?: string;
+  dob?: string;
+  nationality?: string;
+  address?: string;
+  gender?: string;
+  ocrOverridden?: boolean;
+  faceMatchScore?: number;
+  livenessPassed?: boolean;
 }
 export interface SignupInput {
   email: string;
   password: string;
   displayName: string;
-  role: "retail" | "issuer";
-  investorProfile?: InvestorProfileSignup;
-  issuerProfile?: IssuerProfileSignup;
+  kycProfile?: KycProfileSignup;
+}
+
+// Barrier 2: activating a sub-profile is what actually creates an
+// investor/issuer/corporate account, wallet and compliance case.
+export interface IndividualActivationInput {
+  jobType?: string;
+  companyName?: string;
+  incomeRange?: string;
+  netWorth?: string;
+  sourceOfFunds?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+}
+export interface CorporateActivationInput {
+  companyName: string;
+  registrationNumber?: string;
+  legalEntityType?: string;
+  sourceOfFunds?: string;
+  netAssetsRange?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+}
+export interface IssuerActivationInput {
+  companyName: string;
+  registrationNumber?: string;
+  legalEntityType?: string;
+  amountToRaise?: number;
+  tenure?: string;
+  purpose?: string;
 }
 
 interface AuthContextValue {
@@ -43,6 +69,9 @@ interface AuthContextValue {
   signup: (input: SignupInput) => Promise<void>;
   logout: () => Promise<void>;
   switchRole: (role: Role) => Promise<void>;
+  activateIndividual: (input: IndividualActivationInput) => Promise<void>;
+  activateCorporate: (input: CorporateActivationInput) => Promise<void>;
+  activateIssuer: (input: IssuerActivationInput) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -91,6 +120,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  const activateIndividualMutation = useMutation({
+    mutationFn: (vars: IndividualActivationInput) => apiPost<{ user: SessionUser }>("/api/activate/individual", vars),
+    onSuccess: (res) => {
+      qc.setQueryData(["me"], res.user);
+      qc.invalidateQueries();
+    },
+  });
+  const activateCorporateMutation = useMutation({
+    mutationFn: (vars: CorporateActivationInput) => apiPost<{ user: SessionUser }>("/api/activate/corporate", vars),
+    onSuccess: (res) => {
+      qc.setQueryData(["me"], res.user);
+      qc.invalidateQueries();
+    },
+  });
+  const activateIssuerMutation = useMutation({
+    mutationFn: (vars: IssuerActivationInput) => apiPost<{ user: SessionUser }>("/api/activate/issuer", vars),
+    onSuccess: (res) => {
+      qc.setQueryData(["me"], res.user);
+      qc.invalidateQueries();
+    },
+  });
+
   const value: AuthContextValue = {
     user: meQuery.data ?? null,
     isLoading: meQuery.isLoading,
@@ -105,6 +156,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     switchRole: async (role) => {
       await switchRoleMutation.mutateAsync(role);
+    },
+    activateIndividual: async (input) => {
+      await activateIndividualMutation.mutateAsync(input);
+    },
+    activateCorporate: async (input) => {
+      await activateCorporateMutation.mutateAsync(input);
+    },
+    activateIssuer: async (input) => {
+      await activateIssuerMutation.mutateAsync(input);
     },
   };
 

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login, apiFetch, signupRetail, DEMO_ACCOUNTS } from "./helpers";
+import { login, apiFetch, signupRetail, activateIndividual, DEMO_ACCOUNTS } from "./helpers";
 
 test.describe("Cross-cutting security behaviour", () => {
   test("the demo role-switcher is forbidden for a non-demo-reviewer account", async ({ page }) => {
@@ -18,6 +18,7 @@ test.describe("Cross-cutting security behaviour", () => {
     // seed state that other specs in this run may have already consumed.
     const email = `pw-dialog-guard-${Date.now()}@test.com`;
     await signupRetail(page, { displayName: "Dialog Guard Tester", email });
+    await activateIndividual(page);
 
     await login(page, DEMO_ACCOUNTS.admin);
     await page.getByRole("link", { name: "Risk & Approvals", exact: true }).click();
@@ -36,6 +37,7 @@ test.describe("Cross-cutting security behaviour", () => {
   test("Escape closes a confirmation dialog without deciding anything", async ({ page }) => {
     const email = `pw-escape-guard-${Date.now()}@test.com`;
     await signupRetail(page, { displayName: "Escape Guard Tester", email });
+    await activateIndividual(page);
 
     await login(page, DEMO_ACCOUNTS.admin);
     await page.getByRole("link", { name: "Risk & Approvals", exact: true }).click();

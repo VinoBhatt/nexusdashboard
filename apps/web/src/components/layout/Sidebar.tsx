@@ -139,6 +139,7 @@ const ICONS: Record<string, React.ReactNode> = {
 const NAV_BY_ROLE: Record<Role, { to: string; label: string; icon: string }[]> = {
   retail: [
     { to: "overview", label: "Overview", icon: "grid" },
+    { to: "activate", label: "Start Investing", icon: "risk" },
     { to: "notes-available", label: "Notes Available", icon: "marketplace" },
     { to: "ongoing-notes", label: "On-Going Notes", icon: "portfolio" },
     { to: "completed-notes", label: "Completed Notes", icon: "repayments" },
@@ -167,8 +168,13 @@ const NAV_BY_ROLE: Record<Role, { to: string; label: string; icon: string }[]> =
     { to: "investors", label: "Investors", icon: "investors" },
     { to: "issuers", label: "Issuers", icon: "issuers" },
     { to: "risk-approvals", label: "Risk & Approvals", icon: "risk" },
+    { to: "kyc-queue", label: "KYC Review Queue", icon: "risk" },
+    { to: "risk-profiles", label: "Investor Risk Profiles", icon: "investors" },
     { to: "admin-activity-log", label: "Activity Log", icon: "documents" },
     { to: "reports", label: "Reports", icon: "statements" },
+    { to: "kyc-engine-docs", label: "KYC Engine", icon: "documents" },
+    { to: "wallet-docs", label: "Wallet & CIF", icon: "balance" },
+    { to: "schema-docs", label: "DB Schema", icon: "documents" },
   ],
   issuer: [
     { to: "overview", label: "Overview", icon: "grid" },

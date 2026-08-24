@@ -4,6 +4,7 @@ import { ToastProvider } from "./components/Toast";
 import AppShell from "./components/layout/AppShell";
 import Login from "./pages/auth/Login";
 import Signup from "./pages/auth/Signup";
+import Activate from "./pages/auth/Activate";
 import RoleAwareOverview from "./pages/RoleAwareOverview";
 import RoleAwareMarketplace from "./pages/RoleAwareMarketplace";
 import RoleAwareDeposit from "./pages/RoleAwareDeposit";
@@ -20,6 +21,12 @@ import Issuers from "./pages/admin/Issuers";
 import RiskApprovals from "./pages/admin/RiskApprovals";
 import AdminActivity from "./pages/admin/Activity";
 import Reports from "./pages/admin/Reports";
+import KycQueue from "./pages/admin/KycQueue";
+import CtosRecord from "./pages/admin/CtosRecord";
+import RiskProfiles from "./pages/admin/RiskProfiles";
+import KycEngineDocs from "./pages/admin/KycEngineDocs";
+import WalletArchitectureDocs from "./pages/admin/WalletArchitectureDocs";
+import SchemaReferenceDocs from "./pages/admin/SchemaReferenceDocs";
 import Financing from "./pages/issuer/Financing";
 import IssuerProposals from "./pages/issuer/Proposals";
 import Repayments from "./pages/issuer/Repayments";
@@ -41,6 +48,7 @@ export default function App() {
           <Route path="/app" element={<AppShell />}>
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<RoleAwareOverview />} />
+            <Route path="activate" element={<Activate />} />
             <Route path="notes-available" element={<RoleAwareMarketplace />} />
             <Route path="ongoing-notes" element={<OngoingNotes />} />
             <Route path="completed-notes" element={<CompletedNotes />} />
@@ -54,8 +62,14 @@ export default function App() {
             <Route path="investors" element={<Investors />} />
             <Route path="issuers" element={<Issuers />} />
             <Route path="risk-approvals" element={<RiskApprovals />} />
+            <Route path="kyc-queue" element={<KycQueue />} />
+            <Route path="kyc-review/:approvalId" element={<CtosRecord />} />
+            <Route path="risk-profiles" element={<RiskProfiles />} />
             <Route path="admin-activity-log" element={<AdminActivity />} />
             <Route path="reports" element={<Reports />} />
+            <Route path="kyc-engine-docs" element={<KycEngineDocs />} />
+            <Route path="wallet-docs" element={<WalletArchitectureDocs />} />
+            <Route path="schema-docs" element={<SchemaReferenceDocs />} />
             <Route path="financing" element={<Financing />} />
             <Route path="issuer-proposals" element={<IssuerProposals />} />
             <Route path="repayments" element={<Repayments />} />

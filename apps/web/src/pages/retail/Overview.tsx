@@ -51,18 +51,49 @@ interface Activity {
 
 export default function Overview() {
   const [chartRange, setChartRange] = useState<ChartRange>("since_open");
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["investor", "overview"],
     queryFn: () => apiGet<OverviewResponse>("/api/investor/overview"),
+    retry: false,
+    meta: { silentOn: ["not_found"] },
   });
   const { data: chart } = useQuery({
     queryKey: ["investor", "chart", "profit"],
     queryFn: () => apiGet<{ points: { date: string; value: number }[] }>("/api/investor/chart/profit"),
+    enabled: !(error instanceof Error && error.message === "not_found"),
   });
   const { data: activities } = useQuery({
     queryKey: ["investor", "activities"],
     queryFn: () => apiGet<{ activities: Activity[] }>("/api/investor/activities"),
+    enabled: !(error instanceof Error && error.message === "not_found"),
   });
+
+  // Barrier 1 no longer creates an investor profile - a fresh, not-yet-
+  // activated account is genuinely browse-only until Barrier 2.
+  if (error instanceof Error && error.message === "not_found") {
+    return (
+      <>
+        <PageHeader title="Overview" description="Browse Cofundr before you activate your investor profile." />
+        <div className="card">
+          <div className="success-check" aria-hidden="true" style={{ background: "var(--surface2)", color: "var(--brand)" }}>
+            →
+          </div>
+          <h3 style={{ textAlign: "center", marginTop: 16 }}>You're signed in - browse-only for now</h3>
+          <p className="sub" style={{ textAlign: "center", maxWidth: 460, margin: "10px auto" }}>
+            You can explore campaigns and note details, but investing unlocks after a quick activation. This is what triggers your real KYC checks and issues your CIF + wallet.
+          </p>
+          <div className="row" style={{ justifyContent: "center", gap: 10, marginTop: 10 }}>
+            <Link className="btn primary" to="/app/activate">
+              Start investing →
+            </Link>
+            <Link className="btn secondary" to="/app/notes-available">
+              Browse the marketplace
+            </Link>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   if (isLoading || !data) return <SkeletonOverview />;
   const { profile } = data;

@@ -24,6 +24,12 @@ const queryClient = new QueryClient({
       // other query failing means a page is stuck showing "Loading..."
       // forever with no indication anything went wrong, so surface it.
       if (query.queryKey[0] === "me") return;
+      // A query can opt out of specific, expected error codes (e.g. a
+      // not-yet-activated account's overview 404ing "not_found") via
+      // meta.silentOn - the component handles that state explicitly
+      // instead of it reading as a broken page.
+      const silentOn = query.meta?.silentOn as string[] | undefined;
+      if (error instanceof Error && silentOn?.includes(error.message)) return;
       toastFromAnywhere(error instanceof Error ? error.message : "Something went wrong loading this page.");
     },
   }),
