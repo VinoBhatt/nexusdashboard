@@ -81,6 +81,9 @@ export const investorProfiles = sqliteTable("investor_profiles", {
   riskAppetite: text("risk_appetite"),
   // ---- Full profile (investor ID card, bank, address, referral) ----
   investorRefNo: text("investor_ref_no"),
+  // ---- Barrier 2 risk profiling (nationality + net worth matrix) ----
+  riskProfileTier: text("risk_profile_tier", { enum: ["LOW", "MEDIUM", "HIGH"] }),
+  annualReviewDue: text("annual_review_due"),
   contactNumber: text("contact_number"),
   identificationType: text("identification_type", { enum: ["NRIC", "Passport"] }).default("NRIC"),
   identificationNumber: text("identification_number"),
@@ -283,6 +286,14 @@ export const approvals = sqliteTable("approvals", {
   submittedAt: integer("submitted_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
+  // ---- KYC Engine (Barrier 2): mock confidence scoring + CTOS pull,
+  // deterministic per-user so results are stable rather than random noise.
+  // Drives the KYC Review Queue / CTOS Screening Record pages - display
+  // layer only, kycStatus/kybStatus above remain the authoritative
+  // Pending/Verified/Rejected state everything else already depends on.
+  confidenceScore: integer("confidence_score"),
+  flaggedReason: text("flagged_reason"),
+  ctosResultJson: text("ctos_result_json"),
 });
 
 // Metadata-only for now (no R2 binding yet) - file_key is null until a
@@ -465,4 +476,70 @@ export const proposals = sqliteTable("proposals", {
   submittedAt: integer("submitted_at", { mode: "timestamp" }),
   scheduledAt: integer("scheduled_at", { mode: "timestamp" }),
   launchedAt: integer("launched_at", { mode: "timestamp" }),
+});
+
+// ---- KYC Engine / CIF architecture (Barrier 1 + Barrier 2) ----
+
+// One row per user, captured at Barrier 1 signup from the (mocked) IC-scan
+// OCR result and selfie/liveness check. Distinct from investor_profiles/
+// issuer_profiles: this is the *person's* raw identity capture, independent
+// of which sub-profile (if any) they later activate at Barrier 2.
+export const kycProfiles = sqliteTable("kyc_profiles", {
+  id: id(),
+  userId: text("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id),
+  fullName: text("full_name").notNull(),
+  icNumber: text("ic_number"),
+  dob: text("dob"),
+  nationality: text("nationality"),
+  address: text("address"),
+  gender: text("gender"),
+  ocrOverridden: integer("ocr_overridden", { mode: "boolean" }).notNull().default(false),
+  faceMatchScore: integer("face_match_score"),
+  livenessPassed: integer("liveness_passed", { mode: "boolean" }),
+  jpnVerified: integer("jpn_verified", { mode: "boolean" }),
+  amlConfidenceScore: integer("aml_confidence_score"),
+  ...timestamps,
+  verifiedAt: integer("verified_at", { mode: "timestamp" }),
+});
+
+// One wallet per activated sub-profile (Barrier 2). cif_id mirrors the
+// individual's IC number or a company's registration number depending on
+// cif_type - a real company can hold two wallets (investor + issuer) under
+// the same cif_id, matching the prototype's CIF architecture. Addresses are
+// mock-generated (deterministic per user, see lib/kycMock.ts) - there is no
+// real chain behind this demo.
+export const wallets = sqliteTable("wallets", {
+  id: id(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
+  cifId: text("cif_id").notNull(),
+  cifType: text("cif_type", { enum: ["INDIVIDUAL", "CORPORATE", "ISSUER"] }).notNull(),
+  walletType: text("wallet_type", { enum: ["INVESTOR", "ISSUER"] }).notNull(),
+  walletAddress: text("wallet_address").notNull().unique(),
+  chainId: text("chain_id").notNull().default("Arbitrum"),
+  status: text("status", { enum: ["ACTIVE", "FROZEN", "CLOSED"] }).notNull().default("ACTIVE"),
+  ...timestamps,
+});
+
+// Immutable decision trail for KYC/KYB cases - written whenever a compliance
+// officer decides a case from the CTOS Screening Record page. Separate from
+// the general-purpose audit_log above since these are specifically
+// kyc_status transitions with a reason code, mirroring the prototype's own
+// kyc_audit_log table.
+export const kycAuditLog = sqliteTable("kyc_audit_log", {
+  id: id(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
+  statusFrom: text("status_from"),
+  statusTo: text("status_to").notNull(),
+  actorType: text("actor_type", { enum: ["SYSTEM", "ADMIN"] }).notNull(),
+  actorId: text("actor_id").references(() => users.id),
+  reasonCode: text("reason_code"),
+  notes: text("notes"),
+  ...timestamps,
 });

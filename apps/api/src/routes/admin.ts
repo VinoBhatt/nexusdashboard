@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import { drizzle } from "drizzle-orm/d1";
 import { eq, sql, desc, isNull, and } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
@@ -6,6 +7,7 @@ import {
   users,
   investorProfiles,
   corporateAccounts,
+  corporateUsers,
   financingFacilities,
   repaymentInstallments,
   issuerProfiles,
@@ -14,6 +16,9 @@ import {
   alerts,
   auditLog,
   holdings,
+  kycProfiles,
+  kycAuditLog,
+  wallets,
 } from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
@@ -113,6 +118,35 @@ admin.get("/investors", async (c) => {
   combined.sort((a, b) => b.portfolio - a.portfolio);
 
   return c.json({ investors: combined });
+});
+
+admin.get("/risk-profiles", async (c) => {
+  const db = drizzle(c.env.DB);
+  const search = (c.req.query("search") ?? "").toLowerCase();
+  const tier = c.req.query("tier") ?? "All";
+
+  const rows = await db
+    .select({
+      id: users.id,
+      name: users.displayName,
+      nationality: kycProfiles.nationality,
+      identificationNumber: investorProfiles.identificationNumber,
+      profileType: investorProfiles.identificationType,
+      kycStatus: investorProfiles.kycStatus,
+      riskProfileTier: investorProfiles.riskProfileTier,
+      annualReviewDue: investorProfiles.annualReviewDue,
+    })
+    .from(users)
+    .innerJoin(investorProfiles, eq(users.id, investorProfiles.userId))
+    .leftJoin(kycProfiles, eq(kycProfiles.userId, users.id))
+    .where(eq(users.role, "retail"));
+
+  let filtered = rows;
+  if (search) filtered = filtered.filter((r) => r.name.toLowerCase().includes(search));
+  if (tier !== "All") filtered = filtered.filter((r) => r.riskProfileTier === tier);
+  filtered.sort((a, b) => (a.annualReviewDue ?? "9999").localeCompare(b.annualReviewDue ?? "9999"));
+
+  return c.json({ investors: filtered });
 });
 
 admin.get("/issuers", async (c) => {
@@ -254,12 +288,82 @@ admin.get("/approvals", async (c) => {
       decidedAt: approvals.decidedAt,
       notes: approvals.notes,
       submittedAt: approvals.submittedAt,
+      confidenceScore: approvals.confidenceScore,
+      flaggedReason: approvals.flaggedReason,
     })
     .from(approvals)
     .leftJoin(decidedByUsers, eq(approvals.decidedBy, decidedByUsers.id))
     .orderBy(desc(approvals.submittedAt));
   const rows = status ? await query.where(eq(approvals.status, status as "Pending" | "Approved" | "Rejected")) : await query;
   return c.json({ approvals: rows });
+});
+
+// ---- KYC Engine: review queue stats, case detail, request-more-docs ----
+
+admin.get("/recent-wallets", async (c) => {
+  const db = drizzle(c.env.DB);
+  const rows = await db.select().from(wallets).orderBy(desc(wallets.createdAt)).limit(20);
+  return c.json({ wallets: rows });
+});
+
+admin.get("/kyc-queue-stats", async (c) => {
+  const db = drizzle(c.env.DB);
+  const all = await db.select({ status: approvals.status, decidedBy: approvals.decidedBy, decidedAt: approvals.decidedAt }).from(approvals);
+  const pending = all.filter((a) => a.status === "Pending").length;
+  const decided = all.filter((a) => a.status !== "Pending");
+  const autoCleared = decided.filter((a) => a.status === "Approved" && !a.decidedBy).length;
+  const today = new Date().toISOString().slice(0, 10);
+  const decidedToday = decided.filter((a) => a.decidedAt && a.decidedAt.toISOString().slice(0, 10) === today).length;
+  const autoApprovalRatePct = decided.length ? Math.round((autoCleared / decided.length) * 100) : 0;
+  return c.json({ pending, decidedToday, autoCleared, autoApprovalRatePct });
+});
+
+async function loadKycProfileFor(db: ReturnType<typeof drizzle>, subjectType: string, subjectId: string) {
+  if (subjectType === "user") {
+    const [kyc] = await db.select().from(kycProfiles).where(eq(kycProfiles.userId, subjectId)).limit(1);
+    return kyc ?? null;
+  }
+  if (subjectType === "corporate_account") {
+    const [maker] = await db.select({ userId: corporateUsers.userId }).from(corporateUsers).where(and(eq(corporateUsers.corporateAccountId, subjectId), eq(corporateUsers.corpRole, "maker"))).limit(1);
+    if (!maker) return null;
+    const [kyc] = await db.select().from(kycProfiles).where(eq(kycProfiles.userId, maker.userId)).limit(1);
+    return kyc ?? null;
+  }
+  return null;
+}
+
+admin.get("/kyc-review/:id", async (c) => {
+  const db = drizzle(c.env.DB);
+  const [approval] = await db.select().from(approvals).where(eq(approvals.id, c.req.param("id"))).limit(1);
+  if (!approval) return c.json({ error: "not_found" }, 404);
+  const kyc = await loadKycProfileFor(db, approval.subjectType, approval.subjectId);
+  const ctos = approval.ctosResultJson ? JSON.parse(approval.ctosResultJson) : null;
+  return c.json({ approval, kycProfile: kyc, ctos });
+});
+
+const requestDocsSchema = z.object({ notes: z.string().min(1).max(500) });
+
+admin.post("/kyc-review/:id/request-docs", async (c) => {
+  const db = drizzle(c.env.DB);
+  const parsed = requestDocsSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: "invalid_input" }, 400);
+  const id = c.req.param("id");
+  const [approval] = await db.select().from(approvals).where(eq(approvals.id, id)).limit(1);
+  if (!approval) return c.json({ error: "not_found" }, 404);
+  if (approval.status !== "Pending") return c.json({ error: "already_decided" }, 409);
+
+  await db.update(approvals).set({ notes: parsed.data.notes }).where(eq(approvals.id, id));
+  await db.insert(kycAuditLog).values({
+    id: crypto.randomUUID(),
+    userId: approval.subjectType === "user" ? approval.subjectId : c.get("user").id,
+    statusFrom: "MANUAL_REVIEW",
+    statusTo: "REJECTED_SOFT",
+    actorType: "ADMIN",
+    actorId: c.get("user").id,
+    reasonCode: "DOCS_REQUESTED",
+    notes: parsed.data.notes,
+  });
+  return c.json({ ok: true });
 });
 
 // Platform-wide audit trail: every logged action across every role (today
