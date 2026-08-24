@@ -13,11 +13,34 @@ export interface SessionUser {
   effectiveRole: Role;
 }
 
+export interface InvestorProfileSignup {
+  contactNumber?: string;
+  identificationType?: "NRIC" | "Passport";
+  identificationNumber?: string;
+  sourceOfFunds?: string;
+  jobType?: string;
+  incomeRange?: string;
+}
+export interface IssuerProfileSignup {
+  companyName: string;
+  registrationNumber?: string;
+  sector?: string;
+  registeredAddress?: string;
+}
+export interface SignupInput {
+  email: string;
+  password: string;
+  displayName: string;
+  role: "retail" | "issuer";
+  investorProfile?: InvestorProfileSignup;
+  issuerProfile?: IssuerProfileSignup;
+}
+
 interface AuthContextValue {
   user: SessionUser | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, displayName: string) => Promise<void>;
+  signup: (input: SignupInput) => Promise<void>;
   logout: () => Promise<void>;
   switchRole: (role: Role) => Promise<void>;
 }
@@ -48,8 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const signupMutation = useMutation({
-    mutationFn: (vars: { email: string; password: string; displayName: string; role: "retail" }) =>
-      apiPost<{ user: SessionUser }>("/api/auth/signup", vars),
+    mutationFn: (vars: SignupInput) => apiPost<{ user: SessionUser }>("/api/auth/signup", vars),
     onSuccess: (res) => qc.setQueryData(["me"], res.user),
   });
 
@@ -75,8 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login: async (email, password) => {
       await loginMutation.mutateAsync({ email, password });
     },
-    signup: async (email, password, displayName) => {
-      await signupMutation.mutateAsync({ email, password, displayName, role: "retail" });
+    signup: async (input) => {
+      await signupMutation.mutateAsync(input);
     },
     logout: async () => {
       await logoutMutation.mutateAsync();

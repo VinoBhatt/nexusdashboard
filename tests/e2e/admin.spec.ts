@@ -1,16 +1,11 @@
 import { test, expect } from "@playwright/test";
-import { login, logout, apiFetch, DEMO_ACCOUNTS } from "./helpers";
+import { login, logout, apiFetch, signupRetail, DEMO_ACCOUNTS } from "./helpers";
 
 test.describe("Admin approvals", () => {
   test("approving a fresh signup's KYC actually verifies the account", async ({ page }) => {
     const email = `pw-newbie-${Date.now()}@test.com`;
 
-    await page.goto("/signup");
-    await page.getByLabel("Full name").fill("Playwright Newbie");
-    await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password").fill("testpassword123");
-    await page.getByRole("button", { name: "Create account" }).click();
-    await page.waitForURL("**/app/overview");
+    await signupRetail(page, { displayName: "Playwright Newbie", email });
 
     // Confirm the account starts unverified before any admin action.
     const profileBefore = await apiFetch(page, "/api/account/profile");

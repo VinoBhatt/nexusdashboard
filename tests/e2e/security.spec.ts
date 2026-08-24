@@ -1,15 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { login, apiFetch, DEMO_ACCOUNTS } from "./helpers";
+import { login, apiFetch, signupRetail, DEMO_ACCOUNTS } from "./helpers";
 
 test.describe("Cross-cutting security behaviour", () => {
   test("the demo role-switcher is forbidden for a non-demo-reviewer account", async ({ page }) => {
     const email = `pw-switcher-${Date.now()}@test.com`;
-    await page.goto("/signup");
-    await page.getByLabel("Full name").fill("Switch Tester");
-    await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password").fill("testpassword123");
-    await page.getByRole("button", { name: "Create account" }).click();
-    await page.waitForURL("**/app/overview");
+    await signupRetail(page, { displayName: "Switch Tester", email });
 
     // A real signup never gets the role-switch grid at all.
     await expect(page.locator(".role-switch-grid")).toHaveCount(0);
@@ -22,12 +17,7 @@ test.describe("Cross-cutting security behaviour", () => {
     // Create a fresh, dedicated approval rather than relying on shared
     // seed state that other specs in this run may have already consumed.
     const email = `pw-dialog-guard-${Date.now()}@test.com`;
-    await page.goto("/signup");
-    await page.getByLabel("Full name").fill("Dialog Guard Tester");
-    await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password").fill("testpassword123");
-    await page.getByRole("button", { name: "Create account" }).click();
-    await page.waitForURL("**/app/overview");
+    await signupRetail(page, { displayName: "Dialog Guard Tester", email });
 
     await login(page, DEMO_ACCOUNTS.admin);
     await page.getByRole("link", { name: "Risk & Approvals", exact: true }).click();
@@ -45,12 +35,7 @@ test.describe("Cross-cutting security behaviour", () => {
 
   test("Escape closes a confirmation dialog without deciding anything", async ({ page }) => {
     const email = `pw-escape-guard-${Date.now()}@test.com`;
-    await page.goto("/signup");
-    await page.getByLabel("Full name").fill("Escape Guard Tester");
-    await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password").fill("testpassword123");
-    await page.getByRole("button", { name: "Create account" }).click();
-    await page.waitForURL("**/app/overview");
+    await signupRetail(page, { displayName: "Escape Guard Tester", email });
 
     await login(page, DEMO_ACCOUNTS.admin);
     await page.getByRole("link", { name: "Risk & Approvals", exact: true }).click();

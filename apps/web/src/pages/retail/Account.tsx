@@ -7,6 +7,7 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { DataTable, type Column } from "../../components/data/DataTable";
+import { NATURE_OF_JOB, NATURE_OF_BUSINESS, GROSS_ANNUAL_INCOME, NET_WORTH, SOURCE_OF_FUNDS, BANKS, STATES, COUNTRIES } from "../../lib/profileOptions";
 
 interface Profile {
   displayName: string;
@@ -45,19 +46,6 @@ interface Doc {
   status: "Verified" | "Pending" | "Action required";
   uploadedAt: string;
 }
-
-const NATURE_OF_JOB = ["Employed", "Business owner", "Self-employed", "Retired", "Others"];
-const NATURE_OF_BUSINESS = ["Accounting", "Retail & Trading", "Technology", "Manufacturing", "Construction", "Healthcare", "Education", "Finance & Insurance", "Others"];
-const GROSS_ANNUAL_INCOME = ["Below RM50,000", "RM50,000 - RM100,000", "RM100,000 - RM250,000", "Above RM250,000"];
-const NET_WORTH = ["Below RM100,000", "RM100,000 - RM250,000", "RM250,000 - RM500,000", "RM500,000 - RM1,000,000", "Above RM1,000,000"];
-const SOURCE_OF_FUNDS = ["Employment income", "Business income", "Inheritance", "Savings"];
-const BANKS = ["Maybank", "CIMB Bank", "Public Bank", "Hong Leong Bank", "RHB Bank", "Bank Islam", "AmBank", "UOB Malaysia", "Others"];
-const STATES = [
-  "Johor", "Kedah", "Kelantan", "Melaka", "Negeri Sembilan", "Pahang", "Perak", "Perlis",
-  "Pulau Pinang", "Sabah", "Sarawak", "Selangor", "Terengganu",
-  "Wilayah Persekutuan Kuala Lumpur", "Wilayah Persekutuan Labuan", "Wilayah Persekutuan Putrajaya",
-];
-const COUNTRIES = ["Malaysia", "Singapore", "Other"];
 
 const docColumns: Column<Doc>[] = [
   { key: "docType", label: "Document Type", sortable: true },

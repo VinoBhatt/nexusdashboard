@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { drizzle } from "drizzle-orm/d1";
 import { eq } from "drizzle-orm";
-import { users, investorProfiles, approvals, auditLog, roles, type Role } from "../db/schema";
+import { users, investorProfiles, issuerProfiles, approvals, auditLog, roles, type Role } from "../db/schema";
 import { hashPassword, verifyPassword } from "../auth/password";
 import {
   createSession,
@@ -18,25 +18,41 @@ import { generateInvestorRefNo, generateReferralCode } from "../lib/ids";
 
 const auth = new Hono<AuthedEnv>();
 
-// Admin is seed-only - never a public signup option (confirmed product decision).
-const signupRoles = ["retail", "corporate", "issuer"] as const;
+// Corporate accounts are provisioned directly (shared maker/checker
+// entities), never through self-signup - confirmed product decision.
+// Admin is seed-only for the same reason.
+const signupRoles = ["retail", "issuer"] as const;
+
+const investorProfileSchema = z.object({
+  contactNumber: z.string().max(30).optional(),
+  identificationType: z.enum(["NRIC", "Passport"]).optional(),
+  identificationNumber: z.string().max(40).optional(),
+  sourceOfFunds: z.string().max(60).optional(),
+  jobType: z.string().max(60).optional(),
+  incomeRange: z.string().max(60).optional(),
+});
+
+const issuerProfileSchema = z.object({
+  companyName: z.string().min(1).max(160),
+  registrationNumber: z.string().max(60).optional(),
+  sector: z.string().max(60).optional(),
+  registeredAddress: z.string().max(300).optional(),
+});
 
 const signupSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   displayName: z.string().min(1).max(120),
   role: z.enum(signupRoles),
+  investorProfile: investorProfileSchema.optional(),
+  issuerProfile: issuerProfileSchema.optional(),
 });
 
 auth.post("/signup", async (c) => {
   const parsed = signupSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
-  const { email, password, displayName, role } = parsed.data;
-
-  // Phase 1 scope: only retail has a real dashboard behind it today.
-  if (role !== "retail") {
-    return c.json({ error: "role_not_available", message: `${role} signup lands in a later phase` }, 400);
-  }
+  const { email, password, displayName, role, investorProfile, issuerProfile } = parsed.data;
+  if (role === "issuer" && !issuerProfile) return c.json({ error: "invalid_input", message: "Company details are required for issuer sign-up." }, 400);
 
   const db = drizzle(c.env.DB);
   const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
@@ -45,20 +61,48 @@ auth.post("/signup", async (c) => {
   const id = crypto.randomUUID();
   const passwordHash = await hashPassword(password);
   await db.insert(users).values({ id, email, passwordHash, role, displayName });
-  await db.insert(investorProfiles).values({
-    userId: id,
-    kycStatus: "Pending",
-    investorRefNo: generateInvestorRefNo(),
-    referralCode: generateReferralCode(),
-  });
-  await db.insert(approvals).values({
-    id: crypto.randomUUID(),
-    type: "Investor Verification",
-    subjectType: "user",
-    subjectId: id,
-    applicantName: displayName,
-    riskLevel: "Standard",
-  });
+
+  if (role === "issuer" && issuerProfile) {
+    await db.insert(issuerProfiles).values({
+      userId: id,
+      companyName: issuerProfile.companyName,
+      registrationNumber: issuerProfile.registrationNumber,
+      sector: issuerProfile.sector,
+      contactPerson: displayName,
+      contactEmail: email,
+      registeredAddress: issuerProfile.registeredAddress,
+      kybStatus: "Pending",
+    });
+    await db.insert(approvals).values({
+      id: crypto.randomUUID(),
+      type: "Issuer Verification",
+      subjectType: "user",
+      subjectId: id,
+      applicantName: issuerProfile.companyName,
+      riskLevel: "Standard",
+    });
+  } else {
+    await db.insert(investorProfiles).values({
+      userId: id,
+      kycStatus: "Pending",
+      investorRefNo: generateInvestorRefNo(),
+      referralCode: generateReferralCode(),
+      contactNumber: investorProfile?.contactNumber,
+      identificationType: investorProfile?.identificationType,
+      identificationNumber: investorProfile?.identificationNumber,
+      sourceOfFunds: investorProfile?.sourceOfFunds,
+      jobType: investorProfile?.jobType,
+      incomeRange: investorProfile?.incomeRange,
+    });
+    await db.insert(approvals).values({
+      id: crypto.randomUUID(),
+      type: "Investor Verification",
+      subjectType: "user",
+      subjectId: id,
+      applicantName: displayName,
+      riskLevel: "Standard",
+    });
+  }
 
   const token = await createSession(c.env.DB, id);
   c.header("Set-Cookie", sessionCookieHeader(token));
