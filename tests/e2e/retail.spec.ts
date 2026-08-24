@@ -5,6 +5,9 @@ test.describe("Retail investor", () => {
   test("deposit persists across a full reload", async ({ page }) => {
     await login(page, DEMO_ACCOUNTS.retail);
 
+    // The headline figures count up from 0 on mount (~800ms) rather than
+    // rendering instantly - wait for that to settle before reading the baseline.
+    await page.waitForTimeout(900);
     const cashBefore = await page.locator(".chip", { hasText: "Balance cash" }).locator("strong").innerText();
     const before = Number(cashBefore.replace(/[^\d.]/g, ""));
 
@@ -16,9 +19,14 @@ test.describe("Retail investor", () => {
     // Full navigation, not client-side - proves the balance is real
     // server state, not an in-memory object that would reset.
     await page.goto("/app/overview");
-    const cashAfter = await page.locator(".chip", { hasText: "Balance cash" }).locator("strong").innerText();
-    const after = Number(cashAfter.replace(/[^\d.]/g, ""));
-    expect(after).toBeCloseTo(before + 250, 1);
+    // The headline figures count up from 0 on mount (~800ms) rather than
+    // rendering instantly, so poll instead of reading the text immediately.
+    await expect
+      .poll(async () => {
+        const text = await page.locator(".chip", { hasText: "Balance cash" }).locator("strong").innerText();
+        return Number(text.replace(/[^\d.]/g, ""));
+      }, { timeout: 3000 })
+      .toBeCloseTo(before + 250, 1);
   });
 
   test("investing in a note appears in on-going notes", async ({ page }) => {

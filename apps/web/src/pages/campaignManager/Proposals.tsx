@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPatch, apiPost } from "../../lib/api";
@@ -6,6 +6,7 @@ import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
+import { useFocusTrap } from "../../lib/useFocusTrap";
 
 const REPAYMENT_STRUCTURES = ["Bullet Principal, Monthly Profit", "Bullet Principal & Profit", "Monthly Principal & Profit"] as const;
 const RISK_OPTIONS: Record<string, string[]> = {
@@ -78,7 +79,9 @@ export default function CampaignManagerProposals() {
   const openProposalId = params.get("id");
   const [tab, setTab] = useState<(typeof STATUS_TABS)[number]>("All");
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const scheduleModalRef = useRef<HTMLDivElement>(null);
   useEscapeToClose(showScheduleModal, () => setShowScheduleModal(false));
+  useFocusTrap(showScheduleModal, scheduleModalRef);
   const qc = useQueryClient();
   const toast = useToast();
 
@@ -340,7 +343,7 @@ export default function CampaignManagerProposals() {
 
         {showScheduleModal && (
           <div className="modal show" style={{ display: "block" }}>
-            <div className="modal-dialog">
+            <div className="modal-card" ref={scheduleModalRef} tabIndex={-1}>
               <h3>Schedule Note Launch</h3>
               <div className="field">
                 <label htmlFor="scheduleModalPromotionalStart">Promotional Date & Time</label>

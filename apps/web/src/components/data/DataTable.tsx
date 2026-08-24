@@ -83,7 +83,12 @@ export function DataTable<T>({
             ))}
             {pageRows.length === 0 && (
               <tr>
-                <td colSpan={columns.length}>{emptyMessage}</td>
+                <td colSpan={columns.length} className="table-empty">
+                  <div className="table-empty-icon" aria-hidden="true">
+                    ⌀
+                  </div>
+                  {emptyMessage}
+                </td>
               </tr>
             )}
           </tbody>

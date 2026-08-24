@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPost, downloadUrl } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
+import { useFocusTrap } from "../../lib/useFocusTrap";
 
 interface Statement {
   id: string;
@@ -30,7 +31,9 @@ export default function Statements() {
   const qc = useQueryClient();
   const toast = useToast();
   const [viewingId, setViewingId] = useState<string | null>(null);
+  const viewingModalRef = useRef<HTMLDivElement>(null);
   useEscapeToClose(!!viewingId, () => setViewingId(null));
+  useFocusTrap(!!viewingId, viewingModalRef);
   const { data } = useQuery({
     queryKey: ["statements"],
     queryFn: () => apiGet<{ statements: Statement[] }>("/api/statements"),
@@ -108,7 +111,7 @@ export default function Statements() {
 
       {viewingId && (
         <div className="modal show">
-          <div className="modal-card" style={{ maxWidth: 620 }}>
+          <div className="modal-card" ref={viewingModalRef} tabIndex={-1} style={{ maxWidth: 620 }}>
             <div className="modal-head">
               <div>
                 <h3>{detail ? `${detail.statement.periodLabel} Statement` : "Loading…"}</h3>

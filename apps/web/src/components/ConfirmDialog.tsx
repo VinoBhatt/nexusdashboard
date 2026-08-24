@@ -1,4 +1,6 @@
+import { useRef } from "react";
 import { useEscapeToClose } from "../lib/useEscapeToClose";
+import { useFocusTrap } from "../lib/useFocusTrap";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -11,11 +13,13 @@ interface ConfirmDialogProps {
 }
 
 export function ConfirmDialog({ open, title, description, confirmLabel = "Confirm", danger, onConfirm, onCancel }: ConfirmDialogProps) {
+  const cardRef = useRef<HTMLDivElement>(null);
   useEscapeToClose(open, onCancel);
+  useFocusTrap(open, cardRef);
   if (!open) return null;
   return (
     <div className="modal show">
-      <div className="modal-card" style={{ maxWidth: 440 }}>
+      <div className="modal-card" ref={cardRef} tabIndex={-1} style={{ maxWidth: 440 }}>
         <div className="modal-head">
           <div>
             <h3>{title}</h3>

@@ -1,8 +1,10 @@
+import { useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "../../lib/api";
 import { money } from "../../lib/money";
 import { generateRecoveryTimeline, daysUntil } from "../../lib/repaymentSchedule";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
+import { useFocusTrap } from "../../lib/useFocusTrap";
 import type { Holding } from "./SellHoldingCard";
 
 interface ScheduleRow {
@@ -35,7 +37,9 @@ function statusClass(status: ScheduleRow["status"]): string {
 }
 
 export function HoldingDetailModal({ holding, onClose }: { holding: Holding; onClose: () => void }) {
+  const cardRef = useRef<HTMLDivElement>(null);
   useEscapeToClose(true, onClose);
+  useFocusTrap(true, cardRef);
   const isDefault = holding.status === "Default";
   const { data } = useQuery({
     queryKey: ["portfolio", "schedule", holding.id],
@@ -48,7 +52,7 @@ export function HoldingDetailModal({ holding, onClose }: { holding: Holding; onC
 
   return (
     <div className="modal show">
-      <div className="modal-card" style={{ maxWidth: 640 }}>
+      <div className="modal-card" ref={cardRef} tabIndex={-1} style={{ maxWidth: 640 }}>
         <div className="modal-head">
           <div>
             <h3>{holding.noteName ?? holding.facilityId}</h3>

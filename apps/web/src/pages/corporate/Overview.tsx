@@ -1,13 +1,15 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPost } from "../../lib/api";
 import { shortMoney, money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { LineChart } from "../../components/charts/LineChart";
+import { SkeletonOverview } from "../../components/Skeleton";
 import { useToast } from "../../components/Toast";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { DataTable, type Column } from "../../components/data/DataTable";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
+import { useFocusTrap } from "../../lib/useFocusTrap";
 
 interface Account {
   companyName: string;
@@ -60,7 +62,9 @@ export default function CorporateOverview() {
   const [approveTarget, setApproveTarget] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState("");
+  const rejectModalRef = useRef<HTMLDivElement>(null);
   useEscapeToClose(!!rejectTarget, () => setRejectTarget(null));
+  useFocusTrap(!!rejectTarget, rejectModalRef);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<(typeof TYPE_FILTERS)[number]>("All");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("All");
@@ -124,7 +128,7 @@ export default function CorporateOverview() {
     });
   }, [data?.orders, data?.subwallets, search, typeFilter, statusFilter]);
 
-  if (isLoading || !data) return <PageHeader title="Overview" description="Loading…" />;
+  if (isLoading || !data) return <SkeletonOverview />;
   const { account, subwallets } = data;
 
   const columns: Column<Order>[] = [
@@ -392,7 +396,7 @@ export default function CorporateOverview() {
 
       {rejectTarget && (
         <div className="modal show">
-          <div className="modal-card" style={{ maxWidth: 480 }}>
+          <div className="modal-card" ref={rejectModalRef} tabIndex={-1} style={{ maxWidth: 480 }}>
             <div className="modal-head">
               <div>
                 <h3>Reject this order?</h3>

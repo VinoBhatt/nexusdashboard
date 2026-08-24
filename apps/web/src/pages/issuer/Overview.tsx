@@ -4,6 +4,7 @@ import { apiGet } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { LineChart } from "../../components/charts/LineChart";
+import { SkeletonOverview } from "../../components/Skeleton";
 
 interface Profile {
   companyName: string;
@@ -43,7 +44,7 @@ export default function IssuerOverview() {
     queryFn: () => apiGet<{ points: { snapshotDate: string; value: number }[] }>("/api/issuer/chart/outstanding"),
   });
 
-  if (isLoading || !data) return <PageHeader title="Overview" description="Loading…" />;
+  if (isLoading || !data) return <SkeletonOverview />;
   const { profile } = data;
 
   return (

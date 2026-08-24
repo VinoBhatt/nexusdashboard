@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import { QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
 import { toastFromAnywhere } from "./components/Toast";
+import { ThemeProvider } from "./context/ThemeContext";
 import "./styles/global.css";
 
 const queryClient = new QueryClient({
@@ -31,9 +32,11 @@ const queryClient = new QueryClient({
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+      <ThemeProvider>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>
 );

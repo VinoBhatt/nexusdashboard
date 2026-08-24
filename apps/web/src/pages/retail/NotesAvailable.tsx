@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPost } from "../../lib/api";
 import { money } from "../../lib/money";
@@ -6,6 +6,7 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
 import { simulateSchedule, daysUntil, type RepaymentStructure } from "../../lib/repaymentSchedule";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
+import { useFocusTrap } from "../../lib/useFocusTrap";
 
 interface Note {
   id: string;
@@ -48,8 +49,12 @@ export default function NotesAvailable() {
   const [investAmount, setInvestAmount] = useState(MIN_INVESTMENT_FLOOR);
   const [buyTarget, setBuyTarget] = useState<Listing | null>(null);
   const [buyUnits, setBuyUnits] = useState(1);
+  const investModalRef = useRef<HTMLDivElement>(null);
+  const buyModalRef = useRef<HTMLDivElement>(null);
   useEscapeToClose(!!investTarget, () => setInvestTarget(null));
   useEscapeToClose(!!buyTarget, () => setBuyTarget(null));
+  useFocusTrap(!!investTarget, investModalRef);
+  useFocusTrap(!!buyTarget, buyModalRef);
   const qc = useQueryClient();
   const toast = useToast();
 
@@ -248,7 +253,7 @@ export default function NotesAvailable() {
 
       {investTarget && (
         <div className="modal show">
-          <div className="modal-card" style={{ maxWidth: 560 }}>
+          <div className="modal-card" ref={investModalRef} tabIndex={-1} style={{ maxWidth: 560 }}>
             <div className="modal-head">
               <div>
                 <h3>Invest in {investTarget.noteName ?? investTarget.id}</h3>
@@ -338,7 +343,7 @@ export default function NotesAvailable() {
 
       {buyTarget && (
         <div className="modal show">
-          <div className="modal-card" style={{ maxWidth: 560 }}>
+          <div className="modal-card" ref={buyModalRef} tabIndex={-1} style={{ maxWidth: 560 }}>
             <div className="modal-head">
               <div>
                 <h3>Buy {buyTarget.noteName ?? buyTarget.facilityId}</h3>

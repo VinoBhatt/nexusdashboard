@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { apiGet } from "../../lib/api";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { SkeletonOverview } from "../../components/Skeleton";
 
 interface Overview {
   pendingApplications: number;
@@ -11,7 +12,7 @@ interface Overview {
 
 export default function CampaignManagerOverview() {
   const { data, isLoading } = useQuery({ queryKey: ["cm", "overview"], queryFn: () => apiGet<Overview>("/api/campaign-manager/overview") });
-  if (isLoading || !data) return <PageHeader title="Overview" description="Loading…" />;
+  if (isLoading || !data) return <SkeletonOverview />;
 
   return (
     <>

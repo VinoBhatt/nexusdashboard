@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPost } from "../../lib/api";
 import { money } from "../../lib/money";
@@ -6,6 +6,7 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
 import { simulateSchedule, type RepaymentStructure } from "../../lib/repaymentSchedule";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
+import { useFocusTrap } from "../../lib/useFocusTrap";
 
 interface Note {
   id: string;
@@ -54,8 +55,12 @@ export default function CorporateMarketplace() {
   const [buyTarget, setBuyTarget] = useState<Listing | null>(null);
   const [buyUnits, setBuyUnits] = useState(1);
   const [buySubwalletId, setBuySubwalletId] = useState("");
+  const targetModalRef = useRef<HTMLDivElement>(null);
+  const buyModalRef = useRef<HTMLDivElement>(null);
   useEscapeToClose(!!target, () => setTarget(null));
   useEscapeToClose(!!buyTarget, () => setBuyTarget(null));
+  useFocusTrap(!!target, targetModalRef);
+  useFocusTrap(!!buyTarget, buyModalRef);
   const qc = useQueryClient();
   const toast = useToast();
 
@@ -263,7 +268,7 @@ export default function CorporateMarketplace() {
 
       {target && (
         <div className="modal show">
-          <div className="modal-card" style={{ maxWidth: 560 }}>
+          <div className="modal-card" ref={targetModalRef} tabIndex={-1} style={{ maxWidth: 560 }}>
             <div className="modal-head">
               <div>
                 <h3>Propose Investment: {target.noteName ?? target.id}</h3>
@@ -351,7 +356,7 @@ export default function CorporateMarketplace() {
 
       {buyTarget && (
         <div className="modal show">
-          <div className="modal-card" style={{ maxWidth: 560 }}>
+          <div className="modal-card" ref={buyModalRef} tabIndex={-1} style={{ maxWidth: 560 }}>
             <div className="modal-head">
               <div>
                 <h3>Propose Purchase: {buyTarget.noteName ?? buyTarget.facilityId}</h3>

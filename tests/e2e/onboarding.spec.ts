@@ -58,8 +58,10 @@ test.describe("Self-service onboarding wizard", () => {
     await page.getByRole("button", { name: "Next" }).click();
 
     // Company name is required - Next must refuse to advance without it.
+    // (Both the blocking banner and the inline field hint show the same
+    // message, by design, so scope to the banner specifically.)
     await page.getByRole("button", { name: "Next" }).click();
-    await expect(page.getByText("Company name is required.")).toBeVisible();
+    await expect(page.locator(".banner-notice")).toContainText("Company name is required.");
 
     await page.getByLabel("Company name *").fill("Playwright Onboarding Sdn Bhd");
     await page.getByLabel("Registration number").fill("SSM 202601234567");

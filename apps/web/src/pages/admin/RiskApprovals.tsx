@@ -40,11 +40,26 @@ export default function RiskApprovals() {
 
   const decide = useMutation({
     mutationFn: ({ id, outcome }: { id: string; outcome: "approve" | "reject" }) => apiPost(`/api/admin/approvals/${id}/${outcome}`),
+    // Optimistically drop the row from the queue immediately - approving or
+    // rejecting shouldn't feel like it's waiting on a network round-trip.
+    // Rolled back in onError if the request actually fails.
+    onMutate: async ({ id }) => {
+      const queryKey = ["admin", "approvals", tab];
+      await qc.cancelQueries({ queryKey });
+      const previous = qc.getQueryData<{ approvals: Approval[] }>(queryKey);
+      qc.setQueryData<{ approvals: Approval[] } | undefined>(queryKey, (old) => (old ? { approvals: old.approvals.filter((a) => a.id !== id) } : old));
+      return { previous, queryKey };
+    },
+    onError: (e: Error, _vars, context) => {
+      if (context) qc.setQueryData(context.queryKey, context.previous);
+      toast(e.message);
+    },
     onSuccess: (_res, vars) => {
       toast(vars.outcome === "approve" ? "Approved. The applicant's account has been updated." : "Rejected.");
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ["admin"] });
     },
-    onError: (e: Error) => toast(e.message),
   });
 
   const approvals = data?.approvals ?? [];

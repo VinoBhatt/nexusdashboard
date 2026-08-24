@@ -5,6 +5,8 @@ import { apiGet, downloadUrl } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { LineChart } from "../../components/charts/LineChart";
+import { SkeletonOverview } from "../../components/Skeleton";
+import { CountUpMoney, CountUpPercent } from "../../components/CountUp";
 
 const CHART_RANGES = {
   since_open: "Since account open",
@@ -62,7 +64,7 @@ export default function Overview() {
     queryFn: () => apiGet<{ activities: Activity[] }>("/api/investor/activities"),
   });
 
-  if (isLoading || !data) return <PageHeader title="Overview" description="Loading…" />;
+  if (isLoading || !data) return <SkeletonOverview />;
   const { profile } = data;
   const filteredChartPoints = filterByRange(chart?.points ?? [], chartRange);
 
@@ -91,15 +93,15 @@ export default function Overview() {
             <div className="chip-stack">
               <div className="chip">
                 <span>Balance cash</span>
-                <strong>{money(profile.cashBalance)}</strong>
+                <strong><CountUpMoney value={profile.cashBalance} /></strong>
               </div>
               <div className="chip">
                 <span>Outstanding investment</span>
-                <strong>{money(profile.outstanding)}</strong>
+                <strong><CountUpMoney value={profile.outstanding} /></strong>
               </div>
               <div className="chip">
                 <span>Default exposure</span>
-                <strong>{money(profile.defaulted)}</strong>
+                <strong><CountUpMoney value={profile.defaulted} /></strong>
               </div>
             </div>
           </div>
@@ -107,21 +109,21 @@ export default function Overview() {
             <div className="hero-metrics">
               <div className="hero-kpi">
                 <span>Total deposits</span>
-                <b>{money(profile.totalDeposits)}</b>
+                <b><CountUpMoney value={profile.totalDeposits} /></b>
               </div>
               <div className="hero-kpi">
                 <span>Total invested</span>
-                <b>{money(profile.totalInvested)}</b>
+                <b><CountUpMoney value={profile.totalInvested} /></b>
               </div>
               <div className="hero-divider" />
               <div className="hero-divider" />
               <div className="hero-kpi">
                 <span>Annualised portfolio performance</span>
-                <b>{profile.annualisedYield.toFixed(2)}%</b>
+                <b><CountUpPercent value={profile.annualisedYield} /></b>
               </div>
               <div className="hero-kpi">
                 <span>Expected returns receivable</span>
-                <b>{money(profile.expectedReturns)}</b>
+                <b><CountUpMoney value={profile.expectedReturns} /></b>
               </div>
             </div>
           </div>
@@ -149,22 +151,22 @@ export default function Overview() {
       <div className="grid cols-4">
         <div className="metric green">
           <div className="label">Expected payments this month</div>
-          <div className="value">{money(profile.expectedThisMonth)}</div>
+          <div className="value"><CountUpMoney value={profile.expectedThisMonth} /></div>
           <div className="hint">Expected from outstanding investment notes.</div>
         </div>
         <div className="metric amber">
           <div className="label">Due unpaid this month</div>
-          <div className="value">{money(profile.overdueThisMonth)}</div>
+          <div className="value"><CountUpMoney value={profile.overdueThisMonth} /></div>
           <div className="hint">Amounts still unpaid this month.</div>
         </div>
         <div className="metric">
           <div className="label">Outstanding principal (exposure)</div>
-          <div className="value">{money(profile.outstanding)}</div>
+          <div className="value"><CountUpMoney value={profile.outstanding} /></div>
           <div className="hint">Current principal still deployed.</div>
         </div>
         <div className="metric red">
           <div className="label">Current principal defaulted</div>
-          <div className="value">{money(profile.defaulted)}</div>
+          <div className="value"><CountUpMoney value={profile.defaulted} /></div>
           <div className="hint">Visible but not saleable in the marketplace.</div>
         </div>
       </div>

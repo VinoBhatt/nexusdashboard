@@ -104,13 +104,13 @@ export function LineChart({
         </defs>
         {yTicks.map((t, i) => (
           <g key={i}>
-            <line x1={padLeft} y1={t.y} x2={w - padRight} y2={t.y} stroke="#dfe8f3" />
-            <text x={padLeft - 8} y={t.y} textAnchor="end" dominantBaseline="middle" fontSize="10.5" fill="#8fa0b5">
+            <line x1={padLeft} y1={t.y} x2={w - padRight} y2={t.y} style={{ stroke: "var(--line)" }} />
+            <text x={padLeft - 8} y={t.y} textAnchor="end" dominantBaseline="middle" fontSize="10.5" style={{ fill: "var(--muted)" }}>
               {shortMoney(t.value)}
             </text>
           </g>
         ))}
-        <line x1={padLeft} y1={padTop} x2={padLeft} y2={padTop + plotH} stroke="#dfe8f3" />
+        <line x1={padLeft} y1={padTop} x2={padLeft} y2={padTop + plotH} style={{ stroke: "var(--line)" }} />
         <path d={area} fill={`url(#${gradId})`} />
         <path d={d} fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
         {pts.map(([x, y], i) => (
@@ -119,13 +119,13 @@ export function LineChart({
             cx={x}
             cy={y}
             r={hoverIndex === i ? 6 : 4}
-            fill="#fff"
+            style={{ fill: "var(--surface)" }}
             stroke={color}
             strokeWidth={hoverIndex === i ? 4 : 3}
           />
         ))}
         {xTickIndices.map((i) => (
-          <text key={i} x={pts[i][0]} y={padTop + plotH + 18} textAnchor="middle" fontSize="10.5" fill="#8fa0b5">
+          <text key={i} x={pts[i][0]} y={padTop + plotH + 18} textAnchor="middle" fontSize="10.5" style={{ fill: "var(--muted)" }}>
             {formatXLabel(labels?.[i], i)}
           </text>
         ))}

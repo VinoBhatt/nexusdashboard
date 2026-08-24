@@ -1,20 +1,37 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { Sidebar } from "./Sidebar";
+import { Sidebar, PAGE_TITLES } from "./Sidebar";
 import { DrawerContext } from "./DrawerContext";
 
 export default function AppShell() {
   const { user, isLoading } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem("sidebarCollapsed") === "1");
   const location = useLocation();
+
+  useEffect(() => {
+    localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0");
+  }, [collapsed]);
+
+  useEffect(() => {
+    const segment = location.pathname.split("/").pop() ?? "";
+    const pageTitle = PAGE_TITLES[segment];
+    document.title = pageTitle ? `${pageTitle} · Cofundr` : "Cofundr Investor Portal";
+  }, [location.pathname]);
 
   if (isLoading) return null;
   if (!user) return <Navigate to="/login" replace />;
 
   return (
-    <div className="app" id="appRoot">
-      <Sidebar open={drawerOpen} onClose={() => setDrawerOpen(false)} onNavigate={() => setDrawerOpen(false)} />
+    <div className={`app${collapsed ? " sidebar-collapsed" : ""}`} id="appRoot">
+      <Sidebar
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onNavigate={() => setDrawerOpen(false)}
+        collapsed={collapsed}
+        onToggleCollapse={() => setCollapsed((v) => !v)}
+      />
       <div
         className={drawerOpen ? "sidebar-backdrop show" : "sidebar-backdrop"}
         onClick={() => setDrawerOpen(false)}

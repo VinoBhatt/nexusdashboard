@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { useAuth, type Role } from "../../context/AuthContext";
+import { ThemeToggle } from "../ThemeToggle";
 
 const ICONS: Record<string, React.ReactNode> = {
   grid: (
@@ -185,6 +186,12 @@ const NAV_BY_ROLE: Record<Role, { to: string; label: string; icon: string }[]> =
   ],
 };
 
+export const PAGE_TITLES: Record<string, string> = Object.fromEntries(
+  Object.values(NAV_BY_ROLE)
+    .flat()
+    .map((item) => [item.to, item.label])
+);
+
 const ROLE_LABEL: Record<Role, string> = {
   retail: "Retail Investor",
   corporate: "Corporate Investor",
@@ -193,14 +200,41 @@ const ROLE_LABEL: Record<Role, string> = {
   campaign_manager: "Campaign Manager",
 };
 
-export function Sidebar({ open, onNavigate }: { open: boolean; onClose: () => void; onNavigate: () => void }) {
+export function Sidebar({
+  open,
+  onNavigate,
+  collapsed = false,
+  onToggleCollapse,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onNavigate: () => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+}) {
   const { user, logout, switchRole } = useAuth();
   if (!user) return null;
   const effectiveRole = user.effectiveRole ?? user.role;
   const items = NAV_BY_ROLE[effectiveRole] ?? [];
 
   return (
-    <aside className={`sidebar${open ? " open" : ""}`}>
+    <aside className={`sidebar${open ? " open" : ""}${collapsed ? " collapsed" : ""}`}>
+      <div className="sidebar-toolbar">
+        {onToggleCollapse && (
+          <button
+            type="button"
+            className="sidebar-collapse-btn"
+            onClick={onToggleCollapse}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: collapsed ? "rotate(180deg)" : "none" }}>
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
+        )}
+        <ThemeToggle />
+      </div>
       <div className="brand">
         <svg className="mark" width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
           <circle cx="22" cy="22" r="21" fill="#56b4e9" />
@@ -223,8 +257,8 @@ export function Sidebar({ open, onNavigate }: { open: boolean; onClose: () => vo
       </div>
       <nav className="nav">
         {items.map((item) => (
-          <NavLink key={item.to} to={item.to} onClick={onNavigate} className={({ isActive }) => (isActive ? "active" : "")}>
-            <i>{ICONS[item.icon]}</i> {item.label}
+          <NavLink key={item.to} to={item.to} onClick={onNavigate} title={item.label} className={({ isActive }) => (isActive ? "active" : "")}>
+            <i>{ICONS[item.icon]}</i> <span className="nav-label">{item.label}</span>
           </NavLink>
         ))}
       </nav>
@@ -235,19 +269,20 @@ export function Sidebar({ open, onNavigate }: { open: boolean; onClose: () => vo
               key={role}
               className={role === effectiveRole ? "active" : ""}
               onClick={() => switchRole(role)}
+              title={ROLE_LABEL[role]}
             >
               {ROLE_LABEL[role]}
             </button>
           ))}
         </div>
       )}
-      <button className="logout-btn" onClick={() => logout()}>
+      <button className="logout-btn" onClick={() => logout()} title="Log out">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
           <polyline points="16 17 21 12 16 7" />
           <line x1="21" y1="12" x2="9" y2="12" />
         </svg>{" "}
-        Log out
+        <span className="nav-label">Log out</span>
       </button>
     </aside>
   );

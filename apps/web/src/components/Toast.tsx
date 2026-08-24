@@ -11,16 +11,25 @@ export function toastFromAnywhere(message: string) {
   globalToast?.(message);
 }
 
+interface ToastItem {
+  id: number;
+  message: string;
+  leaving: boolean;
+}
+
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const [message, setMessage] = useState("");
-  const [show, setShow] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const nextId = useRef(0);
 
   const toast = useCallback((msg: string) => {
-    setMessage(msg);
-    setShow(true);
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => setShow(false), 2200);
+    const id = ++nextId.current;
+    setToasts((t) => [...t, { id, message: msg, leaving: false }]);
+    setTimeout(() => {
+      setToasts((t) => t.map((x) => (x.id === id ? { ...x, leaving: true } : x)));
+    }, 1900);
+    setTimeout(() => {
+      setToasts((t) => t.filter((x) => x.id !== id));
+    }, 2200);
   }, []);
 
   useEffect(() => {
@@ -33,8 +42,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={toast}>
       {children}
-      <div id="toast" className={show ? "show" : ""}>
-        {message}
+      <div id="toast" className={toasts.length > 0 ? "show" : ""}>
+        {toasts.map((t) => (
+          <div key={t.id} className={`toast-item${t.leaving ? " leaving" : ""}`}>
+            {t.message}
+          </div>
+        ))}
       </div>
     </ToastContext.Provider>
   );

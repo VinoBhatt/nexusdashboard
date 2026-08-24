@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { ThemeToggle } from "../../components/ThemeToggle";
 
 const DEMO_ACCOUNTS = [
   { role: "retail", email: "joshua@cofundr.demo", label: "Retail Investor", sub: "Personal portfolio & wallet" },
@@ -20,6 +21,10 @@ export default function Login() {
   const [error, setError] = useState("");
   const submitting = loadingEmail !== null;
 
+  useEffect(() => {
+    document.title = "Log in · Cofundr";
+  }, []);
+
   async function doLogin(loginEmail: string, loginPassword: string) {
     setLoadingEmail(loginEmail);
     setError("");
@@ -35,6 +40,7 @@ export default function Login() {
 
   return (
     <div className="login-wrap">
+      <ThemeToggle className="floating" />
       <div className="login-card">
         <div className="login-side">
           <div>

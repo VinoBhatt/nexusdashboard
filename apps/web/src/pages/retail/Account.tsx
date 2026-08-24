@@ -7,6 +7,7 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { DataTable, type Column } from "../../components/data/DataTable";
+import { CopyButton } from "../../components/CopyButton";
 import { NATURE_OF_JOB, NATURE_OF_BUSINESS, GROSS_ANNUAL_INCOME, NET_WORTH, SOURCE_OF_FUNDS, BANKS, STATES, COUNTRIES } from "../../lib/profileOptions";
 
 interface Profile {
@@ -165,7 +166,10 @@ export default function Account() {
         <div className="grid cols-2">
           <div className="field">
             <label htmlFor="profileInvestorRefNo">Your Investor ID</label>
-            <input id="profileInvestorRefNo" value={data.investorRefNo ?? "—"} disabled />
+            <div className="field-with-copy">
+              <input id="profileInvestorRefNo" value={data.investorRefNo ?? "—"} disabled />
+              {data.investorRefNo && <CopyButton value={data.investorRefNo} />}
+            </div>
           </div>
           <div className="field">
             <label htmlFor="profileEmail">Email</label>
@@ -241,7 +245,10 @@ export default function Account() {
           </div>
           <div className="field">
             <label htmlFor="profileReferralCode">Your Referral Code</label>
-            <input id="profileReferralCode" value={data.referralCode ?? "—"} disabled />
+            <div className="field-with-copy">
+              <input id="profileReferralCode" value={data.referralCode ?? "—"} disabled />
+              {data.referralCode && <CopyButton value={data.referralCode} />}
+            </div>
           </div>
         </div>
 

@@ -3,6 +3,7 @@ import { apiGet } from "../../lib/api";
 import { money, shortMoney } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { LineChart } from "../../components/charts/LineChart";
+import { SkeletonOverview } from "../../components/Skeleton";
 
 interface Overview {
   totalAUM: number;
@@ -53,7 +54,7 @@ export default function AdminOverview() {
   const { data: campaigns } = useQuery({ queryKey: ["admin", "campaigns"], queryFn: () => apiGet<Campaigns>("/api/admin/campaigns") });
   const { data: revenue } = useQuery({ queryKey: ["admin", "revenue"], queryFn: () => apiGet<Revenue>("/api/admin/revenue") });
 
-  if (isLoading || !data) return <PageHeader title="Overview" description="Loading…" />;
+  if (isLoading || !data) return <SkeletonOverview />;
 
   const stages = pipeline?.stages ?? [];
   const maxStageCount = Math.max(1, ...stages.map((s) => s.count));
