@@ -81,8 +81,15 @@ test.describe("Issuer -> campaign manager -> retail cross-role story", () => {
     await expect(cmPage.locator("#toast")).toContainText("scheduled for launch");
 
     // Reload triggers the lazy auto-launch check (launchStart already passed).
+    // The reload can land on either the proposal detail view (its own
+    // "Status" badge) or fall back to the list view (a per-row badge, plus
+    // a same-labeled "Launched" filter tab button) depending on timing -
+    // scope to the ".status" badge class specifically (never the filter
+    // button) and use .first() so a retried run, or another note already
+    // launched earlier the same day, can't trip Playwright's strict-locator
+    // mode with more than one match.
     await cmPage.reload();
-    await expect(cmPage.getByText("Launched", { exact: true })).toBeVisible();
+    await expect(cmPage.locator(".status", { hasText: "Launched" }).first()).toBeVisible();
 
     // ---- Retail: the launched note is investable and alerted ----
     await login(retailPage, DEMO_ACCOUNTS.retail);
