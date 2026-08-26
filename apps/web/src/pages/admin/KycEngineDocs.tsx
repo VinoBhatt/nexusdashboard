@@ -32,14 +32,14 @@ export default function KycEngineDocs() {
   return (
     <>
       <PageHeader title="KYC Engine" description="7-state model, fires at Barrier 2 when a user first activates a sub-profile. JPN + CTOS + OFAC/UN/PEP run in parallel (mocked in this demo)." />
-      <div className="row" style={{ gap: 8, marginBottom: 18 }}>
-        <button className={`btn small ${tab === "states" ? "primary" : "secondary"}`} onClick={() => setTab("states")}>
+      <div className="tabs">
+        <button className={`tab ${tab === "states" ? "active" : ""}`} onClick={() => setTab("states")}>
           Status Flow
         </button>
-        <button className={`btn small ${tab === "scoring" ? "primary" : "secondary"}`} onClick={() => setTab("scoring")}>
+        <button className={`tab ${tab === "scoring" ? "active" : ""}`} onClick={() => setTab("scoring")}>
           Confidence Scoring
         </button>
-        <button className={`btn small ${tab === "risk" ? "primary" : "secondary"}`} onClick={() => setTab("risk")}>
+        <button className={`tab ${tab === "risk" ? "active" : ""}`} onClick={() => setTab("risk")}>
           Risk Profile Matrix
         </button>
       </div>

@@ -207,18 +207,28 @@ export default function Signup() {
           <div className="sub">Get started in under 3 minutes. No paid verification checks fire here - investing unlocks after a quick activation the first time you tap Invest.</div>
 
           {step !== "done" && (
-            <>
-              <div className="progress" style={{ marginTop: 14 }}>
-                <span style={{ width: `${((STEPS.findIndex((s) => s.key === step) + 1) / STEPS.length) * 100}%` }} />
-              </div>
-              <div className="row" style={{ gap: 8, margin: "10px 0 14px" }}>
-                {STEPS.slice(0, 5).map((s) => (
-                  <button key={s.key} type="button" className={`btn small ${step === s.key ? "primary" : "secondary"}`} onClick={() => setStep(s.key)}>
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-            </>
+            <div className="stepper">
+              {STEPS.map((s, i) => {
+                const currentIndex = STEPS.findIndex((x) => x.key === step);
+                const isCurrent = s.key === step;
+                const isDone = i < currentIndex;
+                return (
+                  <div key={s.key} className={`step${isDone ? " done" : ""}${isCurrent ? " current" : ""}`}>
+                    <button
+                      type="button"
+                      className="dot"
+                      disabled={s.key === "done"}
+                      onClick={() => s.key !== "done" && setStep(s.key)}
+                      aria-label={s.label}
+                      aria-current={isCurrent ? "step" : undefined}
+                    >
+                      {isDone ? "✓" : i + 1}
+                    </button>
+                    <span className="lbl">{s.label}</span>
+                  </div>
+                );
+              })}
+            </div>
           )}
 
           <div key={step} className="wizard-step">

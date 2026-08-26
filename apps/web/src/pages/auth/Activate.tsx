@@ -156,14 +156,14 @@ export default function Activate() {
     <>
       <PageHeader title="Start Investing" description="Choose the kind of account to activate. This is what triggers real KYC/KYB checks and issues your CIF + wallet." />
       <div className="card">
-        <div className="row" style={{ gap: 8, marginBottom: 18 }}>
-          <button type="button" className={`btn small ${tab === "individual" ? "primary" : "secondary"}`} onClick={() => setTab("individual")}>
+        <div className="tabs">
+          <button type="button" className={`tab ${tab === "individual" ? "active" : ""}`} onClick={() => setTab("individual")}>
             Individual Investor
           </button>
-          <button type="button" className={`btn small ${tab === "corporate" ? "primary" : "secondary"}`} onClick={() => setTab("corporate")}>
+          <button type="button" className={`tab ${tab === "corporate" ? "active" : ""}`} onClick={() => setTab("corporate")}>
             Corporate Investor
           </button>
-          <button type="button" className={`btn small ${tab === "issuer" ? "primary" : "secondary"}`} onClick={() => setTab("issuer")}>
+          <button type="button" className={`tab ${tab === "issuer" ? "active" : ""}`} onClick={() => setTab("issuer")}>
             Issuer
           </button>
         </div>
