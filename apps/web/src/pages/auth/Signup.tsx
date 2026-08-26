@@ -101,27 +101,20 @@ export default function Signup() {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(toSave));
   }, [step, email, icDocType, icNumber, fullName, dob, gender, nationality, race, address]);
 
+  // This is a demo/prototype of the flow, not a production KYC gate - only
+  // block on what the account genuinely can't be created without (a valid
+  // email + password). The Turnstile check, OTP entry, IC number and full
+  // name are all shown so reviewers can see the proposed UI, but skipping
+  // any of them shouldn't stop someone from clicking through the wizard.
   function accountStepValid() {
-    return email.trim().length > 0 && password.length >= 8 && password === confirmPassword && turnstileVerified && otp.every((d) => d.length === 1);
+    return email.trim().length > 0 && password.length >= 8 && password === confirmPassword;
   }
 
   function goNext() {
     if (step === "account" && !accountStepValid()) {
       setConfirmTouched(true);
       if (password !== confirmPassword) setError("Passwords do not match.");
-      else if (!turnstileVerified) setError("Please complete the human verification check.");
-      else if (!otp.every((d) => d.length === 1)) setError("Please enter the 6-digit code sent to your email.");
-      else setError("Please complete every field with a password of at least 8 characters.");
-      return;
-    }
-    if (step === "icscan" && icNumber.trim().length === 0) {
-      setIcTouched(true);
-      setError(`Please enter your ${icDocType} number to continue.`);
-      return;
-    }
-    if (step === "review" && fullName.trim().length === 0) {
-      setFullNameTouched(true);
-      setError("Full name is required.");
+      else setError("Please enter an email and a password of at least 8 characters.");
       return;
     }
     setError("");
@@ -166,19 +159,20 @@ export default function Signup() {
   }
 
   async function onSubmit() {
-    if (!termsAccepted || !riskAccepted || !pdpaAccepted) {
-      setError("Please accept the Terms of Service, General Risk Statement and PDPA consent to continue.");
-      return;
-    }
+    // The T&C/risk/PDPA checkboxes are shown so reviewers can see the consent
+    // UI, but this is a demo, not a live legal gate - don't block submission
+    // on them. A display name is the one thing the account genuinely needs,
+    // so fall back to something derived from the email if it was left blank.
     setSubmitting(true);
     setError("");
+    const resolvedName = fullName.trim() || email.split("@")[0] || "New Investor";
     try {
       await signup({
         email,
         password,
-        displayName: fullName,
+        displayName: resolvedName,
         kycProfile: {
-          fullName,
+          fullName: resolvedName,
           icNumber,
           dob: dob || undefined,
           nationality,

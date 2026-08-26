@@ -16,9 +16,8 @@ test.describe("Barrier 1: signup", () => {
     for (let i = 0; i < 6; i++) await page.locator(`#otp-${i}`).fill(String((i % 9) + 1));
     await page.getByRole("button", { name: "Continue →" }).click();
 
-    // Step 2: Scan IC - required before continuing.
-    await page.getByRole("button", { name: "Continue →" }).click();
-    await expect(page.getByText("MyKad number is required.")).toBeVisible();
+    // Step 2: Scan IC - shown for the demo, but not required to advance
+    // (this is a UI/functionality prototype, not a live KYC gate).
     await page.getByLabel("MyKad number").fill("880214-14-5677");
     await page.getByRole("button", { name: "Continue →" }).click();
 
@@ -31,7 +30,7 @@ test.describe("Barrier 1: signup", () => {
     await page.getByLabel("Full name").fill("Barrier One Tester");
     await page.getByRole("button", { name: "Continue →" }).click();
 
-    // Step 5: T&C - all three required before Create my account is meaningful.
+    // Step 5: T&C - shown for the demo, not required to submit.
     await page.getByLabel(/I have read and agree to the Terms of Service/).click();
     await page.getByLabel(/general risk statement/).click();
     await page.getByLabel(/PDPA/).click();
@@ -51,6 +50,41 @@ test.describe("Barrier 1: signup", () => {
     expect(statusJson.kycProfile.fullName).toBe("Barrier One Tester");
     expect(statusJson.kycProfile.icNumber).toBe("880214-14-5677");
     expect(statusJson.activated).toEqual({ individual: false, corporate: false, issuer: false });
+  });
+
+  test("the wizard can be clicked through with nothing but an email and password - this is a demo, not a live KYC gate", async ({ page }) => {
+    const email = `pw-minimal-${Date.now()}@test.com`;
+
+    await page.goto("/signup");
+
+    // Step 1: skip Turnstile and OTP entirely.
+    await page.getByLabel("Email address").fill(email);
+    await page.getByLabel("Password", { exact: true }).fill("testpassword123");
+    await page.getByLabel("Re-enter password").fill("testpassword123");
+    await page.getByRole("button", { name: "Continue →" }).click();
+
+    // Step 2: skip the IC number.
+    await page.getByRole("button", { name: "Continue →" }).click();
+
+    // Step 3: no input on this step regardless.
+    await page.getByRole("button", { name: "Continue →" }).click();
+
+    // Step 4: skip full name.
+    await page.getByRole("button", { name: "Continue →" }).click();
+
+    // Step 5: skip all three T&C checkboxes.
+    await page.getByRole("button", { name: "Create my account" }).click();
+
+    // Step 6: the account is still created successfully.
+    await expect(page.getByText("Welcome to Cofundr!")).toBeVisible();
+    await page.getByRole("button", { name: "Explore marketplace" }).click();
+    await page.waitForURL("**/app/overview");
+
+    const status = await apiFetch(page, "/api/activate/status");
+    const statusJson = JSON.parse(status.body);
+    // A display name is the one thing the account can't exist without -
+    // falls back to the email's local part rather than blocking signup.
+    expect(statusJson.kycProfile.fullName).toBe(email.split("@")[0]);
   });
 });
 
