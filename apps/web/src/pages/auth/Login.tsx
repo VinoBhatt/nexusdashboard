@@ -46,9 +46,9 @@ export default function Login() {
           <div>
             <div className="brand" style={{ marginBottom: 0 }}>
               <svg className="mark" width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
-                <circle cx="22" cy="22" r="21" fill="#56b4e9" />
-                <path d="M22 1a21 21 0 0 1 0 42z" fill="#f0aa34" />
-                <circle cx="16" cy="22" r="10" fill="#142b4d" />
+                <circle cx="22" cy="22" r="21" fill="var(--brand2)" />
+                <path d="M22 1a21 21 0 0 1 0 42z" fill="var(--brand3)" />
+                <circle cx="16" cy="22" r="10" fill="var(--nav)" />
               </svg>
               <div className="brand-text">
                 <h1>cofundr</h1>
