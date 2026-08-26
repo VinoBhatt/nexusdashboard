@@ -152,15 +152,14 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .login-form h3{margin:0 0 4px;font-size:20px}
 .login-form .sub{margin-bottom:18px}
 .role-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 18px}
-.role-card{border:1.5px solid var(--line);border-radius:16px;padding:12px;text-align:left;background:var(--surface2);display:flex;gap:10px;align-items:flex-start;transition:border-color .18s ease,background .18s ease,box-shadow .18s ease,transform .18s ease}
-.role-card:hover{border-color:#b9d8ef;transform:translateY(-2px);box-shadow:0 10px 22px rgba(15,45,80,.08)}
-.role-card:active{transform:translateY(0);box-shadow:none}
-.role-card.active{border-color:var(--brand);background:var(--rolecard-active-bg,#eef7fe);box-shadow:0 8px 18px rgba(35,149,220,.12)}
+.role-card{border:2px solid var(--line);border-radius:var(--radius);padding:16px 18px;text-align:left;background:var(--surface);display:flex;gap:10px;align-items:flex-start;transition:border-color .15s ease,background .15s ease}
+.role-card:hover{border-color:var(--brand)}
+.role-card.active{border-color:var(--brand);background:var(--rolecard-active-bg,#eff6ff)}
 .role-card.loading{opacity:.75}
 .role-card i{width:32px;height:32px;border-radius:10px;background:var(--quick-bg,#edf5ff);color:var(--quick-color,#1359a5);display:grid;place-items:center;flex:none}
 .role-card i svg{width:16px;height:16px}
-.role-card b{display:block;font-size:12.5px}
-.role-card span{display:block;font-size:11px;color:var(--muted);margin-top:2px;line-height:1.35}
+.role-card b{display:block;font-size:13px;font-weight:600;color:var(--text)}
+.role-card span{display:block;font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.35}
 .role-card .cta-arrow{margin-left:auto;align-self:center;font-size:15px;color:var(--brand);flex:none;transition:transform .18s ease}
 .role-card:hover .cta-arrow{transform:translateX(3px)}
 .login-demo{margin-top:14px;padding:10px 12px;border-radius:12px;background:var(--login-demo-bg,#f3f7fb);color:var(--login-demo-color,#5c6f85);font-size:11.5px;line-height:1.5}
