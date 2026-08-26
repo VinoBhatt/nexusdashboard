@@ -69,6 +69,35 @@ export default function Activate() {
     setter({ ...prev, [key]: file.name });
   }
 
+  // One-click demo convenience - fills every tab's fields with a realistic
+  // sample profile so reviewers can see the proposed UI populated without
+  // typing anything, regardless of which tab they land on.
+  function fillSampleData() {
+    setJobType("Employed");
+    setCompanyName("Petronas Bhd");
+    setIncomeRange("RM100,000 - RM250,000");
+    setNetWorth("RM250,000 - RM500,000");
+    setSourceOfFunds("Employment income");
+    setBankName("Maybank");
+    setBankAccountNumber("512345678901");
+
+    setCorpCompanyName("Syarikat Maju Jaya Sdn Bhd");
+    setCorpRegNo("202301012345");
+    setCorpEntityType("Sdn Bhd");
+    setCorpSourceOfFunds("Operating profits");
+    setCorpNetAssets("RM 10M - 50M");
+    setCorpBankName("Maybank");
+    setCorpBankAccountNumber("612345678901");
+
+    setIssuerCompanyName("Syarikat Maju Jaya Sdn Bhd");
+    setIssuerRegNo("202301012345");
+    setIssuerEntityType("Sdn Bhd");
+    setAmountToRaise("500000");
+    setTenure("12 months");
+    setPurpose("Working capital");
+    setError("");
+  }
+
   async function submitIndividual() {
     setSubmitting(true);
     setError("");
@@ -154,7 +183,15 @@ export default function Activate() {
 
   return (
     <>
-      <PageHeader title="Start Investing" description="Choose the kind of account to activate. This is what triggers real KYC/KYB checks and issues your CIF + wallet." />
+      <PageHeader
+        title="Start Investing"
+        description="Choose the kind of account to activate. This is what triggers real KYC/KYB checks and issues your CIF + wallet."
+        actions={
+          <button type="button" className="btn small" onClick={fillSampleData}>
+            ⚡ Fill sample data
+          </button>
+        }
+      />
       <div className="card">
         <div className="tabs">
           <button type="button" className={`tab ${tab === "individual" ? "active" : ""}`} onClick={() => setTab("individual")}>

@@ -145,6 +145,28 @@ export default function Signup() {
     }
   }
 
+  // One-click demo convenience - reviewers can see a fully populated wizard
+  // (matching the prototype's own sample profile) without typing anything.
+  function fillSampleData() {
+    setEmail((v) => v.trim() || `demo.investor.${Date.now().toString().slice(-6)}@example.com`);
+    setPassword("DemoPass123");
+    setConfirmPassword("DemoPass123");
+    setTurnstileVerified(true);
+    setOtp(["1", "2", "3", "4", "5", "6"]);
+    setIcDocType("MyKad");
+    setIcNumber("880214-14-5677");
+    setFullName("Ahmad Faizal Bin Abdullah");
+    setDob("1988-02-14");
+    setGender("Male");
+    setNationality("Malaysian");
+    setRace("Malay");
+    setAddress("No 12, Jalan Setia 3/4, Setia Alam, 40170 Shah Alam, Selangor");
+    setTermsAccepted(true);
+    setRiskAccepted(true);
+    setPdpaAccepted(true);
+    setError("");
+  }
+
   function handleOtpChange(i: number, value: string) {
     const digit = value.replace(/\D/g, "").slice(-1);
     setOtp((prev) => {
@@ -201,6 +223,13 @@ export default function Signup() {
             <h2>Create your account</h2>
             <p>Get started in under 3 minutes. No paid verification checks fire here - investing unlocks after a quick activation the first time you tap Invest.</p>
           </div>
+          {step !== "done" && (
+            <div className="actions">
+              <button type="button" className="btn small" onClick={fillSampleData}>
+                ⚡ Fill sample data
+              </button>
+            </div>
+          )}
         </div>
 
           {step !== "done" && (
