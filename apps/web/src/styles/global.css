@@ -82,7 +82,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 
 .deposit-options{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
 .deposit-option{border:1px solid var(--line);border-radius:18px;background:var(--surface);padding:16px;text-align:center;box-shadow:0 8px 18px rgba(15,45,80,.04)}
-.deposit-option.active{border-color:var(--deposit-active-border,#4a65ff);box-shadow:0 14px 30px var(--deposit-active-shadow,rgba(47,69,232,.12));background:var(--deposit-active-bg,#f7f9ff)}
+.deposit-option.active{border-color:var(--deposit-active-border,#2694d2);box-shadow:0 14px 30px var(--deposit-active-shadow,rgba(38,148,210,.14));background:var(--deposit-active-bg,#eff6ff)}
 .deposit-option .icon{font-size:30px;margin-bottom:8px}
 .deposit-option b{display:block;font-size:14px}
 .deposit-option span{display:block;margin-top:4px;color:var(--muted);font-size:12px}
@@ -235,7 +235,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   --rolecard-active-bg:rgba(35,149,220,.12);
   --warn-panel-bg:rgba(209,139,18,.14);--warn-panel-border:rgba(209,139,18,.4);--warn-panel-color:#f0c46a;
   --danger-panel-bg:rgba(211,80,95,.14);--danger-panel-border:rgba(211,80,95,.4);--danger-panel-color:#f29aa4;
-  --deposit-active-border:#5c8cff;--deposit-active-bg:rgba(74,101,255,.12);--deposit-active-shadow:rgba(74,101,255,.18);
+  --deposit-active-border:#4aa8dd;--deposit-active-bg:rgba(38,148,210,.15);--deposit-active-shadow:rgba(38,148,210,.2);
   --upload-border:#324259;--login-demo-bg:var(--surface2);--login-demo-color:var(--muted);
   --track-bg:var(--surface2);--progress-bg:var(--surface2);
   --hl-yellow-bg:rgba(209,139,18,.12);--hl-red-bg:rgba(211,80,95,.12);--hl-green-bg:rgba(21,154,114,.12);--hl-blue-bg:rgba(35,149,220,.12);
@@ -256,7 +256,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   --rolecard-active-bg:rgba(35,149,220,.12);
   --warn-panel-bg:rgba(209,139,18,.14);--warn-panel-border:rgba(209,139,18,.4);--warn-panel-color:#f0c46a;
   --danger-panel-bg:rgba(211,80,95,.14);--danger-panel-border:rgba(211,80,95,.4);--danger-panel-color:#f29aa4;
-  --deposit-active-border:#5c8cff;--deposit-active-bg:rgba(74,101,255,.12);--deposit-active-shadow:rgba(74,101,255,.18);
+  --deposit-active-border:#4aa8dd;--deposit-active-bg:rgba(38,148,210,.15);--deposit-active-shadow:rgba(38,148,210,.2);
   --upload-border:#324259;--login-demo-bg:var(--surface2);--login-demo-color:var(--muted);
   --track-bg:var(--surface2);--progress-bg:var(--surface2);
   --hl-yellow-bg:rgba(209,139,18,.12);--hl-red-bg:rgba(211,80,95,.12);--hl-green-bg:rgba(21,154,114,.12);--hl-blue-bg:rgba(35,149,220,.12);

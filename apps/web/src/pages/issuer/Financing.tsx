@@ -192,14 +192,20 @@ export default function Financing() {
       <>
         <PageHeader title="Financing" description={`${editing?.status === "Draft" || !editing ? "Continue your" : "Editing your"} financing application.`} />
         <div className="card">
-          <div className="section-head">
-            <div className="row" style={{ gap: 8 }}>
-              {STEPS.map((s) => (
-                <button key={s.key} className={`btn small ${step === s.key ? "primary" : "secondary"}`} onClick={() => setStep(s.key)} type="button">
-                  {s.label}
-                </button>
-              ))}
-            </div>
+          <div className="stepper">
+            {STEPS.map((s, i) => {
+              const currentIndex = STEPS.findIndex((x) => x.key === step);
+              const isCurrent = s.key === step;
+              const isDone = i < currentIndex;
+              return (
+                <div key={s.key} className={`step${isDone ? " done" : ""}${isCurrent ? " current" : ""}`}>
+                  <button type="button" className="dot" onClick={() => setStep(s.key)} aria-label={s.label} aria-current={isCurrent ? "step" : undefined}>
+                    {isDone ? "✓" : i + 1}
+                  </button>
+                  <span className="lbl">{s.label}</span>
+                </div>
+              );
+            })}
           </div>
 
           {step === "product" && (

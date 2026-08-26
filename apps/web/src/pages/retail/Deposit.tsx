@@ -60,7 +60,7 @@ export default function Deposit() {
           </div>
           <div style={{ fontWeight: 800 }}>Balance Cash {money(data?.profile.cashBalance ?? 0)}</div>
         </div>
-        <div className="grid cols-2" style={{ padding: 20, background: "#fbfdff" }}>
+        <div className="grid cols-2" style={{ padding: 20, background: "var(--surface2)" }}>
           <div className="card" style={{ boxShadow: "none" }}>
             <div className="deposit-options">
               <button className={`deposit-option ${mode === "fpx" ? "active" : ""}`} onClick={() => setMode("fpx")}>

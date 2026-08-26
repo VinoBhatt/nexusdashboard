@@ -46,11 +46,11 @@ export default function CompletedNotes() {
       <div className="card" style={{ marginBottom: 16 }}>
         {holdings.length > 0 && (
           <div className="grid cols-2" style={{ marginBottom: 14 }}>
-            <div className="card" style={{ boxShadow: "none", background: "#fbfdff" }}>
+            <div className="card" style={{ boxShadow: "none", background: "var(--surface2)" }}>
               <span className="sub">Total Profit Earned (RM)</span>
               <h3 style={{ margin: "4px 0 0" }}>{money(totalProfit)}</h3>
             </div>
-            <div className="card" style={{ boxShadow: "none", background: "#fbfdff" }}>
+            <div className="card" style={{ boxShadow: "none", background: "var(--surface2)" }}>
               <span className="sub">Average Profit (RM)</span>
               <h3 style={{ margin: "4px 0 0" }}>{money(totalProfit / holdings.length)}</h3>
             </div>

@@ -48,7 +48,7 @@ export default function Withdrawal() {
           </div>
           <div style={{ fontWeight: 800 }}>Available Cash {money(data?.profile.cashBalance ?? 0)}</div>
         </div>
-        <div className="grid cols-2" style={{ padding: 20, background: "#fbfdff" }}>
+        <div className="grid cols-2" style={{ padding: 20, background: "var(--surface2)" }}>
           <div className="card" style={{ boxShadow: "none" }}>
             <h3>Designated Bank Account</h3>
             <div className="stack">

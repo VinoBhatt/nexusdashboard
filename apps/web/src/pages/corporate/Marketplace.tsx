@@ -121,11 +121,11 @@ export default function CorporateMarketplace() {
           </div>
           <span className="pill blue">{mode === "primary" ? "Primary market" : "Investor liquidation"}</span>
         </div>
-        <div className="row" style={{ marginBottom: 12 }}>
-          <button className={`btn small ${mode === "primary" ? "primary" : ""}`} onClick={() => setMode("primary")}>
+        <div className="tabs">
+          <button className={`tab ${mode === "primary" ? "active" : ""}`} onClick={() => setMode("primary")}>
             Primary Notes
           </button>
-          <button className={`btn small ${mode === "secondary" ? "primary" : ""}`} onClick={() => setMode("secondary")}>
+          <button className={`tab ${mode === "secondary" ? "active" : ""}`} onClick={() => setMode("secondary")}>
             Investor Liquidation Marketplace
           </button>
         </div>

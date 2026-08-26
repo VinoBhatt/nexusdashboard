@@ -56,7 +56,7 @@ export default function CorporateWithdrawal() {
           </div>
           <div style={{ fontWeight: 800 }}>Treasury Cash {money(data?.account.cashBalance ?? 0)}</div>
         </div>
-        <div style={{ padding: 20, background: "#fbfdff" }}>
+        <div style={{ padding: 20, background: "var(--surface2)" }}>
           {myCorpRole === "maker" ? (
             <div className="card" style={{ boxShadow: "none", maxWidth: 420 }}>
               <div className="field">
