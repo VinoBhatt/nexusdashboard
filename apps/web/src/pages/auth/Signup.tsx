@@ -199,12 +199,15 @@ export default function Signup() {
   }
 
   return (
-    <div className="login-wrap" onKeyDown={handleKeyDown}>
+    <div style={{ minHeight: "100vh" }} onKeyDown={handleKeyDown}>
       <ThemeToggle className="floating" />
-      <div className="login-card" style={{ gridTemplateColumns: "1fr", maxWidth: 640 }}>
-        <div className="login-form">
-          <h3>Create your account</h3>
-          <div className="sub">Get started in under 3 minutes. No paid verification checks fire here - investing unlocks after a quick activation the first time you tap Invest.</div>
+      <div style={{ maxWidth: 760, margin: "0 auto", padding: "24px 24px 60px" }}>
+        <div className="top" style={{ position: "static" }}>
+          <div className="heading">
+            <h2>Create your account</h2>
+            <p>Get started in under 3 minutes. No paid verification checks fire here - investing unlocks after a quick activation the first time you tap Invest.</p>
+          </div>
+        </div>
 
           {step !== "done" && (
             <div className="stepper">
@@ -231,6 +234,7 @@ export default function Signup() {
             </div>
           )}
 
+          <div className="card">
           <div key={step} className="wizard-step">
             {step === "account" && (
               <div className="stack">
