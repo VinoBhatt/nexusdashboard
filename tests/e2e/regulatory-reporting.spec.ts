@@ -62,4 +62,18 @@ test.describe("Regulatory Reporting", () => {
     const res = await apiFetch(page, "/api/admin/regulatory/position-report");
     expect(res.status).toBe(403);
   });
+
+  test("Copy button copies a section as tab-separated text ready to paste into a spreadsheet", async ({ page, context }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await login(page, DEMO_ACCOUNTS.admin);
+    await page.getByRole("link", { name: "Regulatory Reporting", exact: true }).click();
+
+    const scopingCard = page.locator(".card", { hasText: "[00000] Scoping Questions" });
+    await scopingCard.getByRole("button", { name: "Copy" }).click();
+    await expect(page.locator("#toast")).toContainText("Copied");
+
+    const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
+    expect(clipboardText).toContain("Reporting Level\tCompany");
+    expect(clipboardText).toContain("Category\tRecognized Market Operator");
+  });
 });

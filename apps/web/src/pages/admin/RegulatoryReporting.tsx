@@ -4,6 +4,7 @@ import { apiGet, downloadUrl } from "../../lib/api";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { DataTable, type Column } from "../../components/data/DataTable";
 import { SkeletonPage, QueryError } from "../../components/QueryState";
+import { useToast } from "../../components/Toast";
 
 type Row = Record<string, unknown>;
 interface PositionReport {
@@ -299,6 +300,44 @@ function columnsFor(headers: string[]): Column<Row>[] {
   }));
 }
 
+// Tab-separated, not comma-separated: pasting TSV text into Excel/Google
+// Sheets/Numbers splits it straight into columns, so a section can be
+// copied here and pasted directly into the filing spreadsheet without
+// going through the CSV file download first.
+function toTsvCell(v: unknown): string {
+  return String(v ?? "").replace(/\t/g, " ").replace(/\r?\n/g, " ");
+}
+
+function rowsToTsv(headers: string[], rows: Row[]): string {
+  const lines = [headers.map(toTsvCell).join("\t"), ...rows.map((r) => headers.map((h) => toTsvCell(r[h])).join("\t"))];
+  return lines.join("\n");
+}
+
+function kvToTsv(data: Record<string, string>): string {
+  return Object.entries(data)
+    .map(([k, v]) => `${toTsvCell(k)}\t${toTsvCell(v)}`)
+    .join("\n");
+}
+
+function CopyButton({ getText }: { getText: () => string }) {
+  const toast = useToast();
+  return (
+    <button
+      className="btn small"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(getText());
+          toast("Copied - paste directly into the filing spreadsheet.");
+        } catch {
+          toast("Couldn't copy to clipboard - use Export CSV instead.");
+        }
+      }}
+    >
+      Copy
+    </button>
+  );
+}
+
 function ReportSection({
   title,
   sectionNumber,
@@ -326,9 +365,12 @@ function ReportSection({
             {sectionNumber} {title}
           </h3>
         </div>
-        <a className="btn small" href={downloadUrl(`/api/admin/regulatory/export/${csvSection}.csv?year=${year}&month=${month}`)}>
-          Export CSV
-        </a>
+        <div className="row" style={{ gap: 8 }}>
+          <CopyButton getText={() => rowsToTsv(headers, rows)} />
+          <a className="btn small" href={downloadUrl(`/api/admin/regulatory/export/${csvSection}.csv?year=${year}&month=${month}`)}>
+            Export CSV
+          </a>
+        </div>
       </div>
       <DataTable columns={columnsFor(headers)} rows={rows} emptyMessage={emptyMessage ?? "No data entered yet - add it via Issuer Regulatory Data or Campaign Regulatory Data."} />
     </div>
@@ -340,6 +382,7 @@ function KvCard({ title, data }: { title: string; data: Record<string, string> }
     <div className="card" style={{ marginBottom: 16 }}>
       <div className="section-head">
         <h3>{title}</h3>
+        <CopyButton getText={() => kvToTsv(data)} />
       </div>
       <dl className="kv">
         {Object.entries(data).map(([k, v]) => (
