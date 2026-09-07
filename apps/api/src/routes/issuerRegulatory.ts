@@ -248,6 +248,37 @@ issuerRegulatory.put("/facilities/:facilityId/campaign-fields", async (c) => {
   return c.json({ ok: true });
 });
 
+const mycifFieldsSchema = z.object({
+  mycifSchemeType: z.string().optional().nullable(),
+  mycifCoInvestmentAmount: z.number().optional().nullable(),
+  issuerCurrentRevenueRM: z.number().optional().nullable(),
+  issuerCurrentCustomerBase: z.number().optional().nullable(),
+  issuerCurrentEmployeeCount: z.number().optional().nullable(),
+  mycifProblemStatement: z.string().optional().nullable(),
+  mycifSolution: z.string().optional().nullable(),
+  mycifBeneficiaries: z.string().optional().nullable(),
+  mycifOutcomes: z.string().optional().nullable(),
+  mycifFundUtilisationPct: z.number().optional().nullable(),
+  mycifImpactMeasure: z.string().optional().nullable(),
+  mycifBaseline: z.string().optional().nullable(),
+  mycifImpactTarget: z.string().optional().nullable(),
+  mycifProgressPct: z.number().optional().nullable(),
+  mycifKeyMilestones: z.string().optional().nullable(),
+  mycifChallenges: z.string().optional().nullable(),
+  mycifMitigationStrategies: z.string().optional().nullable(),
+});
+
+issuerRegulatory.put("/facilities/:facilityId/mycif-fields", async (c) => {
+  const facilityId = c.req.param("facilityId");
+  const parsed = mycifFieldsSchema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: "invalid_body" }, 400);
+  const db = drizzle(c.env.DB);
+  const [existing] = await db.select().from(financingFacilities).where(eq(financingFacilities.id, facilityId));
+  if (!existing) return c.json({ error: "not_found" }, 404);
+  await db.update(financingFacilities).set(parsed.data).where(eq(financingFacilities.id, facilityId));
+  return c.json({ ok: true });
+});
+
 // ---- Reschedule & Restructure notes ----
 
 const rrSchema = z.object({

@@ -172,6 +172,29 @@ export const financingFacilities = sqliteTable("financing_facilities", {
   defaultClassification: text("default_classification"),
   defaultClassificationOther: text("default_classification_other"),
   actualDueRepaymentDate: text("actual_due_repayment_date"),
+  // ---- Regulatory reporting: MyCIF General P2P Financing Campaign
+  // Quarterly Report (Transaction/Status/Impact Reporting) - supplementary
+  // MyCIF co-investment and issuer-impact detail the platform doesn't
+  // otherwise capture, entered by an admin via the Campaign Regulatory Data
+  // page. Separate from the SC RMO SARANA fields above - MyCIF and SARANA
+  // are distinct co-investment schemes. ----
+  mycifSchemeType: text("mycif_scheme_type"),
+  mycifCoInvestmentAmount: real("mycif_co_investment_amount"),
+  issuerCurrentRevenueRM: real("issuer_current_revenue_rm"),
+  issuerCurrentCustomerBase: integer("issuer_current_customer_base"),
+  issuerCurrentEmployeeCount: integer("issuer_current_employee_count"),
+  mycifProblemStatement: text("mycif_problem_statement"),
+  mycifSolution: text("mycif_solution"),
+  mycifBeneficiaries: text("mycif_beneficiaries"),
+  mycifOutcomes: text("mycif_outcomes"),
+  mycifFundUtilisationPct: real("mycif_fund_utilisation_pct"),
+  mycifImpactMeasure: text("mycif_impact_measure"),
+  mycifBaseline: text("mycif_baseline"),
+  mycifImpactTarget: text("mycif_impact_target"),
+  mycifProgressPct: real("mycif_progress_pct"),
+  mycifKeyMilestones: text("mycif_key_milestones"),
+  mycifChallenges: text("mycif_challenges"),
+  mycifMitigationStrategies: text("mycif_mitigation_strategies"),
   ...timestamps,
 });
 
