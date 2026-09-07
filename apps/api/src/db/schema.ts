@@ -146,6 +146,32 @@ export const financingFacilities = sqliteTable("financing_facilities", {
   // denormalized JSON, mirrors the documents table's metadata-only pattern rather
   // than a new normalized table for a handful of application-intake answers.
   businessInfoJson: text("business_info_json"),
+  // ---- Regulatory reporting: SC RMO P2P Report [03000]/[03100] Financing
+  // Details and [11000] Defaulted Issuer - supplementary campaign detail the
+  // platform doesn't otherwise capture, entered by an admin via the
+  // Campaign Regulatory Data page. ----
+  campaignDescription: text("campaign_description"),
+  campaignApplicationDate: text("campaign_application_date"),
+  campaignApprovalDate: text("campaign_approval_date"),
+  campaignUrl: text("campaign_url"),
+  campaignSector: text("campaign_sector"),
+  sustainabilityCategory: text("sustainability_category"),
+  typeOfInvestmentNotes: text("type_of_investment_notes"),
+  shariahAdviserName: text("shariah_adviser_name"),
+  purposeOfFundRaising: text("purpose_of_fund_raising"),
+  purposeOfFundRaisingOther: text("purpose_of_fund_raising_other"),
+  remark: text("remark"),
+  isSaranaScheme: integer("is_sarana_scheme", { mode: "boolean" }).default(false),
+  saranaFinancingOptions: text("sarana_financing_options"),
+  saranaFinancingScope: text("sarana_financing_scope"),
+  targetFinancingAmount: real("target_financing_amount"),
+  financingSecurity: text("financing_security"),
+  issuerInterestRateEffective: real("issuer_interest_rate_effective"),
+  investorReturnRateSimple: real("investor_return_rate_simple"),
+  investorReturnRateEffective: real("investor_return_rate_effective"),
+  defaultClassification: text("default_classification"),
+  defaultClassificationOther: text("default_classification_other"),
+  actualDueRepaymentDate: text("actual_due_repayment_date"),
   ...timestamps,
 });
 
@@ -437,6 +463,139 @@ export const issuerProfiles = sqliteTable("issuer_profiles", {
   kybStatus: text("kyb_status").notNull().default("Pending"),
   availableLine: real("available_line").notNull().default(0),
   onTimeRate: real("on_time_rate").notNull().default(100),
+  // ---- Regulatory reporting: SC RMO P2P Report [02000] Profile of Issuer -
+  // supplementary company detail the platform doesn't otherwise capture,
+  // entered by an admin via the Issuer Regulatory Data page. ----
+  issuerIdCode: text("issuer_id_code"),
+  dateOfIncorporation: text("date_of_incorporation"),
+  dateOfCommencement: text("date_of_commencement"),
+  countryOfIncorporation: text("country_of_incorporation").default("Malaysia"),
+  typeOfCompany: text("type_of_company"),
+  registeredAddressState: text("registered_address_state"),
+  registeredAddressPostcode: text("registered_address_postcode"),
+  businessAddress: text("business_address"),
+  businessAddressState: text("business_address_state"),
+  businessAddressPostcode: text("business_address_postcode"),
+  phoneNumber: text("phone_number"),
+  website: text("website"),
+  companyActivities: text("company_activities"),
+});
+
+// One row per director/management team member per issuer - SC RMO P2P
+// Report [06000]. Entered by an admin via the Issuer Regulatory Data page.
+export const issuerBoardMembers = sqliteTable("issuer_board_members", {
+  id: id(),
+  issuerUserId: text("issuer_user_id")
+    .notNull()
+    .references(() => issuerProfiles.userId),
+  name: text("name").notNull(),
+  salutation: text("salutation"),
+  identityPrefix: text("identity_prefix", { enum: ["NRIC", "Passport"] }).default("NRIC"),
+  identityNumber: text("identity_number"),
+  dob: text("dob"),
+  gender: text("gender"),
+  nationality: text("nationality"),
+  address: text("address"),
+  addressState: text("address_state"),
+  addressPostcode: text("address_postcode"),
+  designation: text("designation"),
+  designationOther: text("designation_other"),
+  appointmentDate: text("appointment_date"),
+  resignationDate: text("resignation_date"),
+  ...timestamps,
+});
+
+// One row per shareholder per issuer - SC RMO P2P Report [05000].
+export const issuerShareholders = sqliteTable("issuer_shareholders", {
+  id: id(),
+  issuerUserId: text("issuer_user_id")
+    .notNull()
+    .references(() => issuerProfiles.userId),
+  shareholderType: text("shareholder_type", { enum: ["Individual", "Company"] })
+    .notNull()
+    .default("Individual"),
+  shareholderName: text("shareholder_name").notNull(),
+  salutation: text("salutation"),
+  identityPrefix: text("identity_prefix", { enum: ["NRIC", "Passport", "Company Registration No."] }).default("NRIC"),
+  identityNumber: text("identity_number"),
+  dob: text("dob"),
+  gender: text("gender"),
+  nationality: text("nationality"),
+  address: text("address"),
+  addressState: text("address_state"),
+  addressPostcode: text("address_postcode"),
+  shareType: text("share_type"),
+  shareTypeOther: text("share_type_other"),
+  shareholdingUnits: real("shareholding_units"),
+  shareholdingAmount: real("shareholding_amount"),
+  shareholdingPercentage: real("shareholding_percentage"),
+  ...timestamps,
+});
+
+// One row per reporting period per issuer (balance sheet + P&L combined,
+// since both are issuer-level period figures) - SC RMO P2P Report
+// [09000]/[09100].
+export const issuerFinancials = sqliteTable("issuer_financials", {
+  id: id(),
+  issuerUserId: text("issuer_user_id")
+    .notNull()
+    .references(() => issuerProfiles.userId),
+  periodLabel: text("period_label").notNull(), // e.g. "FY2025"
+  assetsCurrentRM: real("assets_current_rm"),
+  assetsNonCurrentRM: real("assets_non_current_rm"),
+  liabCurrentBorrowingRM: real("liab_current_borrowing_rm"),
+  liabCurrentNonBorrowingRM: real("liab_current_non_borrowing_rm"),
+  liabNonCurrentLoanRM: real("liab_non_current_loan_rm"),
+  liabNonCurrentNonLoanRM: real("liab_non_current_non_loan_rm"),
+  equityCapitalRM: real("equity_capital_rm"),
+  equityShareApplicationRM: real("equity_share_application_rm"),
+  equitySharePremiumRM: real("equity_share_premium_rm"),
+  equityAccumulatedProfitRM: real("equity_accumulated_profit_rm"),
+  equityMinorityInterestRM: real("equity_minority_interest_rm"),
+  totalRevenueRM: real("total_revenue_rm"),
+  operatingCostRM: real("operating_cost_rm"),
+  administrativeCostRM: real("administrative_cost_rm"),
+  interestCostRM: real("interest_cost_rm"),
+  otherCostRM: real("other_cost_rm"),
+  profitLossBeforeTaxRM: real("profit_loss_before_tax_rm"),
+  profitLossAfterTaxRM: real("profit_loss_after_tax_rm"),
+  minorityInterestRM: real("minority_interest_rm"),
+  netDividendRM: real("net_dividend_rm"),
+  ...timestamps,
+});
+
+// One row per facility - SC RMO P2P Report [04500] Campaign Settlement.
+export const campaignSettlements = sqliteTable("campaign_settlements", {
+  id: id(),
+  facilityId: text("facility_id")
+    .notNull()
+    .unique()
+    .references(() => financingFacilities.id),
+  paymentTo: text("payment_to", { enum: ["Issuer", "Investor"] }),
+  fundDisbursementDate: text("fund_disbursement_date"),
+  settlementAmount: real("settlement_amount"),
+  fundRefundedDate: text("fund_refunded_date"),
+  remark: text("remark"),
+  ...timestamps,
+});
+
+// One row per R&R note, linked to the original facility - SC RMO P2P
+// Position Report [04000] / P2P Report equivalent. Not derivable from
+// existing data since the platform has no reschedule/restructure concept.
+export const rescheduleRestructureNotes = sqliteTable("reschedule_restructure_notes", {
+  id: id(),
+  facilityId: text("facility_id")
+    .notNull()
+    .references(() => financingFacilities.id),
+  rrCampaignId: text("rr_campaign_id"),
+  interestRatePct: real("interest_rate_pct"),
+  tenureOriginalMonths: integer("tenure_original_months"),
+  tenureRRMonths: integer("tenure_rr_months"),
+  commencementDateRR: text("commencement_date_rr"),
+  financingAmountOriginal: real("financing_amount_original"),
+  rrAmountRevised: real("rr_amount_revised"),
+  rrPaymentStructure: text("rr_payment_structure"),
+  ...timestamps,
 });
 
 // ---- Campaign Manager / Platform Operator: proposal lifecycle (Functional
