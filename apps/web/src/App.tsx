@@ -28,6 +28,9 @@ import RiskProfiles from "./pages/admin/RiskProfiles";
 import KycEngineDocs from "./pages/admin/KycEngineDocs";
 import WalletArchitectureDocs from "./pages/admin/WalletArchitectureDocs";
 import SchemaReferenceDocs from "./pages/admin/SchemaReferenceDocs";
+import RegulatoryReporting from "./pages/admin/RegulatoryReporting";
+import IssuerRegulatoryData from "./pages/admin/IssuerRegulatoryData";
+import CampaignRegulatoryData from "./pages/admin/CampaignRegulatoryData";
 import Financing from "./pages/issuer/Financing";
 import IssuerProposals from "./pages/issuer/Proposals";
 import Repayments from "./pages/issuer/Repayments";
@@ -71,6 +74,9 @@ export default function App() {
             <Route path="kyc-engine-docs" element={<KycEngineDocs />} />
             <Route path="wallet-docs" element={<WalletArchitectureDocs />} />
             <Route path="schema-docs" element={<SchemaReferenceDocs />} />
+            <Route path="regulatory-reporting" element={<RegulatoryReporting />} />
+            <Route path="issuer-regulatory-data" element={<IssuerRegulatoryData />} />
+            <Route path="campaign-regulatory-data" element={<CampaignRegulatoryData />} />
             <Route path="financing" element={<Financing />} />
             <Route path="issuer-proposals" element={<IssuerProposals />} />
             <Route path="repayments" element={<Repayments />} />
