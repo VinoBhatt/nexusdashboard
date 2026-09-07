@@ -175,6 +175,7 @@ const NAV_BY_ROLE: Record<Role, { to: string; label: string; icon: string }[]> =
     { to: "regulatory-reporting", label: "Regulatory Reporting", icon: "statements" },
     { to: "issuer-regulatory-data", label: "Issuer Regulatory Data", icon: "issuers" },
     { to: "campaign-regulatory-data", label: "Campaign Regulatory Data", icon: "financing" },
+    { to: "mycif-reporting", label: "MyCIF Quarterly Report", icon: "statements" },
     { to: "kyc-engine-docs", label: "KYC Engine", icon: "documents" },
     { to: "wallet-docs", label: "Wallet & CIF", icon: "balance" },
     { to: "schema-docs", label: "DB Schema", icon: "documents" },

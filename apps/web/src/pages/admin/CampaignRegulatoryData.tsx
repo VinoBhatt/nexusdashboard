@@ -36,6 +36,23 @@ interface FacilityDetail {
   defaultClassification: string | null;
   defaultClassificationOther: string | null;
   actualDueRepaymentDate: string | null;
+  mycifSchemeType: string | null;
+  mycifCoInvestmentAmount: number | null;
+  issuerCurrentRevenueRM: number | null;
+  issuerCurrentCustomerBase: number | null;
+  issuerCurrentEmployeeCount: number | null;
+  mycifProblemStatement: string | null;
+  mycifSolution: string | null;
+  mycifBeneficiaries: string | null;
+  mycifOutcomes: string | null;
+  mycifFundUtilisationPct: number | null;
+  mycifImpactMeasure: string | null;
+  mycifBaseline: string | null;
+  mycifImpactTarget: string | null;
+  mycifProgressPct: number | null;
+  mycifKeyMilestones: string | null;
+  mycifChallenges: string | null;
+  mycifMitigationStrategies: string | null;
 }
 interface RRNote {
   id: string;
@@ -146,6 +163,89 @@ function CampaignFieldsForm({ facilityId }: { facilityId: string }) {
       <div style={{ marginTop: 14 }}>
         <button className="btn primary" disabled={save.isPending} onClick={() => save.mutate()}>
           Save Campaign Detail
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const MYCIF_TEXT_FIELDS: { key: keyof FacilityDetail; label: string }[] = [
+  { key: "mycifSchemeType", label: "Type of MyCIF Scheme" },
+  { key: "mycifProblemStatement", label: "Problem Statement" },
+  { key: "mycifSolution", label: "Solution" },
+  { key: "mycifBeneficiaries", label: "Beneficiaries" },
+  { key: "mycifOutcomes", label: "Outcomes" },
+  { key: "mycifImpactMeasure", label: "Impact Measure" },
+  { key: "mycifBaseline", label: "Base Line" },
+  { key: "mycifImpactTarget", label: "Impact Target" },
+  { key: "mycifKeyMilestones", label: "Key Milestones Achieved" },
+  { key: "mycifChallenges", label: "Challenges" },
+  { key: "mycifMitigationStrategies", label: "Mitigation Strategies" },
+];
+const MYCIF_NUMBER_FIELDS: { key: keyof FacilityDetail; label: string }[] = [
+  { key: "mycifCoInvestmentAmount", label: "Total Amount of MyCIF Co-Investment (RM)" },
+  { key: "issuerCurrentRevenueRM", label: "Current Revenue Base of the Issuer (RM)" },
+  { key: "issuerCurrentCustomerBase", label: "Current Customer Base of the Issuer" },
+  { key: "issuerCurrentEmployeeCount", label: "Current No. of Employees of the Issuer" },
+  { key: "mycifFundUtilisationPct", label: "Fund Utilisation for Impact Solution (%)" },
+  { key: "mycifProgressPct", label: "% Progress Towards Target" },
+];
+
+function MyCifFieldsForm({ facilityId }: { facilityId: string }) {
+  const toast = useToast();
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["admin", "regulatory", "facility", facilityId],
+    queryFn: () => apiGet<{ item: FacilityDetail }>(`/api/admin/regulatory/facilities/${facilityId}`),
+  });
+  const [form, setForm] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (data?.item) {
+      const next: Record<string, string> = {};
+      for (const f of [...MYCIF_TEXT_FIELDS, ...MYCIF_NUMBER_FIELDS]) next[f.key] = data.item[f.key] != null ? String(data.item[f.key]) : "";
+      setForm(next);
+    }
+  }, [data]);
+
+  const save = useMutation({
+    mutationFn: () => {
+      const body: Record<string, unknown> = {};
+      for (const f of MYCIF_TEXT_FIELDS) body[f.key] = form[f.key] || null;
+      for (const f of MYCIF_NUMBER_FIELDS) body[f.key] = form[f.key] ? Number(form[f.key]) : null;
+      return apiPut(`/api/admin/regulatory/facilities/${facilityId}/mycif-fields`, body);
+    },
+    onSuccess: () => toast("MyCIF fields updated."),
+    onError: (e: Error) => toast(e.message),
+  });
+
+  if (isLoading) return <SkeletonPage />;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
+
+  return (
+    <div className="card" style={{ marginBottom: 16 }}>
+      <div className="section-head">
+        <div>
+          <h3>MyCIF Co-Investment &amp; Impact</h3>
+          <p>MyCIF Quarterly Report - Transaction/Impact Reporting fields for campaigns co-invested through the MyCIF scheme.</p>
+        </div>
+      </div>
+      <div className="grid cols-3">
+        {MYCIF_TEXT_FIELDS.map((f) => (
+          <div className="field" key={f.key}>
+            <label htmlFor={`mycif-${f.key}`}>{f.label}</label>
+            <input id={`mycif-${f.key}`} value={form[f.key] ?? ""} onChange={(e) => setForm((s) => ({ ...s, [f.key]: e.target.value }))} />
+          </div>
+        ))}
+        {MYCIF_NUMBER_FIELDS.map((f) => (
+          <div className="field" key={f.key}>
+            <label htmlFor={`mycif-${f.key}`}>{f.label}</label>
+            <input id={`mycif-${f.key}`} type="number" value={form[f.key] ?? ""} onChange={(e) => setForm((s) => ({ ...s, [f.key]: e.target.value }))} />
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 14 }}>
+        <button className="btn primary" disabled={save.isPending} onClick={() => save.mutate()}>
+          Save MyCIF Fields
         </button>
       </div>
     </div>
@@ -387,6 +487,7 @@ export default function CampaignRegulatoryData() {
       {facilityId && (
         <div key={facilityId}>
           <CampaignFieldsForm facilityId={facilityId} />
+          <MyCifFieldsForm facilityId={facilityId} />
           <RRSection facilityId={facilityId} />
           <SettlementSection facilityId={facilityId} />
         </div>
