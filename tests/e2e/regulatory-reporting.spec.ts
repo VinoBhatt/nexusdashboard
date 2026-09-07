@@ -36,24 +36,25 @@ test.describe("Regulatory Reporting", () => {
     await page.getByRole("link", { name: "Regulatory Reporting", exact: true }).click();
     await page.getByRole("button", { name: "P2P Report (6.0)" }).click();
 
-    await expect(page.locator(".table-wrap", { hasText: "Issuer ID Code" })).toContainText("ISSR-PW-001");
+    await expect(page.locator(".table-wrap", { hasText: "Company Activities" })).toContainText("ISSR-PW-001");
     await expect(page.locator(".table-wrap", { hasText: "Designation" })).toContainText(boardName);
 
     // ---- CSV exports return real content (unpaginated, unlike the on-screen
     // tables above - the platform seeds more than one page of financing
     // facilities, so the edited note's row isn't guaranteed to be on the
-    // first page of the on-screen Financing Details table). ----
-    const csvRes = await apiFetch(page, "/api/admin/regulatory/export/board-members.csv");
+    // first page of the on-screen Financing Details 1 table). Column headers
+    // match the real SC RMO template text exactly, not camelCase field names. ----
+    const csvRes = await apiFetch(page, "/api/admin/regulatory/export/board.csv");
     expect(csvRes.status).toBe(200);
     expect(csvRes.body).toContain(boardName);
 
-    const financingCsvRes = await apiFetch(page, "/api/admin/regulatory/export/financing-details.csv");
+    const financingCsvRes = await apiFetch(page, "/api/admin/regulatory/export/financing-1.csv");
     expect(financingCsvRes.status).toBe(200);
     expect(financingCsvRes.body).toContain("Renewable Energy");
 
     const settlementCsvRes = await apiFetch(page, "/api/admin/regulatory/export/campaign-settlement.csv");
     expect(settlementCsvRes.status).toBe(200);
-    expect(settlementCsvRes.body).toContain("settlementAmount");
+    expect(settlementCsvRes.body).toContain("Settlement Amount (RM)");
   });
 
   test("a retail session is forbidden from regulatory reporting routes", async ({ page }) => {

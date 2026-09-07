@@ -1,53 +1,308 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet, downloadUrl } from "../../lib/api";
-import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { DataTable, type Column } from "../../components/data/DataTable";
 import { SkeletonPage, QueryError } from "../../components/QueryState";
 
-interface Scoping {
-  rmoName: string;
-  category: string;
-  subCategory: string;
-  reportingFrequency: string;
-  reportingPeriod: string;
-  preparedBy: string;
-  preparedAt: string;
-  environment: string;
-}
-interface RepaymentBucket {
-  label: string;
-  count: number;
-  amount: number;
-}
+type Row = Record<string, unknown>;
 interface PositionReport {
-  scoping: Scoping;
-  repaymentTrend: RepaymentBucket[];
-  outstandingNotes: Record<string, unknown>[];
-  rrNotes: Record<string, unknown>[];
-  investorPosition: Record<string, unknown>[];
+  scoping: Record<string, string>;
+  generalInfo: Record<string, string>;
+  repaymentTrend: Row[];
+  outstandingNotes: Row[];
+  rrNotes: Row[];
+  investorPosition: Row[];
 }
-interface P2PReport extends PositionReport {
-  issuerProfiles: Record<string, unknown>[];
-  financingDetails: Record<string, unknown>[];
-  campaignSettlement: Record<string, unknown>[];
-  shareholders: Record<string, unknown>[];
-  boardMembers: Record<string, unknown>[];
-  investorDetails: Record<string, unknown>[];
-  feesCharges: Record<string, unknown>[];
-  balanceSheet: Record<string, unknown>[];
-  pnl: Record<string, unknown>[];
-  defaultedIssuers: Record<string, unknown>[];
+interface P2PReport {
+  scoping: Record<string, string>;
+  generalInfo: Record<string, string>;
+  issuerProfile: Row[];
+  financing1: Row[];
+  financing2: Row[];
+  campaignSettlement: Row[];
+  shareholding: Row[];
+  board: Row[];
+  investorDetails: Row[];
+  feesCharges: Row[];
+  balanceSheet: Row[];
+  profitLoss: Row[];
+  repayment: Row[];
+  defaultedIssuer: Row[];
 }
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const MISSING_DATA_HINT = "No data entered yet - add it via Issuer Regulatory Data or Campaign Regulatory Data.";
+
+// Header lists mirror the source SC RMO XBRL templates exactly (section
+// number, column order, column text) so a row can be copy-pasted straight
+// into the real filing spreadsheet. Declared explicitly (rather than
+// inferred from the first row) so an empty section still shows its columns.
+const REPAYMENT_TREND_HEADERS = ["Repayment status", "Total Repayment Made (Principle + Interest) (RM)"];
+const OUTSTANDING_NOTES_HEADERS = [
+  "LNGI: Line number",
+  "Campaign ID",
+  "Status of Notes",
+  "R&R Campaign ID (if any)",
+  "Outstanding Amount - Principle (RM)",
+  "Outstanding Amount - Interest (RM)",
+  "Outstanding Amount - Total (RM)",
+];
+const RR_NOTES_HEADERS = [
+  "LNRD: Line number",
+  "Campaign ID",
+  "R&R Campaign ID",
+  "Interest rate (%) p.a.",
+  "Tenure | Original notes (months)",
+  "Tenure | R&R notes (months)",
+  "Commencement date of R&R notes (dd/mm/yyyy)",
+  "Financing Amount | Original (RM)",
+  "R&R amount (including charges and additional interest) | Revised (RM)",
+  "R&R Payment structure (please specify)",
+];
+const INVESTOR_POSITION_HEADERS = [
+  "Line number",
+  "Company/Individual",
+  "Investor Name",
+  "Identity prefix",
+  "Investor Identification (NRIC / Passport / Company Registration No.)",
+  "Gender",
+  "Nationality/Country",
+  "Type of Investor ",
+  "Gross Deposit (RM)",
+  "Gross Withdrawal (RM)",
+];
+const ISSUER_PROFILE_HEADERS = [
+  "LNPI: Line number",
+  "Name of Issuer",
+  "Issuer ROC",
+  "Company category",
+  "Issuer ID (if any)",
+  "Date of Incorporation (dd/mm/yyyy)",
+  "Date of Commencement (dd/mm/yyyy)",
+  "Country of Incorporation",
+  "Type of Company",
+  "Registered Address",
+  "Registered Address - State",
+  "Registered Address - Postcode",
+  "Business Address",
+  "Business Address - State",
+  "Business Address - Postcode",
+  "Phone Number",
+  "E-mail Address",
+  "Website",
+  "Company Activities",
+];
+const FINANCING_1_HEADERS = [
+  "LNCE: Line number",
+  "Campaign ID",
+  "Issuer ID (if any)",
+  "Issuer ROC",
+  "Campaign Name",
+  "Campaign Description",
+  "Campaign Application Date (dd/mm/yyyy)",
+  "Campaign Approval Date (dd/mm/yyyy)",
+  "Campaign URL on Operator Website",
+  "Campaign Sector",
+  "Sustainability Category of the Campaign",
+  "Type of Investment Notes",
+  "Name of Shariah Adviser (if applicable)",
+  "Purpose of Fund Raising",
+  "Purpose of Fund Raising - Others (please specify)",
+  "Campaign Status",
+  "Remark (if any)",
+  "Is SARANA Financing Scheme",
+  "Financing Options of SARANA",
+  "Financing Scope of SARANA",
+];
+const FINANCING_2_HEADERS = [
+  "LNFD: Line number",
+  "Campaign ID",
+  "Issuer ID (if any)",
+  "Issuer ROC",
+  "Fund Raising Start Date (dd/mm/yyyy)",
+  "Campaign Extension Date (dd/mm/yyyy)",
+  "Fund Raising End Date (dd/mm/yyyy)",
+  "Type of Financing",
+  "Security Type",
+  "Investment Note Tenure (months)",
+  "Assigned Risk Grading",
+  "Target Financing Amount (RM)",
+  "Financing Amount (RM)",
+  "Financing Security (if any)",
+  "Issuer Financing Interest Rate per annum (%) - simple interest rate ",
+  "Issuer Financing Interest Rate per annum (%) - effective interest rate ",
+  "Investor Return Interest Rate per annum (%) - simple interest rate ",
+  "Investor Return Interest Rate per annum (%) - effective interest rate ",
+  "Repayment Type",
+  "Repayment Type - Others (please specify)",
+  "Repayment Schedule",
+  "Amount Raised (RM)",
+  "Remarks",
+];
+const CAMPAIGN_SETTLEMENT_HEADERS = [
+  "LNSE: Line number",
+  "Campaign ID",
+  "Issuer ID (if any)",
+  "Issuer ROC",
+  "Payment to",
+  "Fund Disbursement Date to Issuer - Successful Campaign (dd/mm/yyyy)",
+  "Settlement Amount (RM)",
+  "Fund Refunded Date to Investor - Unsuccessful Campaign (dd/mm/yyyy)",
+  "Remark (if any)",
+];
+const SHAREHOLDING_HEADERS = [
+  "LNSS: Line number",
+  "Issuer ROC",
+  "Issuer ID (if any)",
+  "Shareholder Type",
+  "Shareholder Name",
+  "Salutation (if applicable)",
+  "Identity Prefix",
+  "Shareholder Identity (NRIC/Passport/Company Registration No.)",
+  "Date of Birth (dd/mm/yyyy)",
+  "Gender",
+  "Nationality/Country",
+  "Business/Residential Address",
+  "Business/Residential Address - State",
+  "Business/Residential Address - Postcode",
+  "Type of Shares ",
+  "Type of Shares - Others (please specify)",
+  "Shareholding Units (unit)",
+  "Shareholding Amount (RM)",
+  "Shareholding Percentage (%)",
+];
+const BOARD_HEADERS = [
+  "LNBO: Line number",
+  "Issuer ROC",
+  "Issuer ID (if any)",
+  "Board of Director/Management Team",
+  "Name",
+  "Salutation (if applicable)",
+  "Identity Prefix",
+  "Identity Number (NRIC/Passport No.)",
+  "Gender",
+  "Date of Birth (dd/mm/yyyy)",
+  "Nationality",
+  "Residential Address",
+  "Residential Address - State",
+  "Residential Address - Postcode",
+  "Designation",
+  "Designation - Others (please specify)",
+  "Appointment Date (dd/mm/yyyy)",
+  "Resignation Date (dd/mm/yyyy)",
+];
+const INVESTOR_DETAILS_HEADERS = [
+  "LNID: Line number",
+  "Campaign ID",
+  "Issuer ID (if any)",
+  "Issuer ROC",
+  "Investor Name",
+  "Identity Prefix",
+  "Investor Identification (NRIC / Passport / Company Registration No.)",
+  "Date of Birth/Incorporation (dd/mm/yyyy)",
+  "Gender",
+  "Business/Residential Address - State",
+  "Business/Residential Address - Postcode",
+  "Nationality/Country",
+  "Type of Investor ",
+  "Date of Pledge (dd/mm/yyyy)",
+  "Amount Pledged (RM)",
+  "Amount Invested (RM)",
+  "Nominees Name (if applicable)",
+  "Nominees ROC (if applicable)",
+  "Investment by Related Party ",
+  "Remarks",
+];
+const FEES_CHARGES_HEADERS = [
+  "LNFC: Line number",
+  "Campaign ID",
+  "Issuer ID (if any)",
+  "Issuer ROC",
+  "Type of Fees/Charges by Operator (please specify)",
+  "Amount (RM)",
+  "Fees/Charges by Operator in Percentage (%) (Only if amount not available)",
+  "Charged To",
+];
+const BALANCE_SHEET_HEADERS = [
+  "LNBS: Line number",
+  "Issuer ROC",
+  "Issuer ID (if any)",
+  "Assets|Current (RM)",
+  "Assets|Non Current (RM)",
+  "Liabilities|Current - Borrowing (RM)",
+  "Liabilities|Current - Non Borrowing (RM)",
+  "Liabilities|Non Current - Loan (RM)",
+  "Liabilities|Non Current - Non Loan (RM)",
+  "Equity|Capital (RM)",
+  "Equity|Share Application Account (if applicable) (RM)",
+  "Equity|Share Premium & Other Reserves (if applicable) (RM)",
+  "Equity|Accumulated Profit Carried Forward (RM)",
+  "Equity|Minority Interest (if applicable) (RM)",
+];
+const PROFIT_LOSS_HEADERS = [
+  "LNPL: Line number",
+  "Issuer ROC",
+  "Issuer ID (if any)",
+  "Total Revenue and Income (RM)",
+  "Operating Cost (RM)",
+  "Administrative Cost (RM)",
+  "Interest Cost (RM)",
+  "Other Cost (RM)",
+  "Profit/Loss Before Tax (RM)",
+  "Profit/Loss After Tax (RM)",
+  "Minority Interest (RM)",
+  "Net Dividend (RM)",
+];
+const REPAYMENT_HEADERS = [
+  "LNGI: Line number",
+  "Campaign ID",
+  "Issuer ID (if any)",
+  "Issuer ROC",
+  "Financing Amount (RM)",
+  "Repayment Type",
+  "Repayment Type - Others (please specify)",
+  "Amount Repaid - Principal (RM)",
+  "Amount Repaid - Interest (RM)",
+];
+const DEFAULTED_ISSUER_HEADERS = [
+  "LNRD: Line number",
+  "Campaign ID",
+  "Issuer ID (if any)",
+  "Issuer ROC",
+  "Classification of Default (based on operator's rulebook definition)",
+  "Classification of Default - Other (please specify)",
+  "Actual Due Repayment Date",
+  "Repayment Type",
+  "Repayment Type - Others (please specify)",
+  "Financing Amount (RM) - Principal",
+  "Financing Amount (RM) - Interest",
+  "Repaid Amount (RM) - Principal",
+  "Repaid Amount (RM) - Interest",
+  "Repaid Amount (RM) - Late charges/fees",
+  "Repaid Amount (RM) - Reserves (if applicable)",
+  "Repaid Amount (RM) - Other charges (if applicable)",
+  "Unpaid Amount (RM) - Principal",
+  "Unpaid amount (RM) - Interest",
+  "Unpaid amount (RM) - Late charges/fees",
+  "Unpaid amount (RM) - Reserves ( if applicable)",
+  "Unpaid amount (RM) - Other charges (if applicable)",
+];
+
+function columnsFor(headers: string[]): Column<Row>[] {
+  return headers.map((h) => ({
+    key: h,
+    label: h,
+    render: (r) => {
+      const v = r[h];
+      return v === null || v === undefined || v === "" ? "" : String(v);
+    },
+  }));
+}
 
 function ReportSection({
   title,
-  description,
-  columns,
+  sectionNumber,
+  headers,
   rows,
   csvSection,
   year,
@@ -55,9 +310,9 @@ function ReportSection({
   emptyMessage,
 }: {
   title: string;
-  description: string;
-  columns: Column<Record<string, unknown>>[];
-  rows: Record<string, unknown>[];
+  sectionNumber: string;
+  headers: string[];
+  rows: Row[];
   csvSection: string;
   year: number;
   month: number;
@@ -67,183 +322,36 @@ function ReportSection({
     <div className="card" style={{ marginBottom: 16 }}>
       <div className="section-head">
         <div>
-          <h3>{title}</h3>
-          <p>{description}</p>
+          <h3>
+            {sectionNumber} {title}
+          </h3>
         </div>
         <a className="btn small" href={downloadUrl(`/api/admin/regulatory/export/${csvSection}.csv?year=${year}&month=${month}`)}>
           Export CSV
         </a>
       </div>
-      <DataTable columns={columns} rows={rows} emptyMessage={emptyMessage ?? MISSING_DATA_HINT} />
+      <DataTable columns={columnsFor(headers)} rows={rows} emptyMessage={emptyMessage ?? "No data entered yet - add it via Issuer Regulatory Data or Campaign Regulatory Data."} />
     </div>
   );
 }
 
-function col(key: string, label: string, render?: (r: Record<string, unknown>) => React.ReactNode): Column<Record<string, unknown>> {
-  return { key, label, sortable: !render, render };
+function KvCard({ title, data }: { title: string; data: Record<string, string> }) {
+  return (
+    <div className="card" style={{ marginBottom: 16 }}>
+      <div className="section-head">
+        <h3>{title}</h3>
+      </div>
+      <dl className="kv">
+        {Object.entries(data).map(([k, v]) => (
+          <Fragment key={k}>
+            <dt>{k}</dt>
+            <dd>{v || <span className="sub">-</span>}</dd>
+          </Fragment>
+        ))}
+      </dl>
+    </div>
+  );
 }
-
-const outstandingNotesColumns: Column<Record<string, unknown>>[] = [
-  col("noteId", "Note ID"),
-  col("noteName", "Note Name"),
-  col("issuerName", "Issuer"),
-  col("ratePct", "Rate %", (r) => `${r.ratePct}%`),
-  col("outstandingPrincipal", "Outstanding Principal", (r) => money(Number(r.outstandingPrincipal))),
-  col("outstandingInterest", "Outstanding Interest", (r) => money(Number(r.outstandingInterest))),
-  col("statusOfNotes", "Status of Notes"),
-  col("rrCampaignId", "R&R Campaign ID", (r) => (r.rrCampaignId ? String(r.rrCampaignId) : "-")),
-];
-
-const rrNotesColumns: Column<Record<string, unknown>>[] = [
-  col("facilityId", "Note ID"),
-  col("issuerName", "Issuer"),
-  col("rrCampaignId", "R&R Campaign ID"),
-  col("interestRatePct", "Rate %"),
-  col("tenureOriginalMonths", "Original Tenure (mo)"),
-  col("tenureRRMonths", "R&R Tenure (mo)"),
-  col("commencementDateRR", "R&R Commencement"),
-  col("financingAmountOriginal", "Original Amount", (r) => (r.financingAmountOriginal != null ? money(Number(r.financingAmountOriginal)) : "-")),
-  col("rrAmountRevised", "Revised Amount", (r) => (r.rrAmountRevised != null ? money(Number(r.rrAmountRevised)) : "-")),
-  col("rrPaymentStructure", "Payment Structure"),
-];
-
-const investorPositionColumns: Column<Record<string, unknown>>[] = [
-  col("investorId", "Investor ID"),
-  col("name", "Name"),
-  col("identificationType", "ID Type"),
-  col("identificationNumber", "ID Number"),
-  col("nationality", "Nationality"),
-  col("gender", "Gender"),
-  col("grossDeposit", "Gross Deposit", (r) => money(Number(r.grossDeposit))),
-  col("grossWithdrawal", "Gross Withdrawal", (r) => money(Number(r.grossWithdrawal))),
-];
-
-const issuerProfilesColumns: Column<Record<string, unknown>>[] = [
-  col("userId", "Issuer ID"),
-  col("companyName", "Company Name"),
-  col("registrationNumber", "Registration No."),
-  col("issuerIdCode", "Issuer ID Code"),
-  col("sector", "Sector"),
-  col("dateOfIncorporation", "Date of Incorporation"),
-  col("dateOfCommencement", "Date of Commencement"),
-  col("countryOfIncorporation", "Country of Incorporation"),
-  col("typeOfCompany", "Type of Company"),
-  col("registeredAddress", "Registered Address"),
-  col("businessAddress", "Business Address"),
-  col("contactPerson", "Contact Person"),
-  col("contactEmail", "Contact Email"),
-  col("phoneNumber", "Phone"),
-  col("website", "Website"),
-];
-
-const financingDetailsColumns: Column<Record<string, unknown>>[] = [
-  col("id", "Note ID"),
-  col("noteName", "Note Name"),
-  col("issuerName", "Issuer"),
-  col("status", "Status"),
-  col("principalAmount", "Principal", (r) => money(Number(r.principalAmount))),
-  col("targetFinancingAmount", "Target Amount", (r) => (r.targetFinancingAmount != null ? money(Number(r.targetFinancingAmount)) : "-")),
-  col("campaignApplicationDate", "Application Date"),
-  col("campaignApprovalDate", "Approval Date"),
-  col("campaignStart", "Campaign Start"),
-  col("campaignEnd", "Campaign End"),
-  col("campaignSector", "Sector"),
-  col("sustainabilityCategory", "Sustainability Category"),
-  col("islamicConventional", "Islamic/Conventional"),
-  col("shariahAdviserName", "Shariah Adviser"),
-  col("purposeOfFundRaising", "Purpose of Fund Raising"),
-  col("isSaranaScheme", "SARANA Scheme", (r) => (r.isSaranaScheme ? "Yes" : "No")),
-  col("financingSecurity", "Financing Security"),
-  col("ratePct", "Rate %"),
-  col("investorReturnRateEffective", "Investor Return (Effective)"),
-];
-
-const campaignSettlementColumns: Column<Record<string, unknown>>[] = [
-  col("facilityId", "Note ID"),
-  col("noteName", "Note Name"),
-  col("issuerName", "Issuer"),
-  col("paymentTo", "Payment To"),
-  col("fundDisbursementDate", "Fund Disbursement Date"),
-  col("settlementAmount", "Settlement Amount", (r) => (r.settlementAmount != null ? money(Number(r.settlementAmount)) : "-")),
-  col("fundRefundedDate", "Fund Refunded Date"),
-];
-
-const shareholdersColumns: Column<Record<string, unknown>>[] = [
-  col("companyName", "Issuer"),
-  col("shareholderType", "Type"),
-  col("shareholderName", "Shareholder Name"),
-  col("identityPrefix", "ID Type"),
-  col("identityNumber", "ID Number"),
-  col("nationality", "Nationality"),
-  col("shareType", "Share Type"),
-  col("shareholdingUnits", "Units"),
-  col("shareholdingAmount", "Amount", (r) => (r.shareholdingAmount != null ? money(Number(r.shareholdingAmount)) : "-")),
-  col("shareholdingPercentage", "Percentage", (r) => (r.shareholdingPercentage != null ? `${r.shareholdingPercentage}%` : "-")),
-];
-
-const boardMembersColumns: Column<Record<string, unknown>>[] = [
-  col("companyName", "Issuer"),
-  col("name", "Name"),
-  col("identityPrefix", "ID Type"),
-  col("identityNumber", "ID Number"),
-  col("nationality", "Nationality"),
-  col("designation", "Designation"),
-  col("appointmentDate", "Appointment Date"),
-  col("resignationDate", "Resignation Date"),
-];
-
-const investorDetailsColumns: Column<Record<string, unknown>>[] = [
-  col("noteName", "Note Name"),
-  col("issuerName", "Issuer"),
-  col("investorName", "Investor"),
-  col("identificationType", "ID Type"),
-  col("identificationNumber", "ID Number"),
-  col("amountInvested", "Amount Invested", (r) => money(Number(r.amountInvested))),
-  col("expectedReturn", "Expected Return", (r) => money(Number(r.expectedReturn))),
-  col("status", "Status"),
-];
-
-const feesChargesColumns: Column<Record<string, unknown>>[] = [
-  col("noteName", "Note Name"),
-  col("issuerName", "Issuer"),
-  col("processingFee", "Processing Fee", (r) => money(Number(r.processingFee))),
-  col("platformFee", "Platform Fee", (r) => money(Number(r.platformFee))),
-];
-
-const balanceSheetColumns: Column<Record<string, unknown>>[] = [
-  col("companyName", "Issuer"),
-  col("periodLabel", "Period"),
-  col("assetsCurrentRM", "Current Assets"),
-  col("assetsNonCurrentRM", "Non-Current Assets"),
-  col("liabCurrentBorrowingRM", "Current Liab (Borrowing)"),
-  col("liabCurrentNonBorrowingRM", "Current Liab (Non-Borrowing)"),
-  col("liabNonCurrentLoanRM", "Non-Current Liab (Loan)"),
-  col("liabNonCurrentNonLoanRM", "Non-Current Liab (Non-Loan)"),
-  col("equityCapitalRM", "Equity Capital"),
-  col("equityAccumulatedProfitRM", "Accumulated Profit"),
-];
-
-const pnlColumns: Column<Record<string, unknown>>[] = [
-  col("companyName", "Issuer"),
-  col("periodLabel", "Period"),
-  col("totalRevenueRM", "Total Revenue"),
-  col("operatingCostRM", "Operating Cost"),
-  col("administrativeCostRM", "Administrative Cost"),
-  col("interestCostRM", "Interest Cost"),
-  col("otherCostRM", "Other Cost"),
-  col("profitLossBeforeTaxRM", "Profit/Loss Before Tax"),
-  col("profitLossAfterTaxRM", "Profit/Loss After Tax"),
-  col("netDividendRM", "Net Dividend"),
-];
-
-const defaultedIssuersColumns: Column<Record<string, unknown>>[] = [
-  col("noteName", "Note Name"),
-  col("issuerName", "Issuer"),
-  col("principalAmount", "Principal", (r) => money(Number(r.principalAmount))),
-  col("defaultClassification", "Default Classification"),
-  col("actualDueRepaymentDate", "Actual Due Repayment Date"),
-  col("lastPaymentDate", "Last Payment Date"),
-];
 
 export default function RegulatoryReporting() {
   const now = new Date();
@@ -268,7 +376,7 @@ export default function RegulatoryReporting() {
     <>
       <PageHeader
         title="Regulatory Reporting"
-        description="SC Malaysia RMO P2P monthly filings, generated from platform data - Position Report (2.0) and P2P Report (6.0)."
+        description="SC Malaysia RMO P2P monthly filings, generated from platform data. Every section and column matches the official XBRL template - export a section's CSV and paste it directly into the filing spreadsheet."
         actions={
           <div className="row" style={{ gap: 8 }}>
             <select value={month} onChange={(e) => setMonth(Number(e.target.value))} aria-label="Reporting month">
@@ -303,184 +411,163 @@ export default function RegulatoryReporting() {
 
       {!active.isLoading && !active.isError && active.data && (
         <>
-          <div className="card" style={{ marginBottom: 16 }}>
-            <div className="section-head">
-              <div>
-                <h3>Scoping &amp; General Information</h3>
-                <p>Reporting entity and period details for this filing.</p>
-              </div>
-            </div>
-            <dl className="kv">
-              <dt>RMO Name</dt>
-              <dd>{active.data.scoping.rmoName}</dd>
-              <dt>Category</dt>
-              <dd>{active.data.scoping.category}</dd>
-              <dt>Sub-Category</dt>
-              <dd>{active.data.scoping.subCategory}</dd>
-              <dt>Reporting Frequency</dt>
-              <dd>{active.data.scoping.reportingFrequency}</dd>
-              <dt>Reporting Period</dt>
-              <dd>{active.data.scoping.reportingPeriod}</dd>
-              <dt>Prepared By</dt>
-              <dd>{active.data.scoping.preparedBy}</dd>
-            </dl>
-          </div>
+          <KvCard title="[00000] Scoping Questions" data={active.data.scoping} />
+          <KvCard title="[01000] General Information" data={active.data.generalInfo} />
 
-          <div className="card" style={{ marginBottom: 16 }}>
-            <div className="section-head">
-              <div>
-                <h3>Repayment Trend Since Inception</h3>
-                <p>Paid installments bucketed by days late against their due date.</p>
-              </div>
-              <a className="btn small" href={downloadUrl(`/api/admin/regulatory/export/repayment-trend.csv?year=${year}&month=${month}`)}>
-                Export CSV
-              </a>
-            </div>
-            <div className="table-wrap">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Bucket</th>
-                    <th>Count</th>
-                    <th>Total Repayment (Principal + Interest)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {active.data.repaymentTrend.map((b) => (
-                    <tr key={b.label}>
-                      <td>{b.label}</td>
-                      <td>{b.count}</td>
-                      <td>{money(b.amount)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <ReportSection
-            title="Outstanding Non-Defaulted Notes"
-            description="Ongoing notes with their current outstanding principal and interest."
-            columns={outstandingNotesColumns}
-            rows={active.data.outstandingNotes}
-            csvSection="outstanding-notes"
-            year={year}
-            month={month}
-          />
-
-          <ReportSection
-            title="Reschedule &amp; Restructure Notes"
-            description="Notes that have been rescheduled or restructured."
-            columns={rrNotesColumns}
-            rows={active.data.rrNotes}
-            csvSection="rr-notes"
-            year={year}
-            month={month}
-            emptyMessage="No R&R records for this period - add them via Campaign Regulatory Data."
-          />
-
-          <ReportSection
-            title="Investor Month-End Gross Deposit &amp; Withdrawal Position"
-            description="Confirmed deposits and withdrawals for the selected reporting period."
-            columns={investorPositionColumns}
-            rows={active.data.investorPosition}
-            csvSection="investor-position"
-            year={year}
-            month={month}
-            emptyMessage="No confirmed deposits or withdrawals in this period."
-          />
-
-          {tab === "p2p" && "issuerProfiles" in active.data && (
+          {tab === "position" && "repaymentTrend" in active.data && (
             <>
               <ReportSection
-                title="Profile of Issuer"
-                description="Company profile detail for every onboarded issuer."
-                columns={issuerProfilesColumns}
-                rows={(active.data as P2PReport).issuerProfiles}
-                csvSection="issuer-profiles"
+                title="Repayment Trend (since inception)"
+                sectionNumber="[02000]"
+                headers={REPAYMENT_TREND_HEADERS}
+                rows={(active.data as PositionReport).repaymentTrend}
+                csvSection="repayment-trend"
                 year={year}
                 month={month}
               />
               <ReportSection
-                title="Financing Details"
-                description="Campaign and financing detail per note."
-                columns={financingDetailsColumns}
-                rows={(active.data as P2PReport).financingDetails}
-                csvSection="financing-details"
+                title="Outstanding - List of outstanding non-defaulted notes (as at position)"
+                sectionNumber="[03000]"
+                headers={OUTSTANDING_NOTES_HEADERS}
+                rows={(active.data as PositionReport).outstandingNotes}
+                csvSection="outstanding-notes"
                 year={year}
                 month={month}
               />
               <ReportSection
-                title="Campaign Settlement"
-                description="Fund disbursement and refund detail per note."
-                columns={campaignSettlementColumns}
+                title="List of Reschedule & Restructure notes information"
+                sectionNumber="[04000]"
+                headers={RR_NOTES_HEADERS}
+                rows={(active.data as PositionReport).rrNotes}
+                csvSection="rr-notes"
+                year={year}
+                month={month}
+                emptyMessage="No R&R records for this period - add them via Campaign Regulatory Data."
+              />
+              <ReportSection
+                title="Investor's month end gross deposit & withdrawal position"
+                sectionNumber="[10000]"
+                headers={INVESTOR_POSITION_HEADERS}
+                rows={(active.data as PositionReport).investorPosition}
+                csvSection="investor-position"
+                year={year}
+                month={month}
+                emptyMessage="No confirmed deposits or withdrawals in this period."
+              />
+            </>
+          )}
+
+          {tab === "p2p" && "issuerProfile" in active.data && (
+            <>
+              <ReportSection
+                title="Profile of Issuer (Successful/Unsuccesful)"
+                sectionNumber="[02000]"
+                headers={ISSUER_PROFILE_HEADERS}
+                rows={(active.data as P2PReport).issuerProfile}
+                csvSection="issuer-profile"
+                year={year}
+                month={month}
+              />
+              <ReportSection
+                title="Financing Details 1 - Successful/Unsuccessful"
+                sectionNumber="[03000]"
+                headers={FINANCING_1_HEADERS}
+                rows={(active.data as P2PReport).financing1}
+                csvSection="financing-1"
+                year={year}
+                month={month}
+              />
+              <ReportSection
+                title="Financing Details 2 - Successful/Unsuccessful"
+                sectionNumber="[03100]"
+                headers={FINANCING_2_HEADERS}
+                rows={(active.data as P2PReport).financing2}
+                csvSection="financing-2"
+                year={year}
+                month={month}
+              />
+              <ReportSection
+                title="Campaign Settlement (Successful/Unsuccessful)"
+                sectionNumber="[04500]"
+                headers={CAMPAIGN_SETTLEMENT_HEADERS}
                 rows={(active.data as P2PReport).campaignSettlement}
                 csvSection="campaign-settlement"
                 year={year}
                 month={month}
               />
               <ReportSection
-                title="Issuer Shareholding Structure"
-                description="Shareholders of record for every onboarded issuer."
-                columns={shareholdersColumns}
-                rows={(active.data as P2PReport).shareholders}
-                csvSection="shareholders"
+                title="Issuer - Shareholding Structure (Successful Campaign)"
+                sectionNumber="[05000]"
+                headers={SHAREHOLDING_HEADERS}
+                rows={(active.data as P2PReport).shareholding}
+                csvSection="shareholding"
                 year={year}
                 month={month}
               />
               <ReportSection
-                title="Board of Directors"
-                description="Directors and management team members for every onboarded issuer."
-                columns={boardMembersColumns}
-                rows={(active.data as P2PReport).boardMembers}
-                csvSection="board-members"
+                title="Board of Director/Management Team (Successful Campaign)"
+                sectionNumber="[06000]"
+                headers={BOARD_HEADERS}
+                rows={(active.data as P2PReport).board}
+                csvSection="board"
                 year={year}
                 month={month}
               />
               <ReportSection
-                title="Investor Details for Successful Campaigns"
-                description="Investor holdings against notes that reached funding."
-                columns={investorDetailsColumns}
+                title="Investor Details (Successful Campaign)"
+                sectionNumber="[07000]"
+                headers={INVESTOR_DETAILS_HEADERS}
                 rows={(active.data as P2PReport).investorDetails}
                 csvSection="investor-details"
                 year={year}
                 month={month}
               />
               <ReportSection
-                title="Fees and Charges"
-                description="Processing and platform fees charged per note."
-                columns={feesChargesColumns}
+                title="Fees and Charges (Successful/Unsuccessful Campaign)"
+                sectionNumber="[08000]"
+                headers={FEES_CHARGES_HEADERS}
                 rows={(active.data as P2PReport).feesCharges}
                 csvSection="fees-charges"
                 year={year}
                 month={month}
               />
               <ReportSection
-                title="Issuer Balance Sheet"
-                description="Reported period-end balance sheet figures per issuer."
-                columns={balanceSheetColumns}
+                title="Balance Sheet (Successful Campaign)"
+                sectionNumber="[09000]"
+                headers={BALANCE_SHEET_HEADERS}
                 rows={(active.data as P2PReport).balanceSheet}
                 csvSection="balance-sheet"
                 year={year}
                 month={month}
               />
               <ReportSection
-                title="Issuer Profit &amp; Loss"
-                description="Reported period P&amp;L figures per issuer."
-                columns={pnlColumns}
-                rows={(active.data as P2PReport).pnl}
-                csvSection="pnl"
+                title="Profit & Loss Account (Successful Campaign)"
+                sectionNumber="[09100]"
+                headers={PROFIT_LOSS_HEADERS}
+                rows={(active.data as P2PReport).profitLoss}
+                csvSection="profit-loss"
                 year={year}
                 month={month}
               />
               <ReportSection
-                title="Defaulted Issuer Detail"
-                description="Notes currently in default status."
-                columns={defaultedIssuersColumns}
-                rows={(active.data as P2PReport).defaultedIssuers}
-                csvSection="defaulted-issuers"
+                title="Repayment"
+                sectionNumber="[10000]"
+                headers={REPAYMENT_HEADERS}
+                rows={(active.data as P2PReport).repayment}
+                csvSection="repayment"
                 year={year}
                 month={month}
+                emptyMessage="No repayments made in this period."
+              />
+              <ReportSection
+                title="Defaulted Issuer"
+                sectionNumber="[11000]"
+                headers={DEFAULTED_ISSUER_HEADERS}
+                rows={(active.data as P2PReport).defaultedIssuer}
+                csvSection="defaulted-issuer"
+                year={year}
+                month={month}
+                emptyMessage="No defaulted notes."
               />
             </>
           )}
