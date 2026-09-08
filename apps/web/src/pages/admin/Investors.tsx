@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { apiGet } from "../../lib/api";
+import { useNavigate } from "react-router-dom";
+import { apiGet, downloadUrl } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { DataTable, type Column } from "../../components/data/DataTable";
@@ -16,6 +17,7 @@ interface Investor {
 }
 
 export default function Investors() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [type, setType] = useState("All");
   const [status, setStatus] = useState("All");
@@ -41,7 +43,15 @@ export default function Investors() {
 
   return (
     <>
-      <PageHeader title="Investors" description="Search and review every investor account on the platform." />
+      <PageHeader
+        title="Investors"
+        description="Search and review every investor account on the platform."
+        actions={
+          <a className="btn small" href={downloadUrl("/api/admin/export/investors.csv")}>
+            Export CSV
+          </a>
+        }
+      />
       <div className="card">
         <div className="filters" style={{ gridTemplateColumns: "1.4fr .8fr .8fr" }}>
           <div className="field">
@@ -67,7 +77,7 @@ export default function Investors() {
           </div>
         </div>
         <div style={{ marginTop: 14 }}>
-          <DataTable columns={columns} rows={data?.investors ?? []} emptyMessage="No matching investors." />
+          <DataTable columns={columns} rows={data?.investors ?? []} emptyMessage="No matching investors." onRowClick={(r) => navigate(`/app/investors/${r.id}`)} />
         </div>
       </div>
     </>

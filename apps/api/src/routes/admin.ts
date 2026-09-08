@@ -19,6 +19,9 @@ import {
   kycProfiles,
   kycAuditLog,
   wallets,
+  transactions,
+  subwallets,
+  orders,
 } from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
@@ -122,6 +125,95 @@ admin.get("/investors", async (c) => {
   return c.json({ investors: combined });
 });
 
+// Investor drill-down: the Investors directory only ever showed a flat
+// list (name/type/kyc/portfolio) with nowhere to click through to - this
+// is the first place an admin can see one investor's actual profile,
+// holdings, and recent money movement. Retail investors are keyed by
+// users.id; corporate accounts are keyed by corporateAccounts.id (same
+// dual-namespace split the /investors list already uses).
+admin.get("/investors/:id", async (c) => {
+  const db = drizzle(c.env.DB);
+  const id = c.req.param("id");
+
+  const [retail] = await db
+    .select({ user: users, profile: investorProfiles, kyc: kycProfiles })
+    .from(users)
+    .innerJoin(investorProfiles, eq(users.id, investorProfiles.userId))
+    .leftJoin(kycProfiles, eq(kycProfiles.userId, users.id))
+    .where(eq(users.id, id))
+    .limit(1);
+
+  if (retail) {
+    const holdingRows = await db
+      .select({
+        id: holdings.id,
+        facilityId: holdings.facilityId,
+        noteName: financingFacilities.noteName,
+        issuerName: financingFacilities.issuerName,
+        status: holdings.status,
+        amountInvested: holdings.amountInvested,
+        expectedReturn: holdings.expectedReturn,
+        actualReturn: holdings.actualReturn,
+      })
+      .from(holdings)
+      .innerJoin(financingFacilities, eq(holdings.facilityId, financingFacilities.id))
+      .where(eq(holdings.investorId, id))
+      .orderBy(desc(holdings.createdAt));
+
+    const recentTransactions = await db
+      .select({ id: transactions.id, type: transactions.type, amount: transactions.amount, status: transactions.status, occurredAt: transactions.occurredAt })
+      .from(transactions)
+      .where(eq(transactions.accountId, id))
+      .orderBy(desc(transactions.occurredAt))
+      .limit(20);
+
+    return c.json({
+      type: "Retail" as const,
+      name: retail.user.displayName,
+      email: retail.user.email,
+      profile: retail.profile,
+      kycProfile: retail.kyc,
+      holdings: holdingRows,
+      recentTransactions,
+    });
+  }
+
+  const [corp] = await db.select().from(corporateAccounts).where(eq(corporateAccounts.id, id)).limit(1);
+  if (!corp) return c.json({ error: "not_found" }, 404);
+
+  const corpUserRows = await db
+    .select({ id: corporateUsers.id, corpRole: corporateUsers.corpRole, email: users.email, displayName: users.displayName })
+    .from(corporateUsers)
+    .innerJoin(users, eq(corporateUsers.userId, users.id))
+    .where(eq(corporateUsers.corporateAccountId, id));
+
+  const subwalletRows = await db.select().from(subwallets).where(eq(subwallets.corporateAccountId, id));
+
+  const recentOrders = await db
+    .select({
+      id: orders.id,
+      type: orders.type,
+      amount: orders.amount,
+      status: orders.status,
+      reason: orders.reason,
+      createdAt: orders.createdAt,
+      decidedAt: orders.decidedAt,
+    })
+    .from(orders)
+    .where(eq(orders.corporateAccountId, id))
+    .orderBy(desc(orders.createdAt))
+    .limit(20);
+
+  return c.json({
+    type: "Corporate" as const,
+    name: corp.companyName,
+    account: corp,
+    corporateUsers: corpUserRows,
+    subwallets: subwalletRows,
+    recentOrders,
+  });
+});
+
 admin.get("/risk-profiles", async (c) => {
   const db = drizzle(c.env.DB);
   const search = (c.req.query("search") ?? "").toLowerCase();
@@ -180,6 +272,50 @@ admin.get("/issuers", async (c) => {
   issuers.sort((a, b) => b.outstanding - a.outstanding);
 
   return c.json({ issuers });
+});
+
+// Issuer drill-down: the Issuers directory only ever showed an aggregate
+// row per issuer name (sector/outstanding/tier/status) with no way to see
+// which actual notes make up that total, or the issuer's registered
+// company detail if a real issuer account exists. Keyed by issuer name
+// (query param, not a path param) since facilities without a real
+// issuerUserId are only ever identified by that free-text name.
+admin.get("/issuers/detail", async (c) => {
+  const db = drizzle(c.env.DB);
+  const name = c.req.query("name");
+  if (!name) return c.json({ error: "missing_name" }, 400);
+
+  const facilityRows = await db
+    .select({
+      id: financingFacilities.id,
+      noteName: financingFacilities.noteName,
+      status: financingFacilities.status,
+      principalAmount: financingFacilities.principalAmount,
+      ratePct: financingFacilities.ratePct,
+      tenorDays: financingFacilities.tenorDays,
+      fundingProgressPct: financingFacilities.fundingProgressPct,
+      riskTier: financingFacilities.riskTier,
+      issuerUserId: financingFacilities.issuerUserId,
+    })
+    .from(financingFacilities)
+    .where(eq(financingFacilities.issuerName, name))
+    .orderBy(desc(financingFacilities.createdAt));
+
+  if (facilityRows.length === 0) return c.json({ error: "not_found" }, 404);
+
+  const issuerUserId = facilityRows.find((f) => f.issuerUserId)?.issuerUserId ?? null;
+  let profile = null;
+  if (issuerUserId) {
+    const [row] = await db
+      .select({ profile: issuerProfiles, email: users.email })
+      .from(issuerProfiles)
+      .innerJoin(users, eq(issuerProfiles.userId, users.id))
+      .where(eq(issuerProfiles.userId, issuerUserId))
+      .limit(1);
+    profile = row ?? null;
+  }
+
+  return c.json({ name, facilities: facilityRows, profile });
 });
 
 admin.get("/risk-by-sector", async (c) => {

@@ -40,6 +40,33 @@ test.describe("Admin approvals", () => {
     await nameHeader.click(); // sort descending - just proves it's interactive, no crash
   });
 
+  test("clicking an investor row drills into their detail page", async ({ page }) => {
+    await login(page, DEMO_ACCOUNTS.admin);
+    await page.getByRole("link", { name: "Investors", exact: true }).click();
+    await expect(page.getByRole("link", { name: "Export CSV" })).toHaveAttribute("href", "/api/admin/export/investors.csv");
+
+    await page.locator(".table tbody tr").first().click();
+    await expect(page.getByRole("button", { name: "← Back to Investors" })).toBeVisible();
+    // Either the Retail "Portfolio" card or the Corporate "Account" card renders, depending on which row was first.
+    await expect(page.locator(".card h3", { hasText: /^(Portfolio|Account)$/ })).toBeVisible();
+
+    await page.getByRole("button", { name: "← Back to Investors" }).click();
+    await expect(page).toHaveURL(/\/app\/investors$/);
+  });
+
+  test("clicking an issuer row drills into their detail page", async ({ page }) => {
+    await login(page, DEMO_ACCOUNTS.admin);
+    await page.getByRole("link", { name: "Issuers", exact: true }).click();
+    await expect(page.getByRole("link", { name: "Export CSV" })).toHaveAttribute("href", "/api/admin/export/issuers.csv");
+
+    await page.locator(".table tbody tr").first().click();
+    await expect(page.getByRole("button", { name: "← Back to Issuers" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Financing Notes" })).toBeVisible();
+
+    await page.getByRole("button", { name: "← Back to Issuers" }).click();
+    await expect(page).toHaveURL(/\/app\/issuers$/);
+  });
+
   test("the Approved and Rejected tabs show decided approval history, not just Pending", async ({ page }) => {
     await login(page, DEMO_ACCOUNTS.admin);
     await page.getByRole("link", { name: "Risk & Approvals", exact: true }).click();

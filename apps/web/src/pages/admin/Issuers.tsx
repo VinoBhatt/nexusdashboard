@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { apiGet } from "../../lib/api";
+import { useNavigate } from "react-router-dom";
+import { apiGet, downloadUrl } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { DataTable, type Column } from "../../components/data/DataTable";
@@ -15,6 +16,7 @@ interface Issuer {
 }
 
 export default function Issuers() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -35,14 +37,22 @@ export default function Issuers() {
 
   return (
     <>
-      <PageHeader title="Issuers" description="Companies borrowing through the platform and their risk standing." />
+      <PageHeader
+        title="Issuers"
+        description="Companies borrowing through the platform and their risk standing."
+        actions={
+          <a className="btn small" href={downloadUrl("/api/admin/export/issuers.csv")}>
+            Export CSV
+          </a>
+        }
+      />
       <div className="card">
         <div className="field" style={{ maxWidth: 340 }}>
           <label htmlFor="issuersSearch">Search issuer</label>
           <input id="issuersSearch" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by company" />
         </div>
         <div style={{ marginTop: 14 }}>
-          <DataTable columns={columns} rows={data?.issuers ?? []} emptyMessage="No matching issuers." />
+          <DataTable columns={columns} rows={data?.issuers ?? []} emptyMessage="No matching issuers." onRowClick={(r) => navigate(`/app/issuers/${encodeURIComponent(r.name)}`)} />
         </div>
       </div>
     </>
