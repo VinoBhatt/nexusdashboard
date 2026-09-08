@@ -6,6 +6,8 @@ import { DataTable, type Column } from "../../components/data/DataTable";
 import { SkeletonPage, QueryError } from "../../components/QueryState";
 import { useToast } from "../../components/Toast";
 
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
 type Row = Record<string, unknown>;
 interface MyCifReport {
   declaration: Record<string, string>;
@@ -17,8 +19,10 @@ interface MyCifReport {
 
 // Header lists mirror the source MyCIF General - P2P Financing Campaign
 // Quarterly Report workbook exactly (sheet name, column order, column
-// text), so a section can be copy-pasted or CSV-exported straight into the
-// real submission spreadsheet.
+// text - including its own "quarter" wording, kept verbatim for copy-paste
+// fidelity even though this operator files the report monthly, not
+// quarterly, in practice), so a section can be copy-pasted or CSV-exported
+// straight into the real submission spreadsheet.
 const TRANSACTION_REPORTING_HEADERS = [
   "Campaign ID",
   "Issuer Name",
@@ -117,7 +121,7 @@ function ReportSection({
   rows,
   csvSection,
   year,
-  quarter,
+  month,
   emptyMessage,
 }: {
   title: string;
@@ -125,7 +129,7 @@ function ReportSection({
   rows: Row[];
   csvSection: string;
   year: number;
-  quarter: number;
+  month: number;
   emptyMessage?: string;
 }) {
   return (
@@ -136,12 +140,12 @@ function ReportSection({
         </div>
         <div className="row" style={{ gap: 8 }}>
           <CopyButton getText={() => rowsToTsv(headers, rows)} />
-          <a className="btn small" href={downloadUrl(`/api/admin/mycif/export/${csvSection}.csv?year=${year}&quarter=${quarter}`)}>
+          <a className="btn small" href={downloadUrl(`/api/admin/mycif/export/${csvSection}.csv?year=${year}&month=${month}`)}>
             Export CSV
           </a>
         </div>
       </div>
-      <DataTable columns={columnsFor(headers)} rows={rows} emptyMessage={emptyMessage ?? "No data for this quarter."} />
+      <DataTable columns={columnsFor(headers)} rows={rows} emptyMessage={emptyMessage ?? "No data for this month."} />
     </div>
   );
 }
@@ -149,25 +153,26 @@ function ReportSection({
 export default function MyCifReporting() {
   const now = new Date();
   const [year, setYear] = useState(now.getUTCFullYear());
-  const [quarter, setQuarter] = useState(Math.floor(now.getUTCMonth() / 3) + 1);
+  const [month, setMonth] = useState(now.getUTCMonth() + 1);
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["admin", "mycif", "report", year, quarter],
-    queryFn: () => apiGet<MyCifReport>(`/api/admin/mycif/report?year=${year}&quarter=${quarter}`),
+    queryKey: ["admin", "mycif", "report", year, month],
+    queryFn: () => apiGet<MyCifReport>(`/api/admin/mycif/report?year=${year}&month=${month}`),
   });
 
   return (
     <>
       <PageHeader
-        title="MyCIF Quarterly Report"
-        description="MyCIF General - P2P Financing Campaign Quarterly Report, submitted to Maybank Trustees Berhad within 5 business days of quarter end. Every section and column matches the official submission workbook."
+        title="MyCIF Monthly Report"
+        description="MyCIF General - P2P Financing Campaign Report, submitted to Maybank Trustees Berhad within 5 business days of month end. Every section and column matches the official submission workbook."
         actions={
           <div className="row" style={{ gap: 8 }}>
-            <select value={quarter} onChange={(e) => setQuarter(Number(e.target.value))} aria-label="Reporting quarter">
-              <option value={1}>Q1</option>
-              <option value={2}>Q2</option>
-              <option value={3}>Q3</option>
-              <option value={4}>Q4</option>
+            <select value={month} onChange={(e) => setMonth(Number(e.target.value))} aria-label="Reporting month">
+              {MONTHS.map((m, i) => (
+                <option key={m} value={i + 1}>
+                  {m}
+                </option>
+              ))}
             </select>
             <select value={year} onChange={(e) => setYear(Number(e.target.value))} aria-label="Reporting year">
               {[now.getUTCFullYear(), now.getUTCFullYear() - 1, now.getUTCFullYear() - 2].map((y) => (
@@ -206,8 +211,8 @@ export default function MyCifReporting() {
             rows={data.transactionReporting}
             csvSection="transaction-reporting"
             year={year}
-            quarter={quarter}
-            emptyMessage="No investments made in this quarter."
+            month={month}
+            emptyMessage="No investments made in this month."
           />
           <ReportSection
             title="Status reporting"
@@ -215,7 +220,7 @@ export default function MyCifReporting() {
             rows={data.statusReporting}
             csvSection="status-reporting"
             year={year}
-            quarter={quarter}
+            month={month}
             emptyMessage="No outstanding notes."
           />
           <ReportSection
@@ -224,7 +229,7 @@ export default function MyCifReporting() {
             rows={data.defaultReporting}
             csvSection="default-reporting"
             year={year}
-            quarter={quarter}
+            month={month}
           />
           <ReportSection
             title="Impact Reporting"
@@ -232,7 +237,7 @@ export default function MyCifReporting() {
             rows={data.impactReporting}
             csvSection="impact-reporting"
             year={year}
-            quarter={quarter}
+            month={month}
             emptyMessage="No MyCIF co-investment campaigns recorded yet - add them via Campaign Regulatory Data."
           />
         </>

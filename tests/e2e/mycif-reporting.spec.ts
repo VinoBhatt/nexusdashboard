@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { login, apiFetch, DEMO_ACCOUNTS } from "./helpers";
 
-test.describe("MyCIF Quarterly Report", () => {
+test.describe("MyCIF Monthly Report", () => {
   test("admin can enter MyCIF co-investment/impact data and it appears in the generated report and CSV exports", async ({ page }) => {
     await login(page, DEMO_ACCOUNTS.admin);
 
@@ -15,7 +15,7 @@ test.describe("MyCIF Quarterly Report", () => {
     await page.getByRole("button", { name: "Save MyCIF Fields" }).click();
     await expect(page.locator("#toast")).toContainText("MyCIF fields updated");
 
-    await page.getByRole("link", { name: "MyCIF Quarterly Report", exact: true }).click();
+    await page.getByRole("link", { name: "MyCIF Monthly Report", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Declaration" })).toBeVisible();
 
     await expect(page.locator(".table-wrap", { hasText: "Problem Statement" })).toContainText(problemStatement);

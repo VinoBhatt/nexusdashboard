@@ -11,35 +11,40 @@ mycifReporting.use("*", requireAuth, requireRole("admin"));
 
 // Reproduces "MyCIF General - P2P Financing Campaign Quarterly Report" -
 // the report Cofundr (as a P2P operator) submits to Maybank Trustees
-// Berhad (MyCIF's appointed trustee) within 5 business days of each
-// calendar quarter's end. Section titles and column headers match the
-// source workbook's Declaration / Transaction reporting / Status reporting
-// / Default Reporting / Impact Reporting sheets exactly, same discipline as
-// the SC RMO reporting engine - so a section can be pasted straight into
-// the real submission spreadsheet. Fields the platform has no data for
-// (e.g. period-bucketed cash-flow figures with no historical ledger to
-// derive them from) are left blank rather than guessed.
+// Berhad (MyCIF's appointed trustee). The source template's own field text
+// still says "quarter" throughout (that's the literal report wording, kept
+// verbatim below for copy-paste fidelity), but this operator actually
+// files it monthly in practice, so the reporting window itself is a
+// calendar month, not a calendar quarter. Section titles and column
+// headers match the source workbook's Declaration / Transaction reporting
+// / Status reporting / Default Reporting / Impact Reporting sheets
+// exactly, same discipline as the SC RMO reporting engine - so a section
+// can be pasted straight into the real submission spreadsheet. Fields the
+// platform has no data for (e.g. period-bucketed cash-flow figures with no
+// historical ledger to derive them from) are left blank rather than
+// guessed.
 
-function quarterBounds(year: string | undefined, quarter: string | undefined) {
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+function monthBounds(year: string | undefined, month: string | undefined) {
   const now = new Date();
   const y = year ? Number(year) : now.getUTCFullYear();
-  const q = quarter ? Number(quarter) : Math.floor(now.getUTCMonth() / 3) + 1;
-  const startMonth = (q - 1) * 3;
-  const start = new Date(Date.UTC(y, startMonth, 1));
-  const end = new Date(Date.UTC(y, startMonth + 3, 1));
-  return { year: y, quarter: q, start, end };
+  const m = month ? Number(month) : now.getUTCMonth() + 1;
+  const start = new Date(Date.UTC(y, m - 1, 1));
+  const end = new Date(Date.UTC(y, m, 1));
+  return { year: y, month: m, start, end };
 }
 
 function fmtDate(d: Date): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 }
 
-function declaration(c: Context<AuthedEnv>, year: number, quarter: number, repaidInPeriod: number, investedInPeriod: number) {
+function declaration(c: Context<AuthedEnv>, year: number, month: number, repaidInPeriod: number, investedInPeriod: number) {
   const admin = c.get("user");
   return {
     "Operator ROC": "",
     "Reporting date (YYYY-MM-DD)": fmtDate(new Date()),
-    "Reporting quarter": `Q${quarter} ${year}`,
+    "Reporting month": `${MONTH_NAMES[month - 1]} ${year}`,
     "[1] Cash balance at the end of the previous quarter (RM)": "",
     "[2] (a+b+c+d) Total source of funds for the reporting quarter (RM)": "",
     "(a) Additional deposit at the beginning of the quarter (RM), if any": "",
@@ -63,7 +68,7 @@ async function facilitiesWithIssuerState(db: ReturnType<typeof drizzle>) {
     .leftJoin(issuerProfiles, eq(financingFacilities.issuerUserId, issuerProfiles.userId));
 }
 
-// ---- Transaction reporting - investments made during the quarter ----
+// ---- Transaction reporting - investments made during the reporting month ----
 async function transactionReportingSection(db: ReturnType<typeof drizzle>, start: Date, end: Date) {
   const investedRows = await db
     .select({ facilityId: holdings.facilityId, total: sql<number>`coalesce(sum(${holdings.amountInvested}),0)` })
@@ -142,16 +147,16 @@ async function statusReportingSection(db: ReturnType<typeof drizzle>, start: Dat
   });
 }
 
-// ---- Default Reporting - current quarter only (no historical period-bucketed
+// ---- Default Reporting - current month only (no historical period-bucketed
 // income/fee/write-off/recovery ledger to derive prior periods from) ----
-async function defaultReportingSection(db: ReturnType<typeof drizzle>, year: number, quarter: number) {
+async function defaultReportingSection(db: ReturnType<typeof drizzle>, year: number, month: number) {
   const [row] = await db
     .select({ totalDefault: sql<number>`coalesce(sum(${financingFacilities.principalAmount}),0)` })
     .from(financingFacilities)
     .where(eq(financingFacilities.status, "Default"));
   return [
     {
-      Quarter: `Q${quarter} ${year}`,
+      Quarter: `${MONTH_NAMES[month - 1]} ${year}`,
       "Total Income  (RM)": "",
       "Total Fees (RM)": "",
       "Net Income (RM)": "",
@@ -197,26 +202,26 @@ async function impactReportingSection(db: ReturnType<typeof drizzle>) {
   }));
 }
 
-const SECTIONS: Record<string, (db: ReturnType<typeof drizzle>, start: Date, end: Date, year: number, quarter: number) => Promise<Record<string, unknown>[]>> = {
+const SECTIONS: Record<string, (db: ReturnType<typeof drizzle>, start: Date, end: Date, year: number, month: number) => Promise<Record<string, unknown>[]>> = {
   "transaction-reporting": (db, start, end) => transactionReportingSection(db, start, end),
   "status-reporting": (db, start, end) => statusReportingSection(db, start, end),
-  "default-reporting": (db, _s, _e, year, quarter) => defaultReportingSection(db, year, quarter),
+  "default-reporting": (db, _s, _e, year, month) => defaultReportingSection(db, year, month),
   "impact-reporting": (db) => impactReportingSection(db),
 };
 
 mycifReporting.get("/report", async (c) => {
   const db = drizzle(c.env.DB);
-  const { year, quarter, start, end } = quarterBounds(c.req.query("year"), c.req.query("quarter"));
+  const { year, month, start, end } = monthBounds(c.req.query("year"), c.req.query("month"));
   const [transactionReporting, statusReporting, defaultReporting, impactReporting] = await Promise.all([
     transactionReportingSection(db, start, end),
     statusReportingSection(db, start, end),
-    defaultReportingSection(db, year, quarter),
+    defaultReportingSection(db, year, month),
     impactReportingSection(db),
   ]);
   const repaidInPeriod = statusReporting.reduce((sum, r) => sum + Number(r["Principal repaid within the quarter (RM)"]) + Number(r["Interest paid within the quarter (RM)"]), 0);
   const investedInPeriod = transactionReporting.reduce((sum, r) => sum + Number(r["Total amount raised from private investor (RM)"]), 0);
   return c.json({
-    declaration: declaration(c, year, quarter, repaidInPeriod, investedInPeriod),
+    declaration: declaration(c, year, month, repaidInPeriod, investedInPeriod),
     transactionReporting,
     statusReporting,
     defaultReporting,
@@ -229,8 +234,8 @@ mycifReporting.get("/export/:section.csv", async (c) => {
   const builder = SECTIONS[section];
   if (!builder) return c.json({ error: "unknown_section" }, 404);
   const db = drizzle(c.env.DB);
-  const { year, quarter, start, end } = quarterBounds(c.req.query("year"), c.req.query("quarter"));
-  const rows = await builder(db, start, end, year, quarter);
+  const { year, month, start, end } = monthBounds(c.req.query("year"), c.req.query("month"));
+  const rows = await builder(db, start, end, year, month);
   return csvResponse(c, `${section}.csv`, toCsv(rows));
 });
 
