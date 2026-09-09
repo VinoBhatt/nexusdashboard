@@ -119,21 +119,49 @@ test.describe("Admin approvals", () => {
     expect(revenueJson.totalFeesCollected).toBeGreaterThan(0);
   });
 
-  test("Admin records a repayment on an Ongoing note (repayment mechanism moved from Campaign Manager)", async ({ page }) => {
+  test("Admin processes a real payment through record, allocate and investor payout (servicing engine Stage 2a)", async ({ page }) => {
     await login(page, DEMO_ACCOUNTS.admin);
     await page.getByRole("link", { name: "Record Repayments", exact: true }).click();
 
-    // MBIBG-26080001 (not MBIBG-26070005 - that one's installment #2 is a
-    // deliberately-unpaid "Overdue" fixture other specs depend on) has a
-    // real seeded Upcoming schedule ready to be marked paid here.
-    const scheduleRow = page.locator("tbody tr", { hasText: "MBIBG-26080001" });
+    // WC2200-01082026 is a purpose-built Stage 1 fixture: Conventional,
+    // one investor whose holding reconciles exactly to the facility
+    // principal, so the payout math is easy to assert on.
+    const scheduleRow = page.locator("tbody tr", { hasText: "WC2200-01082026" });
     await expect(scheduleRow).toBeVisible();
     await scheduleRow.getByRole("button", { name: "View" }).click();
-    const upcomingRow = page.locator("tr", { hasText: "Upcoming" }).first();
-    await expect(upcomingRow).toBeVisible();
-    await upcomingRow.getByRole("button", { name: "Mark as Paid" }).click();
-    await expect(page.locator("#toast")).toContainText("Payment recorded");
-    await expect(page.locator("tr", { hasText: "Paid" }).first()).toBeVisible();
+    await page.getByRole("button", { name: "Process Payment" }).click();
+
+    // Step 1: select instalments.
+    await expect(page.getByText("Select one or more due or overdue instalments")).toBeVisible();
+    await page.locator('input[type="checkbox"]').first().check();
+    await page.getByRole("button", { name: "Next: Record Payment" }).click();
+
+    // Step 2: record payment.
+    await page.getByLabel("Bank reference").fill(`PW-STAGE2A-${Date.now()}`);
+    await page.getByLabel("Received from").fill("Coastal Fisheries Sdn Bhd");
+    await page.getByRole("button", { name: "Next: Allocate Payment" }).click();
+
+    // Step 3: allocate (default waterfall) - Conventional order is fees, late interest, profit, principal.
+    await expect(page.getByRole("cell", { name: "Principal", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Next: Review" }).click();
+
+    // Step 4: review and confirm payout.
+    await expect(page.getByText("Confirming will credit investor wallets")).toBeVisible();
+    await page.getByRole("button", { name: "Confirm & Payout Investors" }).click();
+
+    // Step 5: complete - real investor payout, not a binary mark-paid.
+    await expect(page.getByText("Net wallet credits")).toBeVisible();
+    await expect(page.locator("table", { hasText: "Wallet Credit" }).locator("tbody tr").first()).toBeVisible();
+
+    // Confirm this actually moved real money: a facility_payments row exists,
+    // it's allocated+paid out, and the investor's wallet was credited.
+    const detail = await apiFetch(page, "/api/admin/repayments/WC2200-01082026");
+    const detailJson = JSON.parse(detail.body);
+    expect(detailJson.payments.length).toBeGreaterThan(0);
+    expect(detailJson.payments[0].allocationStatus).toBe("ALLOCATED");
+    expect(detailJson.payments[0].payoutStatus).toBe("COMPLETED");
+    expect(detailJson.payouts.length).toBeGreaterThan(0);
+    expect(detailJson.payouts[0].walletCreditTotal).toBeGreaterThan(0);
   });
 
   test("Reports page offers a real PDF platform summary and CSV exports", async ({ page }) => {

@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiGet, apiPost } from "../../lib/api";
+import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { apiGet } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { useToast } from "../../components/Toast";
 import { DataTable, type Column } from "../../components/data/DataTable";
 import { SkeletonPage, QueryError } from "../../components/QueryState";
 
@@ -16,15 +16,35 @@ interface Note {
   ratePct: number;
   status: string;
   noteName: string | null;
+  islamicConventional: "Islamic" | "Conventional" | null;
 }
-interface Installment {
+interface ServicingScheduleRow {
   id: string;
-  installmentNo: number;
   dueDate: string;
   principalDue: number;
   profitDue: number;
+  deferredProfitDue: number;
+  tawidhDue: number;
+  lateInterestDue: number;
   feeDue: number;
+  totalDue: number;
+  paid: number;
+  remaining: number;
+  daysPastDue: number;
   status: string;
+}
+interface IssuerSummary {
+  currentInstallmentDueDate: string | null;
+  currentDaysLate: number;
+  currentTotalDue: number;
+  principalDue: number;
+  profitDue: number;
+  deferredProfitDue: number;
+  tawidhDue: number;
+  lateInterestDue: number;
+  feesDue: number;
+  nextInstallmentDueDate: string | null;
+  nextInstallmentAmount: number;
 }
 interface Position {
   investorId: string;
@@ -32,41 +52,47 @@ interface Position {
   email: string;
   name: string;
 }
+interface PaymentRecord {
+  id: string;
+  paymentReference: string;
+  paymentDate: string;
+  amount: number;
+  allocationStatus: string;
+  payoutStatus: string;
+}
+interface PayoutRecord {
+  id: string;
+  paymentId: string;
+  walletCreditTotal: number;
+  status: string;
+  createdAt: string;
+}
 interface NoteDetail {
   facility: Note;
-  schedule: Installment[];
+  servicingSchedule: ServicingScheduleRow[];
+  issuerSummary: IssuerSummary;
   positions: Position[];
   fundedAmount: number;
   uniqueInvestors: number;
+  payments: PaymentRecord[];
+  payouts: PayoutRecord[];
 }
 
 function statusClass(status: string) {
-  if (status === "Open") return "pending";
-  if (status === "Ongoing") return "ok";
-  if (status === "Completed") return "ok";
-  return "default";
+  if (["Open", "PENDING", "RECORDED", "UPCOMING"].includes(status)) return "pending";
+  if (["Ongoing", "Completed", "COMPLETED", "ALLOCATED", "PAID", "SETTLED_EARLY"].includes(status)) return "ok";
+  return "default"; // Default, DEFAULT, DELINQUENT, LATE, DUE, EXCEPTION
 }
 
 export default function AdminRepayments() {
   const [openId, setOpenId] = useState<string | null>(null);
-  const qc = useQueryClient();
-  const toast = useToast();
+  const navigate = useNavigate();
 
   const { data, isLoading, isError, refetch: refetchNotes } = useQuery({ queryKey: ["admin", "repayments"], queryFn: () => apiGet<{ notes: Note[] }>("/api/admin/repayments") });
-  const { data: detail, refetch } = useQuery({
+  const { data: detail } = useQuery({
     queryKey: ["admin", "repayment", openId],
     queryFn: () => apiGet<NoteDetail>(`/api/admin/repayments/${openId}`),
     enabled: !!openId,
-  });
-
-  const recordPayment = useMutation({
-    mutationFn: (installmentId: string) => apiPost(`/api/admin/repayments/${openId}/payment`, { installmentId }),
-    onSuccess: () => {
-      toast("Payment recorded.");
-      qc.invalidateQueries({ queryKey: ["admin", "repayments"] });
-      refetch();
-    },
-    onError: (e: Error) => toast(e.message),
   });
 
   const columns: Column<Note>[] = [
@@ -81,8 +107,9 @@ export default function AdminRepayments() {
   if (isError) return <QueryError onRetry={() => refetchNotes()} />;
 
   if (openId && detail) {
-    const { facility, schedule, positions, fundedAmount, uniqueInvestors } = detail;
-    const currentDue = schedule.find((i) => i.status === "Upcoming" || i.status === "Overdue");
+    const { facility, servicingSchedule, issuerSummary, positions, fundedAmount, uniqueInvestors, payments, payouts } = detail;
+    const isIslamic = facility.islamicConventional === "Islamic";
+
     return (
       <>
         <PageHeader
@@ -94,6 +121,7 @@ export default function AdminRepayments() {
             </button>
           }
         />
+
         <div className="card">
           <div className="section-head">
             <h3>General Information</h3>
@@ -117,40 +145,143 @@ export default function AdminRepayments() {
 
         <div className="card">
           <div className="section-head">
+            <h3>Current Position</h3>
+            {facility.status === "Ongoing" && (
+              <button className="btn small primary" onClick={() => navigate(`/app/admin-repayments/${facility.id}/process`)}>
+                Process Payment
+              </button>
+            )}
+          </div>
+          <div className="grid cols-3">
+            <div className="metric">
+              <div className="label">Total due today</div>
+              <div className="value">{money(issuerSummary.currentTotalDue)}</div>
+            </div>
+            <div className="metric">
+              <div className="label">Principal / {isIslamic ? "Profit" : "Interest"} due</div>
+              <div className="value">
+                {money(issuerSummary.principalDue)} / {money(issuerSummary.profitDue)}
+              </div>
+            </div>
+            <div className="metric">
+              <div className="label">{isIslamic ? "Deferred Profit + Ta'widh" : "Late Interest"}</div>
+              <div className="value">{money(isIslamic ? issuerSummary.deferredProfitDue + issuerSummary.tawidhDue : issuerSummary.lateInterestDue)}</div>
+            </div>
+            <div className="metric">
+              <div className="label">Days past due</div>
+              <div className="value">{issuerSummary.currentDaysLate}</div>
+            </div>
+            <div className="metric">
+              <div className="label">Next due date</div>
+              <div className="value">{issuerSummary.nextInstallmentDueDate ?? "—"}</div>
+            </div>
+            <div className="metric">
+              <div className="label">Next amount</div>
+              <div className="value">{issuerSummary.nextInstallmentDueDate ? money(issuerSummary.nextInstallmentAmount) : "—"}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="section-head">
             <h3>Repayment Schedule</h3>
           </div>
           <table>
             <thead>
               <tr>
-                <th>#</th>
                 <th>Due Date</th>
                 <th>Principal</th>
-                <th>Profit</th>
+                <th>{isIslamic ? "Profit" : "Interest"}</th>
+                <th>{isIslamic ? "Deferred Profit" : "Late Interest"}</th>
+                {isIslamic && <th>Ta'widh</th>}
+                <th>Total Due</th>
+                <th>Paid</th>
                 <th>Status</th>
-                {facility.status === "Ongoing" && <th>Action</th>}
               </tr>
             </thead>
             <tbody>
-              {schedule.map((i) => (
-                <tr key={i.id}>
-                  <td>{i.installmentNo}</td>
-                  <td>{i.dueDate}</td>
-                  <td>{money(i.principalDue)}</td>
-                  <td>{money(i.profitDue)}</td>
-                  <td>{i.status}</td>
-                  {facility.status === "Ongoing" && (
-                    <td>
-                      {currentDue?.id === i.id && (
-                        <button className="btn small" disabled={recordPayment.isPending} onClick={() => recordPayment.mutate(i.id)}>
-                          Mark as Paid
-                        </button>
-                      )}
-                    </td>
-                  )}
+              {servicingSchedule.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.dueDate}</td>
+                  <td>{money(row.principalDue)}</td>
+                  <td>{money(row.profitDue)}</td>
+                  <td>{money(isIslamic ? row.deferredProfitDue : row.lateInterestDue)}</td>
+                  {isIslamic && <td>{money(row.tawidhDue)}</td>}
+                  <td>{money(row.totalDue)}</td>
+                  <td>{money(row.paid)}</td>
+                  <td>
+                    <span className={`status ${statusClass(row.status)}`}>{row.status}</span>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+
+        <div className="card">
+          <div className="section-head">
+            <h3>Payment History</h3>
+          </div>
+          {payments.length === 0 ? (
+            <div className="sub">No payments recorded yet.</div>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Reference</th>
+                  <th>Amount</th>
+                  <th>Allocation</th>
+                  <th>Payout</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payments.map((p) => (
+                  <tr key={p.id}>
+                    <td>{p.paymentDate}</td>
+                    <td>{p.paymentReference}</td>
+                    <td>{money(p.amount)}</td>
+                    <td>
+                      <span className={`status ${statusClass(p.allocationStatus)}`}>{p.allocationStatus}</span>
+                    </td>
+                    <td>
+                      <span className={`status ${statusClass(p.payoutStatus)}`}>{p.payoutStatus}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div className="card">
+          <div className="section-head">
+            <h3>Payout History</h3>
+          </div>
+          {payouts.length === 0 ? (
+            <div className="sub">No investor payouts yet.</div>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Wallet Credit Total</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payouts.map((p) => (
+                  <tr key={p.id}>
+                    <td>{new Date(p.createdAt).toLocaleDateString()}</td>
+                    <td>{money(p.walletCreditTotal)}</td>
+                    <td>
+                      <span className={`status ${statusClass(p.status)}`}>{p.status}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         <div className="card">

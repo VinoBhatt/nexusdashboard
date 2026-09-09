@@ -243,11 +243,6 @@ async function main() {
     { id: "holding-3", facility: "MBIDG-26070001", status: "Default", invested: 100, expected: 110.50, actual: 0, eligible: false },
     { id: "holding-4", facility: "WC1881-08082024", status: "Default", invested: 4.65, expected: 0, actual: 0, eligible: false },
     { id: "holding-5", facility: "MBSG-25080014", status: "Completed", invested: 100, expected: 100.50, actual: 100.50, eligible: false },
-    // Servicing engine demo facilities (Stage 1) - single holding per
-    // facility, invested amount equal to the full principal, so
-    // SUM(holdings.amountInvested) reconciles exactly to principalAmount.
-    { id: "holding-6", facility: "IIF2200-01082026", status: "Ongoing", invested: 16000, expected: 16500.01, actual: 0, eligible: false },
-    { id: "holding-7", facility: "WC2200-01082026", status: "Ongoing", invested: 20000, expected: 20933.34, actual: 0, eligible: false },
   ];
   for (const h of holdings) {
     statements.push(
@@ -299,6 +294,20 @@ async function main() {
   );
   statements.push(
     `INSERT INTO secondary_listings (id, holding_id, seller_id, units, price_per_unit, status, listed_at) VALUES ('SEC-1054', 'holding-seed-2', 'user-seed-seller', 5100, 0.994, 'Open', ${sqlTs(now)});`
+  );
+  // Servicing engine demo facilities (Stage 1) - single holding per facility,
+  // invested amount equal to the full principal, so SUM(holdings.amountInvested)
+  // reconciles exactly to principalAmount. Deliberately owned by the
+  // seed-seller persona rather than the main retail demo account
+  // (retailId/joshua@cofundr.demo) - Stage 2a's e2e coverage runs a real
+  // payment through these facilities and genuinely credits the investor's
+  // wallet, which would otherwise silently inflate the balance retail.spec.ts's
+  // deposit-persists test computes its before/after delta against.
+  statements.push(
+    `INSERT INTO holdings (id, investor_id, facility_id, status, amount_invested, expected_return, actual_return, eligible_for_sale, created_at) VALUES ('holding-6', 'user-seed-seller', 'IIF2200-01082026', 'Ongoing', 16000, 16500.01, 0, 0, ${sqlTs(now)});`
+  );
+  statements.push(
+    `INSERT INTO holdings (id, investor_id, facility_id, status, amount_invested, expected_return, actual_return, eligible_for_sale, created_at) VALUES ('holding-7', 'user-seed-seller', 'WC2200-01082026', 'Ongoing', 20000, 20933.34, 0, 0, ${sqlTs(now)});`
   );
 
   // A bigger reserve so the liquidation marketplace doesn't run dry after a

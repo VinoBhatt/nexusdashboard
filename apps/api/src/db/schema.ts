@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
 // Schema grows incrementally per phase in the rebuild plan - see
@@ -261,39 +261,50 @@ export const repaymentInstallments = sqliteTable("repayment_installments", {
 // row per event, mirroring the prototype's facilityLedger.payments /
 // payoutHistory / heldFunds / chargeAdjustments / scheduleVersions. ----
 
-export const facilityPayments = sqliteTable("facility_payments", {
-  id: id(),
-  facilityId: text("facility_id")
-    .notNull()
-    .references(() => financingFacilities.id),
-  paymentReference: text("payment_reference").notNull(),
-  paymentDate: text("payment_date").notNull(),
-  method: text("method"),
-  bank: text("bank"),
-  receivedFrom: text("received_from"),
-  amount: real("amount").notNull(),
-  // { fees, tawidh, deferredProfit, profit, principal, lateInterest } - only
-  // the components relevant to the facility's structure are populated.
-  allocationJson: text("allocation_json").notNull(),
-  instalmentIdsJson: text("instalment_ids_json").notNull(),
-  trustStatus: text("trust_status", { enum: ["CONFIRMED"] }).notNull().default("CONFIRMED"),
-  allocationStatus: text("allocation_status", { enum: ["RECORDED", "ALLOCATED"] })
-    .notNull()
-    .default("RECORDED"),
-  payoutStatus: text("payout_status", { enum: ["PENDING", "COMPLETED", "EXCEPTION"] })
-    .notNull()
-    .default("PENDING"),
-  recordedBy: text("recorded_by").references(() => users.id),
-  ...timestamps,
-});
+export const facilityPayments = sqliteTable(
+  "facility_payments",
+  {
+    id: id(),
+    facilityId: text("facility_id")
+      .notNull()
+      .references(() => financingFacilities.id),
+    paymentReference: text("payment_reference").notNull(),
+    paymentDate: text("payment_date").notNull(),
+    method: text("method"),
+    bank: text("bank"),
+    receivedFrom: text("received_from"),
+    amount: real("amount").notNull(),
+    // { fees, tawidh, deferredProfit, profit, principal, lateInterest } - only
+    // the components relevant to the facility's structure are populated.
+    allocationJson: text("allocation_json").notNull(),
+    instalmentIdsJson: text("instalment_ids_json").notNull(),
+    trustStatus: text("trust_status", { enum: ["CONFIRMED"] }).notNull().default("CONFIRMED"),
+    allocationStatus: text("allocation_status", { enum: ["RECORDED", "ALLOCATED"] })
+      .notNull()
+      .default("RECORDED"),
+    payoutStatus: text("payout_status", { enum: ["PENDING", "COMPLETED", "EXCEPTION"] })
+      .notNull()
+      .default("PENDING"),
+    recordedBy: text("recorded_by").references(() => users.id),
+    ...timestamps,
+  },
+  (table) => [
+    // Stage 2a idempotency: the same admin-entered payment reference must not
+    // be recordable twice against the same facility (a different facility
+    // reusing the issuer's own reference numbering is fine).
+    uniqueIndex("facility_payments_facility_reference_unique").on(table.facilityId, table.paymentReference),
+  ]
+);
 
 export const investorPayouts = sqliteTable("investor_payouts", {
   id: id(),
   facilityId: text("facility_id")
     .notNull()
     .references(() => financingFacilities.id),
+  // Stage 2a idempotency: one payout batch per payment, ever.
   paymentId: text("payment_id")
     .notNull()
+    .unique()
     .references(() => facilityPayments.id),
   principalTotal: real("principal_total").notNull().default(0),
   grossScheduledReturnTotal: real("gross_scheduled_return_total").notNull().default(0),
@@ -414,6 +425,12 @@ export const feePolicyHistory = sqliteTable("fee_policy_history", {
   facilityId: text("facility_id")
     .notNull()
     .references(() => financingFacilities.id),
+  // Which rate this entry changed - defaults to the only rate Stage 2c
+  // actually overrides today, but keeps the table able to record an SST-rate
+  // change later without a migration.
+  policyField: text("policy_field", { enum: ["platformFeeBps", "sstRateBps"] })
+    .notNull()
+    .default("platformFeeBps"),
   previousRateBps: integer("previous_rate_bps"),
   newRateBps: integer("new_rate_bps").notNull(),
   reason: text("reason").notNull(),

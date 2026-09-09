@@ -355,3 +355,19 @@ export function deriveServicingStatus(params: { remainingSen: number; daysPastDu
   if (daysPastDue > 0) return "LATE";
   return "DUE";
 }
+
+export type LegacyInstallmentStatus = "Paid" | "Overdue" | "Upcoming" | "Defaulted";
+
+/**
+ * Keeps the legacy `repaymentInstallments.status` enum (read by ~15
+ * pre-servicing-engine call sites) in sync with the new `servicingStatus`,
+ * so those call sites keep working unmodified as Stage 2 routes write
+ * `servicingStatus`. PAID/SETTLED_EARLY both mean "nothing outstanding" for
+ * the legacy field's purposes.
+ */
+export function mapServicingStatusToLegacyStatus(status: ServicingStatus): LegacyInstallmentStatus {
+  if (status === "PAID" || status === "SETTLED_EARLY") return "Paid";
+  if (status === "UPCOMING") return "Upcoming";
+  if (status === "DEFAULT") return "Defaulted";
+  return "Overdue"; // DUE, LATE, DELINQUENT
+}

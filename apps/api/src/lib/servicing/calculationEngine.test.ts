@@ -11,6 +11,7 @@ import {
   calculateReturnDeductions,
   calculateInvestorPayouts,
   deriveServicingStatus,
+  mapServicingStatusToLegacyStatus,
   toSen,
   fromSen,
   sumSen,
@@ -228,5 +229,21 @@ describe("deriveServicingStatus", () => {
   });
   it("is PAID once nothing remains, regardless of lateness", () => {
     expect(deriveServicingStatus({ remainingSen: 0, dueDate: "2026-07-23", asOfDate: "2026-12-01", daysPastDue: 131, delinquentDays: 30, defaultDays: 90 })).toBe("PAID");
+  });
+});
+
+describe("mapServicingStatusToLegacyStatus", () => {
+  it("maps PAID and SETTLED_EARLY to the legacy Paid status", () => {
+    expect(mapServicingStatusToLegacyStatus("PAID")).toBe("Paid");
+    expect(mapServicingStatusToLegacyStatus("SETTLED_EARLY")).toBe("Paid");
+  });
+  it("maps UPCOMING to Upcoming and DEFAULT to Defaulted", () => {
+    expect(mapServicingStatusToLegacyStatus("UPCOMING")).toBe("Upcoming");
+    expect(mapServicingStatusToLegacyStatus("DEFAULT")).toBe("Defaulted");
+  });
+  it("maps DUE, LATE and DELINQUENT to the legacy Overdue status", () => {
+    expect(mapServicingStatusToLegacyStatus("DUE")).toBe("Overdue");
+    expect(mapServicingStatusToLegacyStatus("LATE")).toBe("Overdue");
+    expect(mapServicingStatusToLegacyStatus("DELINQUENT")).toBe("Overdue");
   });
 });

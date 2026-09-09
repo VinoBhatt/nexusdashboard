@@ -35,6 +35,7 @@ import IssuerRegulatoryData from "./pages/admin/IssuerRegulatoryData";
 import CampaignRegulatoryData from "./pages/admin/CampaignRegulatoryData";
 import MyCifReporting from "./pages/admin/MyCifReporting";
 import AdminRepayments from "./pages/admin/Repayments";
+import AdminProcessPayment from "./pages/admin/ProcessPayment";
 import Financing from "./pages/issuer/Financing";
 import IssuerProposals from "./pages/issuer/Proposals";
 import Repayments from "./pages/issuer/Repayments";
@@ -85,6 +86,7 @@ export default function App() {
             <Route path="campaign-regulatory-data" element={<CampaignRegulatoryData />} />
             <Route path="mycif-reporting" element={<MyCifReporting />} />
             <Route path="admin-repayments" element={<AdminRepayments />} />
+            <Route path="admin-repayments/:id/process" element={<AdminProcessPayment />} />
             <Route path="financing" element={<Financing />} />
             <Route path="issuer-proposals" element={<IssuerProposals />} />
             <Route path="repayments" element={<Repayments />} />
