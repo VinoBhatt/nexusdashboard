@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { drizzle } from "drizzle-orm/d1";
-import { eq, and, or, desc, inArray } from "drizzle-orm";
+import { eq, desc, inArray } from "drizzle-orm";
 import { financingFacilities, proposals, users, holdings, repaymentInstallments, auditLog } from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
@@ -380,32 +380,9 @@ campaignManager.post("/notes/:id/disburse", async (c) => {
   return c.json({ ok: true });
 });
 
-const paymentSchema = z.object({ installmentId: z.string() });
-
-campaignManager.post("/notes/:id/payment", async (c) => {
-  const parsed = paymentSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
-  const db = drizzle(c.env.DB);
-  const [installment] = await db
-    .select()
-    .from(repaymentInstallments)
-    .where(and(eq(repaymentInstallments.id, parsed.data.installmentId), eq(repaymentInstallments.facilityId, c.req.param("id"))))
-    .limit(1);
-  if (!installment) return c.json({ error: "not_found" }, 404);
-  if (installment.status === "Paid") return c.json({ error: "already_paid" }, 409);
-
-  await db.update(repaymentInstallments).set({ status: "Paid", paidAt: new Date() }).where(eq(repaymentInstallments.id, installment.id));
-
-  const remaining = await db
-    .select()
-    .from(repaymentInstallments)
-    .where(and(eq(repaymentInstallments.facilityId, c.req.param("id")), or(eq(repaymentInstallments.status, "Upcoming"), eq(repaymentInstallments.status, "Overdue"))));
-  if (remaining.length === 0) {
-    await db.update(financingFacilities).set({ status: "Completed" }).where(eq(financingFacilities.id, c.req.param("id")));
-  }
-
-  return c.json({ ok: true });
-});
+// Repayment recording (marking an installment paid) lives under Admin now -
+// see apps/api/src/routes/adminRepayments.ts - Campaign Manager keeps
+// disbursement + read-only monitoring only.
 
 // ---- Regulatory reporting: origination, risk, and repayment-performance
 // exports an operator needs for periodic submissions to the regulator -

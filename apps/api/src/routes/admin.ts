@@ -33,7 +33,7 @@ import { toCsv, csvResponse } from "../lib/csv";
 const decidedByUsers = alias(users, "decided_by_users");
 
 const admin = new Hono<AuthedEnv>();
-admin.use("*", requireAuth, requireRole("admin"));
+admin.use("*", requireAuth, requireRole("admin", "ceo"));
 
 admin.get("/overview", async (c) => {
   const db = drizzle(c.env.DB);

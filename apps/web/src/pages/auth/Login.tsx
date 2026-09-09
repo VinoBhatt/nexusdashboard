@@ -9,7 +9,8 @@ const DEMO_ACCOUNTS = [
   { role: "corporate", email: "checker@abctreasury.demo", label: "Corporate Investor - Checker", sub: "Approves or rejects pending orders" },
   { role: "issuer", email: "finance@sunwaybiz.demo", label: "Issuer / Borrower", sub: "Financing & repayments" },
   { role: "campaign_manager", email: "ops@cofundr.demo", label: "Campaign Manager", sub: "Reviews applications & launches notes" },
-  { role: "admin", email: "sarah.lim@cofundr.demo", label: "CEO / Admin", sub: "Platform oversight" },
+  { role: "ceo", email: "sarah.lim@cofundr.demo", label: "CEO", sub: "Platform oversight & approvals" },
+  { role: "admin", email: "farah.rahman@cofundr.demo", label: "Admin", sub: "Reporting & repayments" },
 ] as const;
 
 const DEMO_PASSWORD = "demopassword";

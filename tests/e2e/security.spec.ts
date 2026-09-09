@@ -20,7 +20,7 @@ test.describe("Cross-cutting security behaviour", () => {
     await signupRetail(page, { displayName: "Dialog Guard Tester", email });
     await activateIndividual(page);
 
-    await login(page, DEMO_ACCOUNTS.admin);
+    await login(page, DEMO_ACCOUNTS.ceo);
     await page.getByRole("link", { name: "Risk & Approvals", exact: true }).click();
 
     const row = page.locator(".list-item", { hasText: "Dialog Guard Tester" });
@@ -39,7 +39,7 @@ test.describe("Cross-cutting security behaviour", () => {
     await signupRetail(page, { displayName: "Escape Guard Tester", email });
     await activateIndividual(page);
 
-    await login(page, DEMO_ACCOUNTS.admin);
+    await login(page, DEMO_ACCOUNTS.ceo);
     await page.getByRole("link", { name: "Risk & Approvals", exact: true }).click();
 
     const row = page.locator(".list-item", { hasText: "Escape Guard Tester" });

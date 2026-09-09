@@ -22,7 +22,7 @@ test.describe("Campaign Manager", () => {
     await expect(page.getByRole("button", { name: "Recall" })).toHaveCount(0);
   });
 
-  test("campaign manager disburses an Open note and records a repayment on an Ongoing note", async ({ page }) => {
+  test("campaign manager disburses an Open note and cannot record repayments (read-only monitoring only)", async ({ page }) => {
     await login(page, DEMO_ACCOUNTS.campaignManager);
     await page.getByRole("link", { name: "Notes", exact: true }).click();
 
@@ -35,18 +35,14 @@ test.describe("Campaign Manager", () => {
     await expect(page.locator("#toast")).toContainText("disbursed");
     await expect(page.locator(".status", { hasText: "Ongoing" })).toBeVisible();
 
-    // MBIBG-26080001 (not MBIBG-26070005 - that one's installment #2 is a
-    // deliberately-unpaid "Overdue" fixture other specs depend on) has a
-    // real seeded Upcoming schedule ready to be marked paid here.
+    // Repayment recording moved to Admin - Campaign Manager's schedule view
+    // is read-only monitoring now, with no "Mark as Paid" action at all.
     await page.getByRole("button", { name: "Back to Notes" }).click();
     const scheduleRow = page.locator("tbody tr", { hasText: "MBIBG-26080001" });
     await expect(scheduleRow).toBeVisible();
     await scheduleRow.getByRole("button", { name: "View" }).click();
-    const upcomingRow = page.locator("tr", { hasText: "Upcoming" }).first();
-    await expect(upcomingRow).toBeVisible();
-    await upcomingRow.getByRole("button", { name: "Mark as Paid" }).click();
-    await expect(page.locator("#toast")).toContainText("Payment recorded");
-    await expect(page.locator("tr", { hasText: "Paid" }).first()).toBeVisible();
+    await expect(page.getByText("Read-only monitoring")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mark as Paid" })).toHaveCount(0);
   });
 
   test("a proposal row is keyboard-navigable, not just clickable", async ({ page }) => {

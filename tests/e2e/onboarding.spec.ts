@@ -116,7 +116,7 @@ test.describe("Barrier 2: activation", () => {
 
     // Shows up as a real, reviewable compliance case for the admin.
     await logout(page);
-    await login(page, DEMO_ACCOUNTS.admin);
+    await login(page, DEMO_ACCOUNTS.ceo);
     await page.getByRole("link", { name: "KYC Review Queue", exact: true }).click();
     const row = page.locator("tr", { hasText: "Activate Individual Tester" });
     await expect(row).toBeVisible();
@@ -145,7 +145,7 @@ test.describe("Barrier 2: activation", () => {
     expect(overviewJson.profile.kybStatus).toBe("Pending");
 
     await logout(page);
-    await login(page, DEMO_ACCOUNTS.admin);
+    await login(page, DEMO_ACCOUNTS.ceo);
     await page.getByRole("link", { name: "Risk & Approvals", exact: true }).click();
     await expect(page.locator(".list-item", { hasText: "Playwright Activation Sdn Bhd" })).toBeVisible();
   });
@@ -166,7 +166,7 @@ test.describe("Barrier 2: activation", () => {
     await expect(page.getByRole("link", { name: "Activity Log", exact: true })).toBeVisible();
 
     await logout(page);
-    await login(page, DEMO_ACCOUNTS.admin);
+    await login(page, DEMO_ACCOUNTS.ceo);
     await page.getByRole("link", { name: "Investors", exact: true }).click();
     // A fresh, zero-portfolio account sorts to the bottom of the (paginated,
     // portfolio-sorted) list, so search for it rather than assuming page 1.

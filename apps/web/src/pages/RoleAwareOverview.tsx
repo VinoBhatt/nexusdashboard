@@ -12,6 +12,7 @@ export default function RoleAwareOverview() {
   if (effectiveRole === "retail") return <RetailOverview />;
   if (effectiveRole === "corporate") return <CorporateOverview />;
   if (effectiveRole === "admin") return <AdminOverview />;
+  if (effectiveRole === "ceo") return <AdminOverview />;
   if (effectiveRole === "issuer") return <IssuerOverview />;
   if (effectiveRole === "campaign_manager") return <CampaignManagerOverview />;
   return <ComingSoon />;

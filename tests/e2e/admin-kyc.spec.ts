@@ -3,7 +3,7 @@ import { login, DEMO_ACCOUNTS } from "./helpers";
 
 test.describe("Admin KYC/compliance surface", () => {
   test("KYC Review Queue shows stats and can filter by status", async ({ page }) => {
-    await login(page, DEMO_ACCOUNTS.admin);
+    await login(page, DEMO_ACCOUNTS.ceo);
     await page.getByRole("link", { name: "KYC Review Queue", exact: true }).click();
 
     await expect(page.getByText("Manual review pending")).toBeVisible();
@@ -16,7 +16,7 @@ test.describe("Admin KYC/compliance surface", () => {
   });
 
   test("Investor Risk Profiles page renders with working search and tier filter", async ({ page }) => {
-    await login(page, DEMO_ACCOUNTS.admin);
+    await login(page, DEMO_ACCOUNTS.ceo);
     await page.getByRole("link", { name: "Investor Risk Profiles", exact: true }).click();
 
     await expect(page.getByRole("heading", { name: "Investor Risk Profiles" })).toBeVisible();

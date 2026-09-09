@@ -9,7 +9,7 @@ import { sql } from "drizzle-orm";
 // metrics_snapshots. Corporate/admin/issuer-specific tables
 // (corporate_accounts, orders, issuer_profiles, ...) land in later phases.
 
-export const roles = ["retail", "corporate", "admin", "issuer", "campaign_manager"] as const;
+export const roles = ["retail", "corporate", "admin", "issuer", "campaign_manager", "ceo"] as const;
 export type Role = (typeof roles)[number];
 
 const id = () => text("id").primaryKey();

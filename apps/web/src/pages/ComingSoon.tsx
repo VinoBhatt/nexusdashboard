@@ -3,7 +3,8 @@ import { useAuth } from "../context/AuthContext";
 
 const ROLE_LABEL: Record<string, string> = {
   corporate: "Corporate investor",
-  admin: "CEO / admin",
+  admin: "Admin",
+  ceo: "CEO",
   issuer: "Issuer / borrower",
 };
 

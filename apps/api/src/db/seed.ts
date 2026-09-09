@@ -33,7 +33,8 @@ async function main() {
   const demoUsers = [
     { id: "user-retail-demo", email: "joshua@cofundr.demo", displayName: "Joshua Kuan Chung Shearn", role: "retail" },
     { id: "user-corporate-demo", email: "treasury@abctreasury.demo", displayName: "ABC Treasury Sdn Bhd", role: "corporate" },
-    { id: "user-admin-demo", email: "sarah.lim@cofundr.demo", displayName: "Datin Sarah Lim", role: "admin" },
+    { id: "user-ceo-demo", email: "sarah.lim@cofundr.demo", displayName: "Datin Sarah Lim", role: "ceo" },
+    { id: "user-admin-demo", email: "farah.rahman@cofundr.demo", displayName: "Farah Rahman", role: "admin" },
     { id: "user-issuer-demo", email: "finance@sunwaybiz.demo", displayName: "Sunway Business Solutions", role: "issuer" },
     { id: "user-campaign-manager-demo", email: "ops@cofundr.demo", displayName: "Kwoo Kah Kin", role: "campaign_manager" },
   ] as const;
@@ -630,7 +631,9 @@ async function main() {
     `INSERT INTO investor_profiles (user_id, kyc_status) VALUES (${sqlStr(rejectedUserId)}, 'Rejected');`
   );
 
-  const adminUserId = "user-admin-demo";
+  // Approvals decisions are CEO's domain now (see role-split plan) - Sarah
+  // Lim (user-ceo-demo) remains the actor who decided these seeded approvals.
+  const ceoUserId = "user-ceo-demo";
   const approvalDefs = [
     {
       id: "appr-1",
@@ -675,10 +678,10 @@ async function main() {
   ];
   for (const a of approvalDefs) {
     statements.push(
-      `INSERT INTO approvals (id, type, subject_type, subject_id, applicant_name, risk_level, status, decided_by, decided_at, notes, submitted_at) VALUES (${sqlStr(a.id)}, ${sqlStr(a.type)}, ${sqlStr(a.subjectType)}, ${sqlStr(a.subjectId)}, ${sqlStr(a.applicantName)}, ${sqlStr(a.riskLevel)}, ${sqlStr(a.status)}, ${sqlStr(adminUserId)}, ${sqlTs(now)}, ${sqlStr(a.notes)}, ${sqlTs(now)});`
+      `INSERT INTO approvals (id, type, subject_type, subject_id, applicant_name, risk_level, status, decided_by, decided_at, notes, submitted_at) VALUES (${sqlStr(a.id)}, ${sqlStr(a.type)}, ${sqlStr(a.subjectType)}, ${sqlStr(a.subjectId)}, ${sqlStr(a.applicantName)}, ${sqlStr(a.riskLevel)}, ${sqlStr(a.status)}, ${sqlStr(ceoUserId)}, ${sqlTs(now)}, ${sqlStr(a.notes)}, ${sqlTs(now)});`
     );
     statements.push(
-      `INSERT INTO audit_log (id, actor_id, action, subject_type, subject_id, metadata_json, created_at) VALUES (${sqlStr(`audit-${a.id}`)}, ${sqlStr(adminUserId)}, ${sqlStr(a.status === "Approved" ? "admin_approval_approved" : "admin_approval_rejected")}, 'approval', ${sqlStr(a.id)}, ${sqlStr(JSON.stringify({ type: a.type, applicantName: a.applicantName, riskLevel: a.riskLevel, note: a.notes }))}, ${sqlTs(now)});`
+      `INSERT INTO audit_log (id, actor_id, action, subject_type, subject_id, metadata_json, created_at) VALUES (${sqlStr(`audit-${a.id}`)}, ${sqlStr(ceoUserId)}, ${sqlStr(a.status === "Approved" ? "admin_approval_approved" : "admin_approval_rejected")}, 'approval', ${sqlStr(a.id)}, ${sqlStr(JSON.stringify({ type: a.type, applicantName: a.applicantName, riskLevel: a.riskLevel, note: a.notes }))}, ${sqlTs(now)});`
     );
   }
 

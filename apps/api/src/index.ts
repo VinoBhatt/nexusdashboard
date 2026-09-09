@@ -17,6 +17,7 @@ import campaignManager from "./routes/campaignManager";
 import regulatoryReporting from "./routes/regulatoryReporting";
 import issuerRegulatory from "./routes/issuerRegulatory";
 import mycifReporting from "./routes/mycifReporting";
+import adminRepayments from "./routes/adminRepayments";
 import { handleScheduled } from "./scheduled";
 
 export interface Env {
@@ -44,6 +45,7 @@ app.route("/api/campaign-manager", campaignManager);
 app.route("/api/admin/regulatory", regulatoryReporting);
 app.route("/api/admin/regulatory", issuerRegulatory);
 app.route("/api/admin/mycif", mycifReporting);
+app.route("/api/admin/repayments", adminRepayments);
 
 app.notFound((c) => c.json({ error: "not_found" }, 404));
 

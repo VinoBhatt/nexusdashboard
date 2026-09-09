@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth, type Role } from "../../context/AuthContext";
 import { ThemeToggle } from "../ThemeToggle";
@@ -136,76 +137,135 @@ const ICONS: Record<string, React.ReactNode> = {
   ),
 };
 
-const NAV_BY_ROLE: Record<Role, { to: string; label: string; icon: string }[]> = {
+interface NavItem {
+  to: string;
+  label: string;
+  icon: string;
+}
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
   retail: [
-    { to: "overview", label: "Overview", icon: "grid" },
-    { to: "activate", label: "Start Investing", icon: "risk" },
-    { to: "notes-available", label: "Notes Available", icon: "marketplace" },
-    { to: "ongoing-notes", label: "On-Going Notes", icon: "portfolio" },
-    { to: "completed-notes", label: "Completed Notes", icon: "repayments" },
-    { to: "auto-invest", label: "Auto Invest", icon: "autoinvest" },
-    { to: "deposit", label: "Deposit", icon: "deposit" },
-    { to: "withdrawal", label: "Withdrawal", icon: "withdrawal" },
-    { to: "account-balance", label: "Account Balance", icon: "balance" },
-    { to: "statements", label: "Statements", icon: "statements" },
-    { to: "alerts", label: "Alerts", icon: "alerts" },
-    { to: "account", label: "Account", icon: "account" },
+    { label: "Overview", items: [
+      { to: "overview", label: "Overview", icon: "grid" },
+      { to: "account-balance", label: "Account Balance", icon: "balance" },
+      { to: "alerts", label: "Alerts", icon: "alerts" },
+    ] },
+    { label: "Invest", items: [
+      { to: "activate", label: "Start Investing", icon: "risk" },
+      { to: "notes-available", label: "Notes Available", icon: "marketplace" },
+      { to: "auto-invest", label: "Auto Invest", icon: "autoinvest" },
+    ] },
+    { label: "My Notes", items: [
+      { to: "ongoing-notes", label: "On-Going Notes", icon: "portfolio" },
+      { to: "completed-notes", label: "Completed Notes", icon: "repayments" },
+    ] },
+    { label: "Wallet", items: [
+      { to: "deposit", label: "Deposit", icon: "deposit" },
+      { to: "withdrawal", label: "Withdrawal", icon: "withdrawal" },
+      { to: "statements", label: "Statements", icon: "statements" },
+    ] },
+    { label: "Account", items: [
+      { to: "account", label: "Account", icon: "account" },
+    ] },
   ],
   corporate: [
-    { to: "overview", label: "Overview", icon: "grid" },
-    { to: "notes-available", label: "Notes Available", icon: "marketplace" },
-    { to: "ongoing-notes", label: "On-Going Notes", icon: "portfolio" },
-    { to: "completed-notes", label: "Completed Notes", icon: "repayments" },
-    { to: "deposit", label: "Deposit", icon: "deposit" },
-    { to: "withdrawal", label: "Withdrawal", icon: "withdrawal" },
-    { to: "account-balance", label: "Account Balance", icon: "balance" },
-    { to: "statements", label: "Statements", icon: "statements" },
-    { to: "alerts", label: "Alerts", icon: "alerts" },
-    { to: "activity-log", label: "Activity Log", icon: "documents" },
+    { label: "Overview", items: [
+      { to: "overview", label: "Overview", icon: "grid" },
+      { to: "account-balance", label: "Account Balance", icon: "balance" },
+      { to: "alerts", label: "Alerts", icon: "alerts" },
+      { to: "activity-log", label: "Activity Log", icon: "documents" },
+    ] },
+    { label: "Invest", items: [
+      { to: "notes-available", label: "Notes Available", icon: "marketplace" },
+    ] },
+    { label: "My Notes", items: [
+      { to: "ongoing-notes", label: "On-Going Notes", icon: "portfolio" },
+      { to: "completed-notes", label: "Completed Notes", icon: "repayments" },
+    ] },
+    { label: "Wallet", items: [
+      { to: "deposit", label: "Deposit", icon: "deposit" },
+      { to: "withdrawal", label: "Withdrawal", icon: "withdrawal" },
+      { to: "statements", label: "Statements", icon: "statements" },
+    ] },
+  ],
+  ceo: [
+    { label: "Dashboard", items: [
+      { to: "overview", label: "Overview", icon: "grid" },
+      { to: "admin-activity-log", label: "Activity Log", icon: "documents" },
+    ] },
+    { label: "Portfolio Oversight", items: [
+      { to: "investors", label: "Investors", icon: "investors" },
+      { to: "issuers", label: "Issuers", icon: "issuers" },
+      { to: "risk-profiles", label: "Investor Risk Profiles", icon: "investors" },
+    ] },
+    { label: "Approvals", items: [
+      { to: "risk-approvals", label: "Risk & Approvals", icon: "risk" },
+      { to: "kyc-queue", label: "KYC Review Queue", icon: "risk" },
+    ] },
   ],
   admin: [
-    { to: "overview", label: "Overview", icon: "grid" },
-    { to: "investors", label: "Investors", icon: "investors" },
-    { to: "issuers", label: "Issuers", icon: "issuers" },
-    { to: "risk-approvals", label: "Risk & Approvals", icon: "risk" },
-    { to: "kyc-queue", label: "KYC Review Queue", icon: "risk" },
-    { to: "risk-profiles", label: "Investor Risk Profiles", icon: "investors" },
-    { to: "admin-activity-log", label: "Activity Log", icon: "documents" },
-    { to: "reports", label: "Reports", icon: "statements" },
-    { to: "regulatory-reporting", label: "Regulatory Reporting", icon: "statements" },
-    { to: "issuer-regulatory-data", label: "Issuer Regulatory Data", icon: "issuers" },
-    { to: "campaign-regulatory-data", label: "Campaign Regulatory Data", icon: "financing" },
-    { to: "mycif-reporting", label: "MyCIF Monthly Report", icon: "statements" },
-    { to: "kyc-engine-docs", label: "KYC Engine", icon: "documents" },
-    { to: "wallet-docs", label: "Wallet & CIF", icon: "balance" },
-    { to: "schema-docs", label: "DB Schema", icon: "documents" },
+    { label: "Dashboard", items: [
+      { to: "overview", label: "Overview", icon: "grid" },
+    ] },
+    { label: "Reporting", items: [
+      { to: "reports", label: "Reports", icon: "statements" },
+      { to: "regulatory-reporting", label: "Regulatory Reporting", icon: "statements" },
+      { to: "mycif-reporting", label: "MyCIF Monthly Report", icon: "statements" },
+    ] },
+    { label: "Regulatory Data", items: [
+      { to: "issuer-regulatory-data", label: "Issuer Regulatory Data", icon: "issuers" },
+      { to: "campaign-regulatory-data", label: "Campaign Regulatory Data", icon: "financing" },
+    ] },
+    { label: "Repayments", items: [
+      { to: "admin-repayments", label: "Record Repayments", icon: "repayments" },
+    ] },
+    { label: "System Reference", items: [
+      { to: "kyc-engine-docs", label: "KYC Engine", icon: "documents" },
+      { to: "wallet-docs", label: "Wallet & CIF", icon: "balance" },
+      { to: "schema-docs", label: "DB Schema", icon: "documents" },
+    ] },
   ],
   issuer: [
-    { to: "overview", label: "Overview", icon: "grid" },
-    { to: "financing", label: "Financing", icon: "financing" },
-    { to: "issuer-proposals", label: "Proposals", icon: "proposals" },
-    { to: "repayments", label: "Repayments", icon: "repayments" },
-    { to: "documents", label: "Documents", icon: "documents" },
+    { label: "Overview", items: [
+      { to: "overview", label: "Overview", icon: "grid" },
+    ] },
+    { label: "Financing", items: [
+      { to: "financing", label: "Financing", icon: "financing" },
+      { to: "issuer-proposals", label: "Proposals", icon: "proposals" },
+      { to: "repayments", label: "Repayments", icon: "repayments" },
+      { to: "documents", label: "Documents", icon: "documents" },
+    ] },
   ],
   campaign_manager: [
-    { to: "overview", label: "Overview", icon: "grid" },
-    { to: "cm-applications", label: "Applications", icon: "applications" },
-    { to: "cm-proposals", label: "Proposals", icon: "proposals" },
-    { to: "cm-notes", label: "Notes", icon: "launch" },
-    { to: "cm-reports", label: "Reports", icon: "statements" },
+    { label: "Overview", items: [
+      { to: "overview", label: "Overview", icon: "grid" },
+    ] },
+    { label: "Proposals", items: [
+      { to: "cm-applications", label: "Applications", icon: "applications" },
+      { to: "cm-proposals", label: "Proposals", icon: "proposals" },
+    ] },
+    { label: "Launch & Monitoring", items: [
+      { to: "cm-notes", label: "Notes", icon: "launch" },
+      { to: "cm-reports", label: "Reports", icon: "statements" },
+    ] },
   ],
 };
 
 export const PAGE_TITLES: Record<string, string> = Object.fromEntries(
   Object.values(NAV_BY_ROLE)
-    .flat()
+    .flatMap((groups) => groups.flatMap((group) => group.items))
     .map((item) => [item.to, item.label])
 );
 
 const ROLE_LABEL: Record<Role, string> = {
   retail: "Retail Investor",
   corporate: "Corporate Investor",
-  admin: "CEO / Admin",
+  ceo: "CEO",
+  admin: "Admin",
   issuer: "Issuer / Borrower",
   campaign_manager: "Campaign Manager",
 };
@@ -223,9 +283,34 @@ export function Sidebar({
   onToggleCollapse?: () => void;
 }) {
   const { user, logout, switchRole } = useAuth();
+  const effectiveRole = user?.effectiveRole ?? user?.role ?? "retail";
+  const groups = NAV_BY_ROLE[effectiveRole] ?? [];
+
+  // Every group starts open - grouping is for visual organisation (a
+  // "cleaner look"), not to hide navigation behind an extra click. Groups
+  // stay independently collapsible for anyone who wants to tidy their own
+  // view. Resets to fully-open whenever the active role changes.
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set(groups.map((g) => g.label)));
+  const previousRoleRef = useRef(effectiveRole);
+
+  useEffect(() => {
+    if (previousRoleRef.current !== effectiveRole) {
+      previousRoleRef.current = effectiveRole;
+      setOpenGroups(new Set(groups.map((g) => g.label)));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveRole]);
+
   if (!user) return null;
-  const effectiveRole = user.effectiveRole ?? user.role;
-  const items = NAV_BY_ROLE[effectiveRole] ?? [];
+
+  function toggleGroup(label: string) {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }
 
   return (
     <aside className={`sidebar${open ? " open" : ""}${collapsed ? " collapsed" : ""}`}>
@@ -265,11 +350,44 @@ export function Sidebar({
         <span className="role-tag">{ROLE_LABEL[effectiveRole]}</span>
       </div>
       <nav className="nav">
-        {items.map((item) => (
-          <NavLink key={item.to} to={item.to} onClick={onNavigate} title={item.label} className={({ isActive }) => (isActive ? "active" : "")}>
-            <i>{ICONS[item.icon]}</i> <span className="nav-label">{item.label}</span>
-          </NavLink>
-        ))}
+        {collapsed
+          ? groups
+              .flatMap((group) => group.items)
+              .map((item) => (
+                <NavLink key={item.to} to={item.to} onClick={onNavigate} title={item.label} className={({ isActive }) => (isActive ? "active" : "")}>
+                  <i>{ICONS[item.icon]}</i> <span className="nav-label">{item.label}</span>
+                </NavLink>
+              ))
+          : groups.map((group) => {
+              const isOpen = openGroups.has(group.label);
+              return (
+                <div className="nav-group" key={group.label}>
+                  <button type="button" className="nav-group-header" aria-expanded={isOpen} onClick={() => toggleGroup(group.label)}>
+                    <span className="nav-group-label">{group.label}</span>
+                    <svg
+                      className="nav-group-chevron"
+                      style={{ transform: isOpen ? "rotate(180deg)" : "none" }}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </button>
+                  <div className={`nav-group-items${isOpen ? " open" : ""}`}>
+                    {group.items.map((item) => (
+                      <NavLink key={item.to} to={item.to} onClick={onNavigate} title={item.label} className={({ isActive }) => (isActive ? "active" : "")}>
+                        <i>{ICONS[item.icon]}</i> <span className="nav-label">{item.label}</span>
+                      </NavLink>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
       </nav>
       {user.isDemoReviewer && (
         <div className="role-switch-grid">

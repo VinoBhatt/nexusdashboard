@@ -47,24 +47,23 @@ function statusClass(status: string) {
   return "default";
 }
 
-export default function CampaignManagerNotes() {
+export default function AdminRepayments() {
   const [openId, setOpenId] = useState<string | null>(null);
-  const [disbursementDate, setDisbursementDate] = useState(new Date().toISOString().slice(0, 10));
   const qc = useQueryClient();
   const toast = useToast();
 
-  const { data, isLoading, isError, refetch: refetchNotes } = useQuery({ queryKey: ["cm", "notes"], queryFn: () => apiGet<{ notes: Note[] }>("/api/campaign-manager/notes") });
+  const { data, isLoading, isError, refetch: refetchNotes } = useQuery({ queryKey: ["admin", "repayments"], queryFn: () => apiGet<{ notes: Note[] }>("/api/admin/repayments") });
   const { data: detail, refetch } = useQuery({
-    queryKey: ["cm", "note", openId],
-    queryFn: () => apiGet<NoteDetail>(`/api/campaign-manager/notes/${openId}`),
+    queryKey: ["admin", "repayment", openId],
+    queryFn: () => apiGet<NoteDetail>(`/api/admin/repayments/${openId}`),
     enabled: !!openId,
   });
 
-  const disburse = useMutation({
-    mutationFn: () => apiPost(`/api/campaign-manager/notes/${openId}/disburse`, { disbursementDate }),
+  const recordPayment = useMutation({
+    mutationFn: (installmentId: string) => apiPost(`/api/admin/repayments/${openId}/payment`, { installmentId }),
     onSuccess: () => {
-      toast(`${openId} disbursed. Status moved to Ongoing.`);
-      qc.invalidateQueries({ queryKey: ["cm"] });
+      toast("Payment recorded.");
+      qc.invalidateQueries({ queryKey: ["admin", "repayments"] });
       refetch();
     },
     onError: (e: Error) => toast(e.message),
@@ -83,44 +82,42 @@ export default function CampaignManagerNotes() {
 
   if (openId && detail) {
     const { facility, schedule, positions, fundedAmount, uniqueInvestors } = detail;
+    const currentDue = schedule.find((i) => i.status === "Upcoming" || i.status === "Overdue");
     return (
       <>
-        <PageHeader title={facility.id} description={facility.noteName ?? facility.issuerName} actions={
-          <button className="btn secondary" onClick={() => setOpenId(null)}>
-            Back to Notes
-          </button>
-        } />
+        <PageHeader
+          title={facility.id}
+          description={facility.noteName ?? facility.issuerName}
+          actions={
+            <button className="btn secondary" onClick={() => setOpenId(null)}>
+              Back to Repayments
+            </button>
+          }
+        />
         <div className="card">
           <div className="section-head">
             <h3>General Information</h3>
             <span className={`status ${statusClass(facility.status)}`}>{facility.status}</span>
           </div>
           <div className="grid cols-3">
-            <div className="metric"><div className="label">Financing amount</div><div className="value">{money(facility.principalAmount)}</div></div>
-            <div className="metric"><div className="label">Rate</div><div className="value">{facility.ratePct}% p.a.</div></div>
-            <div className="metric"><div className="label">Tenor</div><div className="value">{facility.tenorDays} days</div></div>
+            <div className="metric">
+              <div className="label">Financing amount</div>
+              <div className="value">{money(facility.principalAmount)}</div>
+            </div>
+            <div className="metric">
+              <div className="label">Rate</div>
+              <div className="value">{facility.ratePct}% p.a.</div>
+            </div>
+            <div className="metric">
+              <div className="label">Tenor</div>
+              <div className="value">{facility.tenorDays} days</div>
+            </div>
           </div>
         </div>
-
-        {facility.status === "Open" && (
-          <div className="card">
-            <div className="section-head">
-              <h3>Disburse Note</h3>
-            </div>
-            <div className="field" style={{ maxWidth: 280 }}>
-              <label htmlFor="disbursementDate">Disbursement Date</label>
-              <input id="disbursementDate" type="date" value={disbursementDate} onChange={(e) => setDisbursementDate(e.target.value)} />
-            </div>
-            <button className="btn primary" disabled={disburse.isPending} onClick={() => disburse.mutate()}>
-              Confirm Disbursement
-            </button>
-          </div>
-        )}
 
         <div className="card">
           <div className="section-head">
             <h3>Repayment Schedule</h3>
-            <span className="sub">Read-only monitoring - payments are recorded by Admin.</span>
           </div>
           <table>
             <thead>
@@ -130,6 +127,7 @@ export default function CampaignManagerNotes() {
                 <th>Principal</th>
                 <th>Profit</th>
                 <th>Status</th>
+                {facility.status === "Ongoing" && <th>Action</th>}
               </tr>
             </thead>
             <tbody>
@@ -140,6 +138,15 @@ export default function CampaignManagerNotes() {
                   <td>{money(i.principalDue)}</td>
                   <td>{money(i.profitDue)}</td>
                   <td>{i.status}</td>
+                  {facility.status === "Ongoing" && (
+                    <td>
+                      {currentDue?.id === i.id && (
+                        <button className="btn small" disabled={recordPayment.isPending} onClick={() => recordPayment.mutate(i.id)}>
+                          Mark as Paid
+                        </button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -151,8 +158,14 @@ export default function CampaignManagerNotes() {
             <h3>Funded Information</h3>
           </div>
           <div className="grid cols-2">
-            <div className="metric"><div className="label">Funded amount</div><div className="value">{money(fundedAmount)}</div></div>
-            <div className="metric"><div className="label">Number of investors</div><div className="value">{uniqueInvestors}</div></div>
+            <div className="metric">
+              <div className="label">Funded amount</div>
+              <div className="value">{money(fundedAmount)}</div>
+            </div>
+            <div className="metric">
+              <div className="label">Number of investors</div>
+              <div className="value">{uniqueInvestors}</div>
+            </div>
           </div>
           <div className="list" style={{ marginTop: 12 }}>
             {positions.map((p, idx) => (
@@ -173,7 +186,7 @@ export default function CampaignManagerNotes() {
 
   return (
     <>
-      <PageHeader title="Notes" description="Live, ongoing, completed and defaulted financing notes." />
+      <PageHeader title="Repayments" description="Record repayments against live, ongoing, completed and defaulted financing notes." />
       <div className="card">
         <DataTable
           columns={[...columns, { key: "actions", label: "", render: (n) => <button className="btn small" onClick={() => setOpenId(n.id)}>View</button> } as Column<Note>]}

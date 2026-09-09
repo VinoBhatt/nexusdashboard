@@ -13,7 +13,7 @@ test.describe("Admin approvals", () => {
     expect(JSON.parse(profileBefore.body).kycStatus).toBe("Pending");
 
     await logout(page);
-    await login(page, DEMO_ACCOUNTS.admin);
+    await login(page, DEMO_ACCOUNTS.ceo);
     await page.getByRole("link", { name: "Risk & Approvals", exact: true }).click();
 
     const row = page.locator(".list-item", { hasText: "Playwright Newbie" });
@@ -32,7 +32,7 @@ test.describe("Admin approvals", () => {
   });
 
   test("investors and issuers directories are sortable", async ({ page }) => {
-    await login(page, DEMO_ACCOUNTS.admin);
+    await login(page, DEMO_ACCOUNTS.ceo);
     await page.getByRole("link", { name: "Investors", exact: true }).click();
     const nameHeader = page.locator("th", { hasText: "Name" });
     await expect(nameHeader).toBeVisible();
@@ -41,7 +41,7 @@ test.describe("Admin approvals", () => {
   });
 
   test("clicking an investor row drills into their detail page", async ({ page }) => {
-    await login(page, DEMO_ACCOUNTS.admin);
+    await login(page, DEMO_ACCOUNTS.ceo);
     await page.getByRole("link", { name: "Investors", exact: true }).click();
     await expect(page.getByRole("link", { name: "Export CSV" })).toHaveAttribute("href", "/api/admin/export/investors.csv");
 
@@ -55,7 +55,7 @@ test.describe("Admin approvals", () => {
   });
 
   test("clicking an issuer row drills into their detail page", async ({ page }) => {
-    await login(page, DEMO_ACCOUNTS.admin);
+    await login(page, DEMO_ACCOUNTS.ceo);
     await page.getByRole("link", { name: "Issuers", exact: true }).click();
     await expect(page.getByRole("link", { name: "Export CSV" })).toHaveAttribute("href", "/api/admin/export/issuers.csv");
 
@@ -68,7 +68,7 @@ test.describe("Admin approvals", () => {
   });
 
   test("the Approved and Rejected tabs show decided approval history, not just Pending", async ({ page }) => {
-    await login(page, DEMO_ACCOUNTS.admin);
+    await login(page, DEMO_ACCOUNTS.ceo);
     await page.getByRole("link", { name: "Risk & Approvals", exact: true }).click();
 
     await page.getByRole("button", { name: "Approved", exact: true }).click();
@@ -83,7 +83,7 @@ test.describe("Admin approvals", () => {
   });
 
   test("the platform Activity Log shows both admin decisions and corporate order events", async ({ page }) => {
-    await login(page, DEMO_ACCOUNTS.admin);
+    await login(page, DEMO_ACCOUNTS.ceo);
     await page.getByRole("link", { name: "Activity Log", exact: true }).click();
 
     // Seeded admin decisions.
@@ -98,7 +98,7 @@ test.describe("Admin approvals", () => {
   });
 
   test("Overview shows the financing pipeline, campaigns launched and platform revenue", async ({ page }) => {
-    await login(page, DEMO_ACCOUNTS.admin);
+    await login(page, DEMO_ACCOUNTS.ceo);
 
     await expect(page.getByText("Average Profit Rate")).toBeVisible();
     await expect(page.getByText("Average ticket size")).toBeVisible();
@@ -117,6 +117,23 @@ test.describe("Admin approvals", () => {
     expect(revenueJson.totalProfitPaidToInvestors).toBeGreaterThan(0);
     expect(revenueJson.platformProfitShare).toBeCloseTo(revenueJson.totalProfitPaidToInvestors * 0.2, 2);
     expect(revenueJson.totalFeesCollected).toBeGreaterThan(0);
+  });
+
+  test("Admin records a repayment on an Ongoing note (repayment mechanism moved from Campaign Manager)", async ({ page }) => {
+    await login(page, DEMO_ACCOUNTS.admin);
+    await page.getByRole("link", { name: "Record Repayments", exact: true }).click();
+
+    // MBIBG-26080001 (not MBIBG-26070005 - that one's installment #2 is a
+    // deliberately-unpaid "Overdue" fixture other specs depend on) has a
+    // real seeded Upcoming schedule ready to be marked paid here.
+    const scheduleRow = page.locator("tbody tr", { hasText: "MBIBG-26080001" });
+    await expect(scheduleRow).toBeVisible();
+    await scheduleRow.getByRole("button", { name: "View" }).click();
+    const upcomingRow = page.locator("tr", { hasText: "Upcoming" }).first();
+    await expect(upcomingRow).toBeVisible();
+    await upcomingRow.getByRole("button", { name: "Mark as Paid" }).click();
+    await expect(page.locator("#toast")).toContainText("Payment recorded");
+    await expect(page.locator("tr", { hasText: "Paid" }).first()).toBeVisible();
   });
 
   test("Reports page offers a real PDF platform summary and CSV exports", async ({ page }) => {

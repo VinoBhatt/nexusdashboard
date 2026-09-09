@@ -6,7 +6,10 @@ export const DEMO_ACCOUNTS = {
   retail: "joshua@cofundr.demo",
   corporateMaker: "treasury@abctreasury.demo",
   corporateChecker: "checker@abctreasury.demo",
-  admin: "sarah.lim@cofundr.demo",
+  // CEO: overall dashboard view + KYC/risk approvals (admin.ts, shared with admin).
+  ceo: "sarah.lim@cofundr.demo",
+  // Admin: reporting (regulatory/MyCIF, admin.ts-only) + the repayment mechanism.
+  admin: "farah.rahman@cofundr.demo",
   issuer: "finance@sunwaybiz.demo",
   campaignManager: "ops@cofundr.demo",
 } as const;
