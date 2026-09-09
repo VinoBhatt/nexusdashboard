@@ -173,4 +173,45 @@ test.describe("Barrier 2: activation", () => {
     await page.getByLabel("Search investor").fill("Playwright Treasury");
     await expect(page.locator("table", { hasText: "Playwright Treasury Sdn Bhd" })).toBeVisible();
   });
+
+  test("resetting onboarding lets the same account activate again from scratch", async ({ page }) => {
+    const email = `pw-reset-onboarding-${Date.now()}@test.com`;
+    await signupRetail(page, { displayName: "Reset Onboarding Tester", email });
+
+    await page.goto("/app/activate");
+    await page.getByLabel("Occupation").selectOption("Employed");
+    await page.getByLabel("Employer / company name").fill("Petronas Bhd");
+    await page.getByLabel("Gross annual income").selectOption("RM50,000 - RM100,000");
+    await page.getByLabel("Total net worth").selectOption("RM100,000 - RM250,000");
+    await page.getByLabel("Source of funds").selectOption("Employment income");
+    await page.getByRole("button", { name: "Activate investor profile" }).click();
+    await page.waitForURL("**/app/overview");
+
+    await page.goto("/app/activate");
+    await expect(page.getByText("You're already activated")).toBeVisible();
+
+    await page.getByRole("button", { name: "Reset Onboarding" }).click();
+    await page.locator(".modal.show").getByRole("button", { name: "Reset Onboarding" }).click();
+    await expect(page.locator("#toast")).toContainText("Onboarding reset");
+
+    // The wizard is offered again instead of the already-activated guard.
+    await expect(page.getByText("You're already activated")).toHaveCount(0);
+    await expect(page.getByLabel("Occupation")).toBeVisible();
+
+    const status = await apiFetch(page, "/api/activate/status");
+    const statusJson = JSON.parse(status.body);
+    expect(statusJson.activated.individual).toBe(false);
+
+    // The same login can activate again, proving it's a real blank slate.
+    await page.getByLabel("Occupation").selectOption("Employed");
+    await page.getByLabel("Employer / company name").fill("Petronas Bhd");
+    await page.getByLabel("Gross annual income").selectOption("RM50,000 - RM100,000");
+    await page.getByLabel("Total net worth").selectOption("RM100,000 - RM250,000");
+    await page.getByLabel("Source of funds").selectOption("Employment income");
+    await page.getByRole("button", { name: "Activate investor profile" }).click();
+    await page.waitForURL("**/app/overview");
+
+    const statusAfter = await apiFetch(page, "/api/activate/status");
+    expect(JSON.parse(statusAfter.body).activated.individual).toBe(true);
+  });
 });

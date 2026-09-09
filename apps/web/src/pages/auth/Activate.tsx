@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../context/AuthContext";
 import { apiGet, apiPostForm } from "../../lib/api";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { SkeletonPage, QueryError } from "../../components/QueryState";
 import {
   NATURE_OF_JOB,
@@ -26,12 +27,15 @@ interface ActivationStatus {
 }
 
 export default function Activate() {
-  const { activateIndividual, activateCorporate, activateIssuer } = useAuth();
+  const { user, activateIndividual, activateCorporate, activateIssuer, resetOnboarding } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
+  const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>("individual");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const { data: status, isLoading, isError, refetch } = useQuery({ queryKey: ["activate", "status"], queryFn: () => apiGet<ActivationStatus>("/api/activate/status") });
 
@@ -163,6 +167,20 @@ export default function Activate() {
 
   const alreadyActivated = status?.activated.individual || status?.activated.corporate || status?.activated.issuer;
 
+  async function handleResetOnboarding() {
+    setResetting(true);
+    try {
+      await resetOnboarding();
+      qc.invalidateQueries();
+      toast("Onboarding reset. This account can go through activation again.");
+      setConfirmReset(false);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Reset failed");
+    } finally {
+      setResetting(false);
+    }
+  }
+
   if (isLoading) return <SkeletonPage />;
   if (isError) return <QueryError onRetry={() => refetch()} />;
 
@@ -177,6 +195,27 @@ export default function Activate() {
             Go to dashboard
           </button>
         </div>
+        {!user?.isDemoReviewer && (
+          <div className="card" style={{ marginTop: 16 }}>
+            <h3>Reshow the onboarding demo</h3>
+            <p className="sub">
+              Resets this account back to its pre-activation state (removes its investor/corporate/issuer profile, wallet, holdings and
+              demo activity) so you can walk through Start Investing again from scratch. Your login stays the same.
+            </p>
+            <button className="btn small danger" style={{ marginTop: 12 }} onClick={() => setConfirmReset(true)}>
+              Reset Onboarding
+            </button>
+          </div>
+        )}
+        <ConfirmDialog
+          open={confirmReset}
+          title="Reset onboarding?"
+          description="This removes this account's activated profile, wallet and any demo activity so it can go through Start Investing again. Your login and identity details stay the same."
+          confirmLabel={resetting ? "Resetting…" : "Reset Onboarding"}
+          danger
+          onConfirm={handleResetOnboarding}
+          onCancel={() => setConfirmReset(false)}
+        />
       </>
     );
   }

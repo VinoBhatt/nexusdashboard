@@ -12,6 +12,12 @@ import {
   wallets,
   approvals,
   kycAuditLog,
+  documents,
+  holdings,
+  secondaryListings,
+  transactions,
+  deposits,
+  withdrawals,
 } from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { resolveSession, readSessionCookie } from "../auth/session";
@@ -247,6 +253,46 @@ activate.post("/issuer", async (c) => {
 
   const refreshed = await refreshSessionUser(c);
   return c.json({ ok: true, user: refreshed }, 201);
+});
+
+// ---- Reset: undo Barrier 2 activation so the same login can re-run the
+// onboarding demo (Start Investing -> Individual/Corporate/Issuer) without
+// needing a fresh signup email each time. Demo-reviewer personas are
+// excluded - they're the fixed accounts the role-switcher depends on.
+// Keeps the users row (and Barrier 1 kycProfiles capture) intact; only
+// undoes what activation itself created, plus any demo activity that
+// piled up under it (holdings/transactions/deposits/withdrawals/documents),
+// mirroring account.ts's DELETE / cleanup so re-activating starts from a
+// genuinely blank slate rather than a stale funded dashboard. ----
+
+activate.post("/reset", async (c) => {
+  const user = c.get("user");
+  if (user.isDemoReviewer) return c.json({ error: "forbidden", message: "Demo accounts cannot be reset." }, 403);
+
+  const db = drizzle(c.env.DB);
+
+  const [corpUser] = await db.select().from(corporateUsers).where(eq(corporateUsers.userId, user.id)).limit(1);
+  if (corpUser) {
+    await db.delete(approvals).where(eq(approvals.subjectId, corpUser.corporateAccountId));
+    await db.delete(corporateUsers).where(eq(corporateUsers.userId, user.id));
+    await db.delete(corporateAccounts).where(eq(corporateAccounts.id, corpUser.corporateAccountId));
+  }
+
+  await db.delete(secondaryListings).where(eq(secondaryListings.sellerId, user.id));
+  await db.delete(holdings).where(eq(holdings.investorId, user.id));
+  await db.delete(transactions).where(eq(transactions.accountId, user.id));
+  await db.delete(deposits).where(eq(deposits.investorId, user.id));
+  await db.delete(withdrawals).where(eq(withdrawals.investorId, user.id));
+  await db.delete(documents).where(eq(documents.ownerId, user.id));
+  await db.delete(investorProfiles).where(eq(investorProfiles.userId, user.id));
+  await db.delete(issuerProfiles).where(eq(issuerProfiles.userId, user.id));
+  await db.delete(approvals).where(eq(approvals.subjectId, user.id));
+  await db.delete(kycAuditLog).where(eq(kycAuditLog.userId, user.id));
+  await db.delete(wallets).where(eq(wallets.userId, user.id));
+  await db.update(users).set({ role: "retail", updatedAt: new Date() }).where(eq(users.id, user.id));
+
+  const refreshed = await refreshSessionUser(c);
+  return c.json({ ok: true, user: refreshed });
 });
 
 // ---- Status: what (if anything) this user has activated + their wallets ----

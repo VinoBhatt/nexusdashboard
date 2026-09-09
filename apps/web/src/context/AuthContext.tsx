@@ -72,6 +72,7 @@ interface AuthContextValue {
   activateIndividual: (input: IndividualActivationInput) => Promise<void>;
   activateCorporate: (input: CorporateActivationInput) => Promise<void>;
   activateIssuer: (input: IssuerActivationInput) => Promise<void>;
+  resetOnboarding: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -141,6 +142,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       qc.invalidateQueries();
     },
   });
+  const resetOnboardingMutation = useMutation({
+    mutationFn: () => apiPost<{ user: SessionUser }>("/api/activate/reset"),
+    onSuccess: (res) => {
+      qc.setQueryData(["me"], res.user);
+      qc.invalidateQueries();
+    },
+  });
 
   const value: AuthContextValue = {
     user: meQuery.data ?? null,
@@ -165,6 +173,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     activateIssuer: async (input) => {
       await activateIssuerMutation.mutateAsync(input);
+    },
+    resetOnboarding: async () => {
+      await resetOnboardingMutation.mutateAsync();
     },
   };
 
