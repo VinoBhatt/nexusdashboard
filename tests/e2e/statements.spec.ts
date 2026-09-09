@@ -9,7 +9,10 @@ test.describe("Statements", () => {
     // Only "View" is offered in the list - Download lives inside the view.
     await expect(page.locator(".list").getByRole("link", { name: "Download" })).toHaveCount(0);
 
-    await page.getByRole("button", { name: "View" }).first().click();
+    // Scoped to .list with an exact match - an unscoped, substring "View"
+    // match also hits the sidebar's "Overview" nav-group toggle button
+    // (which contains "view" as a substring) and sits earlier in the DOM.
+    await page.locator(".list").getByRole("button", { name: "View", exact: true }).first().click();
     await expect(page.locator(".modal.show")).toContainText("Statement");
     await expect(page.locator(".modal.show")).toContainText("Cash Balance");
     await expect(page.locator(".modal.show .table")).toBeVisible();

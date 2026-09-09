@@ -40,7 +40,10 @@ test.describe("Retail investor", () => {
     await expect(page.locator("#toast")).toContainText("FPX deposit confirmed");
 
     await page.getByRole("link", { name: "Notes Available", exact: true }).click();
-    await page.getByRole("button", { name: "Invest", exact: true }).first().click();
+    // Scoped to <main> - the sidebar's "Invest" nav-group toggle button has
+    // the same accessible name and sits earlier in the DOM, so an unscoped
+    // locator's .first() would click that instead of a note's Invest button.
+    await page.locator("main").getByRole("button", { name: "Invest", exact: true }).first().click();
 
     // Header row plus at least one real installment row.
     const rows = page.locator(".modal.show .table tbody tr");
