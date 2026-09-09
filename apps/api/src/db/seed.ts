@@ -91,6 +91,92 @@ async function main() {
     );
   }
 
+  // ---- Servicing engine demo facilities (Stage 1) ----
+  // Two purpose-built facilities whose holdings actually reconcile to
+  // principal (progress = 100, SUM(holdings.amountInvested) = principalAmount
+  // exactly) - one Islamic (ta'widh/deferred-profit), one Conventional (late
+  // interest), with explicit structure config so the new servicing engine has
+  // real, non-null numbers to compute against. Deliberately new facilities
+  // rather than retrofitting existing seeded ones: several of those already
+  // have holdings that diverge from their seeded fundingProgressPct, and 6+
+  // e2e specs assert on their exact current numbers.
+  const servicingFacilities = [
+    {
+      id: "IIF2200-01082026",
+      name: "Halal Logistics Working Capital 20",
+      group: "Working Capital",
+      type: "Working Capital",
+      tier: "B+",
+      rate: 15,
+      tenor: 75,
+      min: 100,
+      max: 16000,
+      amount: 16000,
+      service: 8,
+      issuer: "Sunway Business Solutions",
+      status: "Ongoing",
+      issuerUserId,
+      campaignStart: "2026-07-16",
+      campaignEnd: "2026-07-23",
+      structure: "Islamic" as const,
+      config: { deferredProfitCapRateBps: 900, deferredProfitMaximumDays: 180, tawidhRateBps: 100, lateInterestRateBps: null, dayCountBasis: 360, platformFeeBps: 2000, sstRateBps: 800, delinquentDays: 30, defaultDays: 90 },
+    },
+    {
+      id: "WC2200-01082026",
+      name: "Coastal Fisheries Working Capital 21",
+      group: "Working Capital",
+      type: "Working Capital",
+      tier: "B",
+      rate: 16,
+      tenor: 180,
+      min: 100,
+      max: 20000,
+      amount: 20000,
+      service: 6,
+      issuer: "Coastal Fisheries Sdn Bhd",
+      status: "Ongoing",
+      issuerUserId: null,
+      campaignStart: "2026-07-31",
+      campaignEnd: "2026-08-07",
+      structure: "Conventional" as const,
+      config: { deferredProfitCapRateBps: null, deferredProfitMaximumDays: null, tawidhRateBps: null, lateInterestRateBps: 1800, dayCountBasis: 360, platformFeeBps: 2000, sstRateBps: 800, delinquentDays: 30, defaultDays: 90 },
+    },
+  ];
+  for (const f of servicingFacilities) {
+    const c = f.config;
+    statements.push(
+      `INSERT INTO financing_facilities (id, issuer_user_id, product_group, financing_type, risk_tier, rate_pct, tenor_days, days_elapsed, min_investment, max_investment, funding_progress_pct, principal_amount, service_fee_pct, issuer_name, status, note_name, campaign_start, campaign_end, repayment_structure, islamic_conventional, deferred_profit_cap_rate_bps, deferred_profit_maximum_days, tawidh_rate_bps, late_interest_rate_bps, day_count_basis, platform_fee_bps, sst_rate_bps, delinquent_days, default_days, facility_principal_outstanding, created_at) VALUES (${sqlStr(f.id)}, ${sqlStr(f.issuerUserId)}, ${sqlStr(f.group)}, ${sqlStr(f.type)}, ${sqlStr(f.tier)}, ${sqlNum(f.rate)}, ${sqlNum(f.tenor)}, 0, ${sqlNum(f.min)}, ${sqlNum(f.max)}, 100, ${sqlNum(f.amount)}, ${sqlNum(f.service)}, ${sqlStr(f.issuer)}, ${sqlStr(f.status)}, ${sqlStr(f.name)}, ${sqlStr(f.campaignStart)}, ${sqlStr(f.campaignEnd)}, 'Bullet Principal, Monthly Profit', ${sqlStr(f.structure)}, ${c.deferredProfitCapRateBps === null ? "NULL" : sqlNum(c.deferredProfitCapRateBps)}, ${c.deferredProfitMaximumDays === null ? "NULL" : sqlNum(c.deferredProfitMaximumDays)}, ${c.tawidhRateBps === null ? "NULL" : sqlNum(c.tawidhRateBps)}, ${c.lateInterestRateBps === null ? "NULL" : sqlNum(c.lateInterestRateBps)}, ${sqlNum(c.dayCountBasis)}, ${sqlNum(c.platformFeeBps)}, ${sqlNum(c.sstRateBps)}, ${sqlNum(c.delinquentDays)}, ${sqlNum(c.defaultDays)}, ${sqlNum(f.amount)}, ${sqlTs(now)});`
+    );
+  }
+
+  // Islamic demo note: 3 monthly instalments, bullet principal at the last
+  // one, first instalment already overdue so the servicing engine (once
+  // wired to a route in Stage 2) has real ta'widh/deferred-profit to show.
+  const islamicInstalments = [
+    { i: 1, dueDate: "2026-07-23", principal: 0, profit: 166.67, status: "Overdue" },
+    { i: 2, dueDate: "2026-08-23", principal: 0, profit: 166.67, status: "Upcoming" },
+    { i: 3, dueDate: "2026-09-23", principal: 16000, profit: 166.67, status: "Upcoming" },
+  ];
+  for (const row of islamicInstalments) {
+    statements.push(
+      `INSERT INTO repayment_installments (id, facility_id, installment_no, due_date, principal_due, profit_due, fee_due, status) VALUES (${sqlStr(`IIF2200-01082026-${row.i}`)}, 'IIF2200-01082026', ${row.i}, ${sqlStr(row.dueDate)}, ${sqlNum(row.principal)}, ${sqlNum(row.profit)}, 0, ${sqlStr(row.status)});`
+    );
+  }
+  // Conventional demo note: 6 even monthly instalments, first already overdue.
+  const conventionalInstalments = [
+    { i: 1, dueDate: "2026-08-07", principal: 3333.33, profit: 266.67, status: "Overdue" },
+    { i: 2, dueDate: "2026-09-07", principal: 3333.33, profit: 222.22, status: "Upcoming" },
+    { i: 3, dueDate: "2026-10-07", principal: 3333.33, profit: 177.78, status: "Upcoming" },
+    { i: 4, dueDate: "2026-11-07", principal: 3333.33, profit: 133.33, status: "Upcoming" },
+    { i: 5, dueDate: "2026-12-07", principal: 3333.33, profit: 88.89, status: "Upcoming" },
+    { i: 6, dueDate: "2027-01-07", principal: 3333.35, profit: 44.44, status: "Upcoming" },
+  ];
+  for (const row of conventionalInstalments) {
+    statements.push(
+      `INSERT INTO repayment_installments (id, facility_id, installment_no, due_date, principal_due, profit_due, fee_due, status) VALUES (${sqlStr(`WC2200-01082026-${row.i}`)}, 'WC2200-01082026', ${row.i}, ${sqlStr(row.dueDate)}, ${sqlNum(row.principal)}, ${sqlNum(row.profit)}, 0, ${sqlStr(row.status)});`
+    );
+  }
+
   // Repayment schedules (mirrors legacy buildSchedule()): 18 monthly
   // installments for the 18-month facility, 3 for the 90-day one.
   const scheduleFacilityId = "MBIBG-26070005";
@@ -156,6 +242,11 @@ async function main() {
     { id: "holding-3", facility: "MBIDG-26070001", status: "Default", invested: 100, expected: 110.50, actual: 0, eligible: false },
     { id: "holding-4", facility: "WC1881-08082024", status: "Default", invested: 4.65, expected: 0, actual: 0, eligible: false },
     { id: "holding-5", facility: "MBSG-25080014", status: "Completed", invested: 100, expected: 100.50, actual: 100.50, eligible: false },
+    // Servicing engine demo facilities (Stage 1) - single holding per
+    // facility, invested amount equal to the full principal, so
+    // SUM(holdings.amountInvested) reconciles exactly to principalAmount.
+    { id: "holding-6", facility: "IIF2200-01082026", status: "Ongoing", invested: 16000, expected: 16500.01, actual: 0, eligible: false },
+    { id: "holding-7", facility: "WC2200-01082026", status: "Ongoing", invested: 20000, expected: 20933.34, actual: 0, eligible: false },
   ];
   for (const h of holdings) {
     statements.push(

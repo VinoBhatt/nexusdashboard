@@ -1,8 +1,26 @@
 import { drizzle } from "drizzle-orm/d1";
-import { eq } from "drizzle-orm";
-import { holdings, investorProfiles, transactions } from "../db/schema";
+import { eq, sql } from "drizzle-orm";
+import { financingFacilities, holdings, investorProfiles, transactions } from "../db/schema";
 
 type Db = ReturnType<typeof drizzle>;
+
+/**
+ * Recomputes `fundingProgressPct` from the actual subscribed pool
+ * (SUM(holdings.amountInvested)), rather than leaving it as the stale,
+ * seed-time-only value it's been until now. Called after every *primary*
+ * investment (new capital into the facility) - never after a secondary-market
+ * resale, which transfers existing ownership rather than adding new principal.
+ */
+export async function recomputeFundingProgress(db: Db, facilityId: string): Promise<void> {
+  const [facilityRow] = await db.select({ principalAmount: financingFacilities.principalAmount }).from(financingFacilities).where(eq(financingFacilities.id, facilityId)).limit(1);
+  if (!facilityRow || facilityRow.principalAmount <= 0) return;
+  const [pool] = await db
+    .select({ total: sql<number>`coalesce(sum(${holdings.amountInvested}), 0)` })
+    .from(holdings)
+    .where(eq(holdings.facilityId, facilityId));
+  const fundingProgressPct = Math.min(100, +((pool.total / facilityRow.principalAmount) * 100).toFixed(2));
+  await db.update(financingFacilities).set({ fundingProgressPct }).where(eq(financingFacilities.id, facilityId));
+}
 
 export async function investInFacility(
   db: Db,
@@ -46,6 +64,7 @@ export async function investInFacility(
     status: "Confirmed",
     referenceJson: JSON.stringify({ facilityId: facility.id }),
   });
+  await recomputeFundingProgress(db, facility.id);
 
   return { ok: true, holdingId };
 }

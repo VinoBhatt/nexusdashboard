@@ -7,6 +7,7 @@ import { subwallets, orders, corporateUsers, users, metricsSnapshots, financingF
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
 import { resolveCorporateContext, getCorporateAccount } from "../auth/corporateContext";
+import { recomputeFundingProgress } from "../lib/invest";
 
 const corporate = new Hono<AuthedEnv>();
 corporate.use("*", requireAuth, requireRole("corporate"));
@@ -273,6 +274,7 @@ corporate.post("/orders/:id/approve", async (c) => {
       status: "Confirmed",
       referenceJson: JSON.stringify({ facilityId: facility.id, orderId: order.id }),
     });
+    await recomputeFundingProgress(db, facility.id);
   } else if (order.type === "SecondaryPurchase") {
     if (!order.secondaryListingId || !order.units) return c.json({ error: "invalid_state" }, 409);
     if (order.amount > account.cashBalance) return c.json({ error: "insufficient_balance" }, 400);

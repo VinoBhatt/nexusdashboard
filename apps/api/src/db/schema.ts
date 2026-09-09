@@ -195,6 +195,27 @@ export const financingFacilities = sqliteTable("financing_facilities", {
   mycifKeyMilestones: text("mycif_key_milestones"),
   mycifChallenges: text("mycif_challenges"),
   mycifMitigationStrategies: text("mycif_mitigation_strategies"),
+  // ---- Servicing engine (Islamic ta'widh/deferred-profit + conventional
+  // late-interest accrual, payment waterfall, investor payout splitting) -
+  // see C:\Users\admin\.claude\plans\idempotent-gliding-allen.md. All
+  // nullable with engine-side defaults so existing rows keep working;
+  // islamicConventional above already carries the structure flag but is
+  // NULL on most seeded facilities, so the engine reads it via
+  // COALESCE(islamic_conventional, 'Conventional'), never assuming non-null.
+  deferredProfitCapRateBps: integer("deferred_profit_cap_rate_bps"),
+  deferredProfitMaximumDays: integer("deferred_profit_maximum_days"),
+  tawidhRateBps: integer("tawidh_rate_bps"),
+  lateInterestRateBps: integer("late_interest_rate_bps"),
+  dayCountBasis: integer("day_count_basis"),
+  platformFeeBps: integer("platform_fee_bps"),
+  sstRateBps: integer("sst_rate_bps"),
+  delinquentDays: integer("delinquent_days"),
+  defaultDays: integer("default_days"),
+  // Live outstanding principal balance, decremented as payments are
+  // allocated - replaces deriving this from installment rows so the
+  // servicing engine has a single authoritative running balance. Backfilled
+  // to principalAmount for existing rows by the Stage 1 migration.
+  facilityPrincipalOutstanding: real("facility_principal_outstanding"),
   ...timestamps,
 });
 
@@ -212,6 +233,195 @@ export const repaymentInstallments = sqliteTable("repayment_installments", {
     .notNull()
     .default("Upcoming"),
   paidAt: integer("paid_at", { mode: "timestamp" }),
+  // ---- Servicing engine: richer per-component due/paid breakdown and a
+  // parallel, more granular status. `status` above is untouched and stays
+  // driven by a compatibility mapping (see servicing/servicingEngine.ts) so
+  // the ~15 existing `status === "..."` call sites keep working unmodified;
+  // servicingStatus is the new authoritative field the engine and any new
+  // UI read. ----
+  principalPaid: real("principal_paid").notNull().default(0),
+  profitPaid: real("profit_paid").notNull().default(0),
+  deferredProfitDue: real("deferred_profit_due").notNull().default(0),
+  deferredProfitPaid: real("deferred_profit_paid").notNull().default(0),
+  tawidhDue: real("tawidh_due").notNull().default(0),
+  tawidhPaid: real("tawidh_paid").notNull().default(0),
+  lateInterestDue: real("late_interest_due").notNull().default(0),
+  lateInterestPaid: real("late_interest_paid").notNull().default(0),
+  feesPaid: real("fees_paid").notNull().default(0),
+  servicingStatus: text("servicing_status", {
+    enum: ["UPCOMING", "DUE", "LATE", "DELINQUENT", "DEFAULT", "PAID", "SETTLED_EARLY"],
+  }),
+  originalDueDate: text("original_due_date"),
+  superseded: integer("superseded", { mode: "boolean" }).notNull().default(false),
+  settlementId: text("settlement_id"),
+});
+
+// ---- Servicing engine: payment ledger, investor payouts, held funds,
+// charge/schedule adjustments, early settlement, fee policy history. One
+// row per event, mirroring the prototype's facilityLedger.payments /
+// payoutHistory / heldFunds / chargeAdjustments / scheduleVersions. ----
+
+export const facilityPayments = sqliteTable("facility_payments", {
+  id: id(),
+  facilityId: text("facility_id")
+    .notNull()
+    .references(() => financingFacilities.id),
+  paymentReference: text("payment_reference").notNull(),
+  paymentDate: text("payment_date").notNull(),
+  method: text("method"),
+  bank: text("bank"),
+  receivedFrom: text("received_from"),
+  amount: real("amount").notNull(),
+  // { fees, tawidh, deferredProfit, profit, principal, lateInterest } - only
+  // the components relevant to the facility's structure are populated.
+  allocationJson: text("allocation_json").notNull(),
+  instalmentIdsJson: text("instalment_ids_json").notNull(),
+  trustStatus: text("trust_status", { enum: ["CONFIRMED"] }).notNull().default("CONFIRMED"),
+  allocationStatus: text("allocation_status", { enum: ["RECORDED", "ALLOCATED"] })
+    .notNull()
+    .default("RECORDED"),
+  payoutStatus: text("payout_status", { enum: ["PENDING", "COMPLETED", "EXCEPTION"] })
+    .notNull()
+    .default("PENDING"),
+  recordedBy: text("recorded_by").references(() => users.id),
+  ...timestamps,
+});
+
+export const investorPayouts = sqliteTable("investor_payouts", {
+  id: id(),
+  facilityId: text("facility_id")
+    .notNull()
+    .references(() => financingFacilities.id),
+  paymentId: text("payment_id")
+    .notNull()
+    .references(() => facilityPayments.id),
+  principalTotal: real("principal_total").notNull().default(0),
+  grossScheduledReturnTotal: real("gross_scheduled_return_total").notNull().default(0),
+  grossLateReturnTotal: real("gross_late_return_total").notNull().default(0),
+  platformFeeTotal: real("platform_fee_total").notNull().default(0),
+  sstTotal: real("sst_total").notNull().default(0),
+  walletCreditTotal: real("wallet_credit_total").notNull().default(0),
+  status: text("status", { enum: ["COMPLETED", "EXCEPTION"] }).notNull().default("COMPLETED"),
+  ...timestamps,
+});
+
+export const investorPayoutLines = sqliteTable("investor_payout_lines", {
+  id: id(),
+  payoutId: text("payout_id")
+    .notNull()
+    .references(() => investorPayouts.id),
+  investorId: text("investor_id")
+    .notNull()
+    .references(() => users.id),
+  principalEntitlement: real("principal_entitlement").notNull().default(0),
+  grossScheduledReturn: real("gross_scheduled_return").notNull().default(0),
+  grossLateReturn: real("gross_late_return").notNull().default(0),
+  platformFee: real("platform_fee").notNull().default(0),
+  sst: real("sst").notNull().default(0),
+  netReturn: real("net_return").notNull().default(0),
+  walletCredit: real("wallet_credit").notNull().default(0),
+  status: text("status", { enum: ["PAID", "FAILED"] }).notNull().default("PAID"),
+});
+
+export const heldFunds = sqliteTable("held_funds", {
+  id: id(),
+  facilityId: text("facility_id")
+    .notNull()
+    .references(() => financingFacilities.id),
+  sourcePaymentId: text("source_payment_id")
+    .notNull()
+    .references(() => facilityPayments.id),
+  holdType: text("hold_type", { enum: ["SINKING_FUND", "PENDING_INSTRUCTION", "OTHER"] })
+    .notNull()
+    .default("OTHER"),
+  originalAmount: real("original_amount").notNull(),
+  usedAmount: real("used_amount").notNull().default(0),
+  refundedAmount: real("refunded_amount").notNull().default(0),
+  reason: text("reason"),
+  status: text("status", { enum: ["HELD", "PARTIALLY_APPLIED", "APPLIED"] }).notNull().default("HELD"),
+  approvedBy: text("approved_by").references(() => users.id),
+  ...timestamps,
+});
+
+export const chargeAdjustments = sqliteTable("charge_adjustments", {
+  id: id(),
+  facilityId: text("facility_id")
+    .notNull()
+    .references(() => financingFacilities.id),
+  installmentId: text("installment_id")
+    .notNull()
+    .references(() => repaymentInstallments.id),
+  component: text("component", { enum: ["fees", "tawidh", "deferredProfit", "lateInterest", "profit", "principal"] }).notNull(),
+  type: text("type", {
+    enum: ["FULL_WAIVER", "PARTIAL_WAIVER", "REPLACE_AMOUNT", "INCREASE", "CORRECTION", "RESET"],
+  }).notNull(),
+  amount: real("amount").notNull().default(0),
+  calculatedAmount: real("calculated_amount").notNull(),
+  effectiveAmount: real("effective_amount").notNull(),
+  reason: text("reason").notNull(),
+  effectiveDate: text("effective_date").notNull(),
+  approvedBy: text("approved_by")
+    .notNull()
+    .references(() => users.id),
+  status: text("status", { enum: ["APPROVED", "SUPERSEDED"] }).notNull().default("APPROVED"),
+  ...timestamps,
+});
+
+// One row per governed schedule change - installmentsJson is a full
+// snapshot of the facility's installments at that version, mirroring the
+// prototype's scheduleVersions.
+export const scheduleVersions = sqliteTable("schedule_versions", {
+  id: id(),
+  facilityId: text("facility_id")
+    .notNull()
+    .references(() => financingFacilities.id),
+  version: integer("version").notNull(),
+  type: text("type").notNull(),
+  effectiveDate: text("effective_date").notNull(),
+  reason: text("reason").notNull(),
+  approvedBy: text("approved_by")
+    .notNull()
+    .references(() => users.id),
+  installmentsJson: text("installments_json").notNull(),
+  ...timestamps,
+});
+
+export const earlySettlements = sqliteTable("early_settlements", {
+  id: id(),
+  facilityId: text("facility_id")
+    .notNull()
+    .unique()
+    .references(() => financingFacilities.id),
+  settlementDate: text("settlement_date").notNull(),
+  actualPaymentDate: text("actual_payment_date").notNull(),
+  principalOutstanding: real("principal_outstanding").notNull(),
+  accruedReturn: real("accrued_return").notNull(),
+  lateCharges: real("late_charges").notNull().default(0),
+  otherFees: real("other_fees").notNull().default(0),
+  waiverAmount: real("waiver_amount").notNull().default(0),
+  additionalCharges: real("additional_charges").notNull().default(0),
+  finalSettlementAmount: real("final_settlement_amount").notNull(),
+  status: text("status", { enum: ["APPROVED", "COMPLETED"] }).notNull().default("APPROVED"),
+  reason: text("reason").notNull(),
+  approvedBy: text("approved_by")
+    .notNull()
+    .references(() => users.id),
+  ...timestamps,
+});
+
+export const feePolicyHistory = sqliteTable("fee_policy_history", {
+  id: id(),
+  facilityId: text("facility_id")
+    .notNull()
+    .references(() => financingFacilities.id),
+  previousRateBps: integer("previous_rate_bps"),
+  newRateBps: integer("new_rate_bps").notNull(),
+  reason: text("reason").notNull(),
+  effectiveDate: text("effective_date").notNull(),
+  approvedBy: text("approved_by")
+    .notNull()
+    .references(() => users.id),
+  ...timestamps,
 });
 
 // ---- Investor positions ----
