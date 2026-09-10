@@ -188,6 +188,12 @@ export default function AdminRepayments() {
               <button className="btn small" onClick={() => navigate(`/app/admin-repayments/${facility.id}/adjust-schedule`)}>
                 Adjust Schedule
               </button>
+              <button className="btn small" onClick={() => navigate(`/app/admin-repayments/${facility.id}/early-settlement`)}>
+                Early Settlement
+              </button>
+              <button className="btn small" onClick={() => navigate(`/app/admin-repayments/${facility.id}/platform-fee`)}>
+                Platform Fee
+              </button>
               {facility.status === "Ongoing" && (
                 <button className="btn small primary" onClick={() => navigate(`/app/admin-repayments/${facility.id}/process`)}>
                   Process Payment

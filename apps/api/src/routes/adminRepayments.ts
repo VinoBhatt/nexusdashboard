@@ -21,13 +21,15 @@ import {
   chargeAdjustments,
   scheduleVersions,
   heldFunds,
+  earlySettlements,
+  feePolicyHistory,
 } from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
 import { WATERFALL_ORDER, allocateByWaterfall, validateManualAllocation, calculateInvestorPayouts, toSen, fromSen, mapServicingStatusToLegacyStatus, type FacilityStructure } from "../lib/servicing/calculationEngine";
 import { resolveFacilityServicingConfig, recalculateFacility, applyRecalculation, type InstallmentRow, type InstallmentUpdate, type RecalculateFacilityResult } from "../lib/servicing/servicingEngine";
 import { groupHoldingsByInvestor, getInvestedPoolSen } from "../lib/servicing/projections";
-import { applyChargeAdjustments, effectiveAmount, type EffectiveInstallmentComponents, type ChargeAdjustmentRecord, type ChargeAdjustmentType } from "../lib/servicing/adjustmentEngine";
+import { applyChargeAdjustments, effectiveAmount, settlementPreview, type EffectiveInstallmentComponents, type ChargeAdjustmentRecord, type ChargeAdjustmentType, type SettlementScheduleRow } from "../lib/servicing/adjustmentEngine";
 
 const adminRepayments = new Hono<AuthedEnv>();
 adminRepayments.use("*", requireAuth, requireRole("admin"));
@@ -191,7 +193,32 @@ async function maybeCompleteFacility(db: ReturnType<typeof drizzle>, facilityId:
   if (remaining.length > 0) return false;
   await db.update(financingFacilities).set({ status: "Completed" }).where(eq(financingFacilities.id, facilityId));
   await db.update(holdings).set({ status: "Completed" }).where(eq(holdings.facilityId, facilityId));
+  await db.update(earlySettlements).set({ status: "COMPLETED" }).where(and(eq(earlySettlements.facilityId, facilityId), eq(earlySettlements.status, "APPROVED")));
   return true;
+}
+
+/** Builds the proration input for `settlementPreview` from the facility's
+ * still-outstanding installments. There's no disbursement-date column on
+ * `financingFacilities`, so the very first row's period start falls back to
+ * the campaign end date (the closest existing proxy) - a reasonable
+ * approximation for a preview/settlement calculation, not a schedule-of-record
+ * figure. */
+function buildSettlementRows(facility: typeof financingFacilities.$inferSelect, allInstallments: InstallmentDbRow[]): SettlementScheduleRow[] {
+  const ordered = [...allInstallments].filter((row) => !row.superseded).sort((a, b) => a.installmentNo - b.installmentNo);
+  const rows: SettlementScheduleRow[] = [];
+  ordered.forEach((row, index) => {
+    const principalRemaining = Math.max(0, row.principalDue - row.principalPaid);
+    const profitRemaining = Math.max(0, row.profitDue - row.profitPaid);
+    if (principalRemaining <= 0 && profitRemaining <= 0) return;
+    const periodStartDate = index > 0 ? ordered[index - 1].dueDate : facility.campaignEnd ?? facility.firstPaymentDate ?? row.dueDate;
+    rows.push({
+      dueDate: row.dueDate,
+      periodStartDate,
+      principalRemainingSen: toSen(principalRemaining),
+      scheduledReturnRemainingSen: toSen(profitRemaining),
+    });
+  });
+  return rows;
 }
 
 /** Shared by the normal payment payout and held-funds application - splits one payment's allocation across investors and returns the batched writes plus a JSON-safe summary. */
@@ -302,6 +329,8 @@ adminRepayments.get("/:id", async (c) => {
   const payouts = await db.select().from(investorPayouts).where(eq(investorPayouts.facilityId, id)).orderBy(desc(investorPayouts.createdAt));
   const heldFundsRows = await db.select().from(heldFunds).where(eq(heldFunds.facilityId, id)).orderBy(desc(heldFunds.createdAt));
   const scheduleVersionRows = await db.select().from(scheduleVersions).where(eq(scheduleVersions.facilityId, id)).orderBy(desc(scheduleVersions.version));
+  const [earlySettlement] = await db.select().from(earlySettlements).where(eq(earlySettlements.facilityId, id)).limit(1);
+  const feePolicyHistoryRows = await db.select().from(feePolicyHistory).where(eq(feePolicyHistory.facilityId, id)).orderBy(desc(feePolicyHistory.createdAt));
 
   return c.json({
     facility,
@@ -316,6 +345,8 @@ adminRepayments.get("/:id", async (c) => {
     chargeAdjustments: adjustments,
     heldFunds: heldFundsRows,
     scheduleVersions: scheduleVersionRows,
+    earlySettlement: earlySettlement ?? null,
+    feePolicyHistory: feePolicyHistoryRows,
   });
 });
 
@@ -825,6 +856,172 @@ adminRepayments.post("/:id/held-funds/:holdId/apply", async (c) => {
   const completed = await maybeCompleteFacility(db, facilityId);
 
   return c.json({ ok: true, payout: { id: batch.payoutId, walletCreditTotal: fromSen(batch.payoutResult.walletCreditTotal) }, facilityCompleted: completed });
+});
+
+adminRepayments.get("/:id/early-settlement/preview", async (c) => {
+  const db = drizzle(c.env.DB);
+  const facilityId = c.req.param("id");
+  const settlementDate = c.req.query("settlementDate") || today();
+
+  const [facility] = await db.select().from(financingFacilities).where(eq(financingFacilities.id, facilityId)).limit(1);
+  if (!facility) return c.json({ error: "not_found" }, 404);
+  const [existing] = await db.select().from(earlySettlements).where(eq(earlySettlements.facilityId, facilityId)).limit(1);
+  if (existing) return c.json({ error: "already_settled", settlement: existing }, 409);
+
+  const allInstallments = await db.select().from(repaymentInstallments).where(eq(repaymentInstallments.facilityId, facilityId)).orderBy(repaymentInstallments.installmentNo);
+  const adjustments = await db.select().from(chargeAdjustments).where(eq(chargeAdjustments.facilityId, facilityId));
+  const config = resolveFacilityServicingConfig(facility);
+  const recalc = recalculateFacility(config, allInstallments.map(toInstallmentRow), settlementDate);
+  const updatesById = new Map(recalc.updates.map((u) => [u.id, u]));
+
+  let outstandingLateChargesSen = 0;
+  let otherFeesSen = 0;
+  for (const row of allInstallments) {
+    if (row.superseded) continue;
+    const remaining = installmentRemainingSen(row, updatesById.get(row.id), adjustments);
+    outstandingLateChargesSen += remaining.tawidh + remaining.deferredProfit + remaining.lateInterest;
+    otherFeesSen += remaining.fees;
+  }
+
+  const preview = settlementPreview({ rows: buildSettlementRows(facility, allInstallments), asOfDate: settlementDate, outstandingLateChargesSen, otherFeesSen });
+  return c.json({
+    settlementDate,
+    principalOutstanding: fromSen(preview.principalOutstandingSen),
+    accruedReturn: fromSen(preview.accruedReturnSen),
+    futureReturnWaived: fromSen(preview.futureReturnWaivedSen),
+    lateCharges: fromSen(preview.lateChargesSen),
+    otherFees: fromSen(preview.otherFeesSen),
+    finalSettlementAmount: fromSen(preview.finalSettlementAmountSen),
+  });
+});
+
+const earlySettlementSchema = z.object({
+  settlementDate: z.string().min(1),
+  actualPaymentDate: z.string().min(1),
+  reason: z.string().min(1),
+  waiverAmount: z.number().min(0).optional(),
+  additionalCharges: z.number().min(0).optional(),
+});
+
+adminRepayments.post("/:id/early-settlement/approve", async (c) => {
+  const parsed = earlySettlementSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
+  const db = drizzle(c.env.DB);
+  const facilityId = c.req.param("id");
+
+  const [facility] = await db.select().from(financingFacilities).where(eq(financingFacilities.id, facilityId)).limit(1);
+  if (!facility) return c.json({ error: "not_found" }, 404);
+  const [existing] = await db.select().from(earlySettlements).where(eq(earlySettlements.facilityId, facilityId)).limit(1);
+  if (existing) return c.json({ error: "already_settled" }, 409);
+
+  const allInstallments = await db.select().from(repaymentInstallments).where(eq(repaymentInstallments.facilityId, facilityId)).orderBy(repaymentInstallments.installmentNo);
+  const adjustments = await db.select().from(chargeAdjustments).where(eq(chargeAdjustments.facilityId, facilityId));
+  const config = resolveFacilityServicingConfig(facility);
+  const recalc = recalculateFacility(config, allInstallments.map(toInstallmentRow), parsed.data.settlementDate);
+  const updatesById = new Map(recalc.updates.map((u) => [u.id, u]));
+
+  let outstandingLateChargesSen = 0;
+  let otherFeesSen = 0;
+  for (const row of allInstallments) {
+    if (row.superseded) continue;
+    const remaining = installmentRemainingSen(row, updatesById.get(row.id), adjustments);
+    outstandingLateChargesSen += remaining.tawidh + remaining.deferredProfit + remaining.lateInterest;
+    otherFeesSen += remaining.fees;
+  }
+  const preview = settlementPreview({ rows: buildSettlementRows(facility, allInstallments), asOfDate: parsed.data.settlementDate, outstandingLateChargesSen, otherFeesSen });
+
+  const waiverAmount = parsed.data.waiverAmount ?? 0;
+  const additionalCharges = parsed.data.additionalCharges ?? 0;
+  // Waiver/additional charges apply against the late-charges + other-fees
+  // bucket only - principal and accrued return are the settlement's
+  // authoritative core and stay untouched by a discretionary adjustment.
+  const feesAndLateCharges = Math.max(0, fromSen(preview.lateChargesSen) + fromSen(preview.otherFeesSen) + additionalCharges - waiverAmount);
+  const principalOutstanding = fromSen(preview.principalOutstandingSen);
+  const accruedReturn = fromSen(preview.accruedReturnSen);
+  const finalSettlementAmount = principalOutstanding + accruedReturn + feesAndLateCharges;
+
+  const settlementId = crypto.randomUUID();
+  await db.insert(earlySettlements).values({
+    id: settlementId,
+    facilityId,
+    settlementDate: parsed.data.settlementDate,
+    actualPaymentDate: parsed.data.actualPaymentDate,
+    principalOutstanding,
+    accruedReturn,
+    lateCharges: fromSen(preview.lateChargesSen),
+    otherFees: fromSen(preview.otherFeesSen),
+    waiverAmount,
+    additionalCharges,
+    finalSettlementAmount,
+    status: "APPROVED",
+    reason: parsed.data.reason,
+    approvedBy: c.get("user").id,
+  });
+
+  // Supersede every remaining installment - the settlement row below is the
+  // sole remaining obligation from here on - and inject one new installment
+  // representing it, which then flows through the normal record/allocate/
+  // payout pipeline exactly like any other instalment once it's paid.
+  const nextInstallmentNo = Math.max(0, ...allInstallments.map((row) => row.installmentNo)) + 1;
+  for (const row of allInstallments) {
+    if (row.superseded) continue;
+    const remainingPrincipal = row.principalDue - row.principalPaid;
+    const remainingProfit = row.profitDue - row.profitPaid;
+    if (remainingPrincipal > 0 || remainingProfit > 0) {
+      await db.update(repaymentInstallments).set({ superseded: true }).where(eq(repaymentInstallments.id, row.id));
+    }
+  }
+  await db.insert(repaymentInstallments).values({
+    id: `${facilityId}-${nextInstallmentNo}`,
+    facilityId,
+    installmentNo: nextInstallmentNo,
+    dueDate: parsed.data.settlementDate,
+    originalDueDate: parsed.data.settlementDate,
+    principalDue: principalOutstanding,
+    profitDue: accruedReturn,
+    feeDue: feesAndLateCharges,
+    settlementId,
+  });
+
+  const postSettlementRecalc = await applyRecalculation(db, facilityId, today());
+  await syncLegacyInstallmentStatus(db, postSettlementRecalc.updates);
+
+  return c.json({ ok: true, settlementId, finalSettlementAmount, settlementInstallmentId: `${facilityId}-${nextInstallmentNo}` }, 201);
+});
+
+const feePolicySchema = z.object({
+  mode: z.enum(["DEFAULT", "WAIVE", "CUSTOM"]),
+  ratePct: z.number().min(0).max(100).optional(),
+  reason: z.string().min(1),
+  effectiveDate: z.string().min(1),
+});
+
+adminRepayments.post("/:id/fee-policy", async (c) => {
+  const parsed = feePolicySchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
+  if (parsed.data.mode === "CUSTOM" && parsed.data.ratePct === undefined) return c.json({ error: "rate_required_for_custom" }, 400);
+  const db = drizzle(c.env.DB);
+  const facilityId = c.req.param("id");
+
+  const [facility] = await db.select().from(financingFacilities).where(eq(financingFacilities.id, facilityId)).limit(1);
+  if (!facility) return c.json({ error: "not_found" }, 404);
+
+  const previousRateBps = facility.platformFeeBps ?? 2000;
+  const newRateBps = parsed.data.mode === "WAIVE" ? 0 : parsed.data.mode === "DEFAULT" ? 2000 : Math.round((parsed.data.ratePct ?? 0) * 100);
+
+  await db.insert(feePolicyHistory).values({
+    id: crypto.randomUUID(),
+    facilityId,
+    policyField: "platformFeeBps",
+    previousRateBps,
+    newRateBps,
+    reason: parsed.data.reason,
+    effectiveDate: parsed.data.effectiveDate,
+    approvedBy: c.get("user").id,
+  });
+  await db.update(financingFacilities).set({ platformFeeBps: newRateBps }).where(eq(financingFacilities.id, facilityId));
+
+  return c.json({ ok: true, previousRateBps, newRateBps }, 201);
 });
 
 export default adminRepayments;

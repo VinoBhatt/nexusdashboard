@@ -232,6 +232,48 @@ test.describe("Admin approvals", () => {
     expect(detailJson.payments.length).toBeGreaterThanOrEqual(2); // the recorded payment + the held-funds application payment
   });
 
+  test("Admin overrides the platform fee and approves an early settlement (servicing engine Stage 2c)", async ({ page }) => {
+    await login(page, DEMO_ACCOUNTS.admin);
+    await page.getByRole("link", { name: "Record Repayments", exact: true }).click();
+
+    // WC2200-01082026's instalment #1 was already paid off in the Stage 2a
+    // test above; instalments #2-6 remain, which is exactly what an early
+    // settlement supersedes.
+    await page.locator("tbody tr", { hasText: "WC2200-01082026" }).getByRole("button", { name: "View" }).click();
+
+    // --- Platform fee override ---
+    await page.getByRole("button", { name: "Platform Fee" }).click();
+    await page.getByLabel("Policy").selectOption("WAIVE");
+    await page.getByLabel("Reason", { exact: true }).fill("Playwright Stage 2c: waive platform fee");
+    await page.getByRole("button", { name: "Approve Fee Policy" }).click();
+    await expect(page.locator("#toast")).toContainText("Platform fee policy approved");
+    await expect(page.getByRole("cell", { name: "0.00%", exact: true })).toBeVisible();
+
+    // --- Early settlement ---
+    await page.goto("/app/admin-repayments");
+    await page.locator("tbody tr", { hasText: "WC2200-01082026" }).getByRole("button", { name: "View" }).click();
+    await page.getByRole("button", { name: "Early Settlement" }).click();
+    await page.getByRole("button", { name: "Preview Settlement" }).click();
+    await expect(page.getByText("Final settlement amount")).toBeVisible();
+    await page.getByLabel("Reason", { exact: true }).fill("Playwright Stage 2c: issuer requested early settlement");
+    await page.getByRole("button", { name: "Approve & Continue to Payment" }).click();
+    await expect(page.locator("#toast")).toContainText("Early settlement approved");
+    await expect(page.getByText("Approved Settlement")).toBeVisible();
+
+    const detail = await apiFetch(page, "/api/admin/repayments/WC2200-01082026");
+    const detailJson = JSON.parse(detail.body);
+    expect(detailJson.feePolicyHistory[0].newRateBps).toBe(0);
+    expect(detailJson.earlySettlement).not.toBeNull();
+    expect(detailJson.earlySettlement.status).toBe("APPROVED");
+    expect(detailJson.earlySettlement.finalSettlementAmount).toBeGreaterThan(0);
+    // Every previously-unpaid instalment is now superseded by exactly one new
+    // settlement instalment - regardless of how many instalments were
+    // already paid before settlement (order-independent: this must hold
+    // whether or not the Stage 2a test above ran first in the same DB).
+    const activeSchedule = detailJson.servicingSchedule as Array<{ status: string }>;
+    expect(activeSchedule.filter((row) => row.status !== "PAID")).toHaveLength(1);
+  });
+
   test("Reports page offers a real PDF platform summary and CSV exports", async ({ page }) => {
     await login(page, DEMO_ACCOUNTS.admin);
     await page.getByRole("link", { name: "Reports", exact: true }).click();
