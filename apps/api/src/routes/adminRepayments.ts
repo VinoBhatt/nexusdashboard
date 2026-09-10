@@ -1,26 +1,40 @@
 // Repayment recording is Admin's exclusive mechanism - moved out of
 // Campaign Manager (which keeps disbursement + read-only monitoring only)
-// per the CEO/Admin/Campaign-Manager role split. Stage 2a of the servicing
-// engine migration (see idempotent-gliding-allen.md) - the old
-// installmentId-only "mark as paid" handler is gone; a real payment now
-// goes through record -> allocate -> payout, backed by the Stage 1 engine
-// in lib/servicing/.
+// per the CEO/Admin/Campaign-Manager role split. Servicing engine Stage 2:
+// record -> allocate -> payout, held funds, charge adjustments and schedule
+// versioning, all backed by the Stage 1 engine in lib/servicing/. See
+// idempotent-gliding-allen.md for the staged plan.
 import { Hono } from "hono";
 import { z } from "zod";
 import { drizzle } from "drizzle-orm/d1";
 import { eq, and, desc, inArray } from "drizzle-orm";
-import { financingFacilities, users, holdings, repaymentInstallments, facilityPayments, investorPayouts, investorPayoutLines, investorProfiles, transactions } from "../db/schema";
+import {
+  financingFacilities,
+  users,
+  holdings,
+  repaymentInstallments,
+  facilityPayments,
+  investorPayouts,
+  investorPayoutLines,
+  investorProfiles,
+  transactions,
+  chargeAdjustments,
+  scheduleVersions,
+  heldFunds,
+} from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
 import { WATERFALL_ORDER, allocateByWaterfall, validateManualAllocation, calculateInvestorPayouts, toSen, fromSen, mapServicingStatusToLegacyStatus, type FacilityStructure } from "../lib/servicing/calculationEngine";
-import { resolveFacilityServicingConfig, recalculateFacility, applyRecalculation, type InstallmentRow, type InstallmentUpdate } from "../lib/servicing/servicingEngine";
-import { getFacilitySchedule, getIssuerSummary, groupHoldingsByInvestor, getInvestedPoolSen } from "../lib/servicing/projections";
+import { resolveFacilityServicingConfig, recalculateFacility, applyRecalculation, type InstallmentRow, type InstallmentUpdate, type RecalculateFacilityResult } from "../lib/servicing/servicingEngine";
+import { groupHoldingsByInvestor, getInvestedPoolSen } from "../lib/servicing/projections";
+import { applyChargeAdjustments, effectiveAmount, type EffectiveInstallmentComponents, type ChargeAdjustmentRecord, type ChargeAdjustmentType } from "../lib/servicing/adjustmentEngine";
 
 const adminRepayments = new Hono<AuthedEnv>();
 adminRepayments.use("*", requireAuth, requireRole("admin"));
 
 const NOTE_STATUSES = ["Open", "Ongoing", "Completed", "Default"] as const;
 type InstallmentDbRow = typeof repaymentInstallments.$inferSelect;
+type ChargeAdjustmentDbRow = typeof chargeAdjustments.$inferSelect;
 type BatchItem = Parameters<ReturnType<typeof drizzle>["batch"]>[0][number];
 
 function today(): string {
@@ -44,37 +58,105 @@ function toInstallmentRow(row: InstallmentDbRow): InstallmentRow {
   };
 }
 
-/** Remaining-by-component for one installment, in sen. Late-charge components
- * come straight from a fresh recalculation (those DB columns already store
- * remaining, not gross - see servicingEngine.ts); principal/profit/fees are
- * gross-minus-paid, matching projections.getFacilitySchedule's own math. */
-function installmentRemainingSen(row: InstallmentDbRow, update: InstallmentUpdate | undefined) {
+function adjustmentsForComponent(installmentId: string, adjustments: ChargeAdjustmentDbRow[], component: keyof EffectiveInstallmentComponents): ChargeAdjustmentRecord[] {
+  return adjustments
+    .filter((a) => a.installmentId === installmentId && a.component === component && a.status === "APPROVED")
+    .map((a) => ({ type: a.type as ChargeAdjustmentType, amount: toSen(a.amount), createdAt: new Date(a.createdAt).getTime(), status: a.status as "APPROVED" }));
+}
+
+/** Remaining-by-component for one installment, in sen, after approved charge
+ * adjustments. Late-charge components start from the *gross accrued*
+ * figure (adjustments apply to the obligation, not to what's already net of
+ * payment) - see servicingEngine.ts's `*AccruedSen` fields. */
+function installmentRemainingSen(row: InstallmentDbRow, update: InstallmentUpdate | undefined, adjustments: ChargeAdjustmentDbRow[]) {
+  const calculated: EffectiveInstallmentComponents = {
+    fees: toSen(row.feeDue),
+    profit: toSen(row.profitDue),
+    principal: toSen(row.principalDue),
+    tawidh: update?.tawidhAccruedSen ?? 0,
+    deferredProfit: update?.deferredProfitAccruedSen ?? 0,
+    lateInterest: update?.lateInterestAccruedSen ?? 0,
+  };
+  const effective = applyChargeAdjustments(calculated, {
+    fees: adjustmentsForComponent(row.id, adjustments, "fees"),
+    profit: adjustmentsForComponent(row.id, adjustments, "profit"),
+    principal: adjustmentsForComponent(row.id, adjustments, "principal"),
+    tawidh: adjustmentsForComponent(row.id, adjustments, "tawidh"),
+    deferredProfit: adjustmentsForComponent(row.id, adjustments, "deferredProfit"),
+    lateInterest: adjustmentsForComponent(row.id, adjustments, "lateInterest"),
+  });
   return {
-    principal: Math.max(0, toSen(row.principalDue) - toSen(row.principalPaid)),
-    profit: Math.max(0, toSen(row.profitDue) - toSen(row.profitPaid)),
-    fees: Math.max(0, toSen(row.feeDue) - toSen(row.feesPaid)),
-    tawidh: update?.tawidhDueSen ?? 0,
-    deferredProfit: update?.deferredProfitDueSen ?? 0,
-    lateInterest: update?.lateInterestDueSen ?? 0,
+    principal: Math.max(0, effective.principal - toSen(row.principalPaid)),
+    profit: Math.max(0, effective.profit - toSen(row.profitPaid)),
+    fees: Math.max(0, effective.fees - toSen(row.feesPaid)),
+    tawidh: Math.max(0, effective.tawidh - toSen(row.tawidhPaid)),
+    deferredProfit: Math.max(0, effective.deferredProfit - toSen(row.deferredProfitPaid)),
+    lateInterest: Math.max(0, effective.lateInterest - toSen(row.lateInterestPaid)),
   };
 }
 
-/** Sums the selected installments' remaining amounts into the waterfall-shaped outstanding map for the facility's structure. */
-function outstandingForSelection(structure: FacilityStructure, selected: InstallmentDbRow[], updatesById: Map<string, InstallmentUpdate>) {
-  const outstanding: Record<string, number> = Object.fromEntries(WATERFALL_ORDER[structure].map((key) => [key, 0]));
-  for (const row of selected) {
-    const remaining = installmentRemainingSen(row, updatesById.get(row.id));
-    outstanding.fees += remaining.fees;
-    outstanding.profit += remaining.profit;
-    outstanding.principal += remaining.principal;
-    if (structure === "Islamic") {
-      outstanding.tawidh += remaining.tawidh;
-      outstanding.deferredProfit += remaining.deferredProfit;
-    } else {
-      outstanding.lateInterest += remaining.lateInterest;
-    }
-  }
-  return outstanding;
+/** Adjustment-aware equivalent of projections.getFacilitySchedule - kept local
+ * rather than changing that Stage 1, already-tested pure function. */
+function buildServicingSchedule(installments: InstallmentDbRow[], recalc: RecalculateFacilityResult, adjustments: ChargeAdjustmentDbRow[]) {
+  const updatesById = new Map(recalc.updates.map((u) => [u.id, u]));
+  return installments
+    .filter((row) => !row.superseded)
+    .map((row) => {
+      const update = updatesById.get(row.id);
+      const remaining = installmentRemainingSen(row, update, adjustments);
+      const totalDueSen = remaining.principal + remaining.profit + remaining.fees + remaining.tawidh + remaining.deferredProfit + remaining.lateInterest;
+      const paidSen = toSen(row.principalPaid) + toSen(row.profitPaid) + toSen(row.feesPaid) + toSen(row.tawidhPaid) + toSen(row.deferredProfitPaid) + toSen(row.lateInterestPaid);
+      return {
+        id: row.id,
+        installmentNo: row.installmentNo,
+        dueDate: row.dueDate,
+        principalDue: fromSen(remaining.principal),
+        profitDue: fromSen(remaining.profit),
+        deferredProfitDue: fromSen(remaining.deferredProfit),
+        tawidhDue: fromSen(remaining.tawidh),
+        lateInterestDue: fromSen(remaining.lateInterest),
+        feeDue: fromSen(remaining.fees),
+        totalDue: fromSen(totalDueSen),
+        paid: fromSen(paidSen),
+        remaining: fromSen(totalDueSen),
+        daysPastDue: update?.daysPastDue ?? 0,
+        status: update?.servicingStatus ?? "UPCOMING",
+      };
+    });
+}
+type ServicingScheduleRow = ReturnType<typeof buildServicingSchedule>[number];
+
+/** Adjustment-aware equivalent of projections.getIssuerSummary, derived from the schedule above rather than recalc.currentDueSen directly. */
+function buildIssuerSummary(schedule: ServicingScheduleRow[], activeInstallmentId: string | null) {
+  const current = schedule.find((row) => row.id === activeInstallmentId) ?? null;
+  const next = schedule.find((row) => row.status === "UPCOMING") ?? null;
+  const accruing = schedule.filter((row) => row.status !== "PAID" && row.status !== "UPCOMING" && row.status !== "SETTLED_EARLY");
+  const totals = accruing.reduce(
+    (acc, row) => {
+      acc.principal += row.principalDue;
+      acc.profit += row.profitDue;
+      acc.deferredProfit += row.deferredProfitDue;
+      acc.tawidh += row.tawidhDue;
+      acc.lateInterest += row.lateInterestDue;
+      acc.fees += row.feeDue;
+      return acc;
+    },
+    { principal: 0, profit: 0, deferredProfit: 0, tawidh: 0, lateInterest: 0, fees: 0 }
+  );
+  return {
+    currentInstallmentId: current?.id ?? null,
+    currentInstallmentDueDate: current?.dueDate ?? null,
+    currentDaysLate: current?.daysPastDue ?? 0,
+    currentTotalDue: totals.principal + totals.profit + totals.deferredProfit + totals.tawidh + totals.lateInterest + totals.fees,
+    principalDue: totals.principal,
+    profitDue: totals.profit,
+    deferredProfitDue: totals.deferredProfit,
+    tawidhDue: totals.tawidh,
+    lateInterestDue: totals.lateInterest,
+    feesDue: totals.fees,
+    nextInstallmentDueDate: next?.dueDate ?? null,
+    nextInstallmentAmount: next?.totalDue ?? 0,
+  };
 }
 
 /** Applies one component's aggregate allocation across installments oldest-first, each capped at its own remaining. */
@@ -112,6 +194,85 @@ async function maybeCompleteFacility(db: ReturnType<typeof drizzle>, facilityId:
   return true;
 }
 
+/** Shared by the normal payment payout and held-funds application - splits one payment's allocation across investors and returns the batched writes plus a JSON-safe summary. */
+function buildPayoutBatch(db: ReturnType<typeof drizzle>, params: { facility: typeof financingFacilities.$inferSelect; paymentId: string; facilityId: string; allocationRm: Record<string, number>; investors: ReturnType<typeof groupHoldingsByInvestor>; investedPoolSen: number; profileByInvestor: Map<string, typeof investorProfiles.$inferSelect> }) {
+  const { facility, paymentId, facilityId, allocationRm, investors, investedPoolSen, profileByInvestor } = params;
+  const structure: FacilityStructure = facility.islamicConventional === "Islamic" ? "Islamic" : "Conventional";
+  const allocationSen = Object.fromEntries(Object.entries(allocationRm).map(([k, v]) => [k, toSen(v)]));
+  // Not on FacilityServicingConfig - resolved here with the same defaults the
+  // Module 5 prototype's demo fixtures used (20% platform fee, 8% SST on fee).
+  const platformFeeBps = facility.platformFeeBps ?? 2000;
+  const sstRateBps = facility.sstRateBps ?? 800;
+
+  const payoutResult = calculateInvestorPayouts({ allocation: allocationSen, investors, investedPoolSen, structure, platformFeeBps, sstRateBps });
+  if (!payoutResult.reconciled) return { ok: false as const, error: "payout_not_reconciled" };
+
+  const payoutId = crypto.randomUUID();
+  const ops: BatchItem[] = [
+    db_insertInvestorPayout(payoutId, facilityId, paymentId, payoutResult),
+    db_completePayment(paymentId),
+  ];
+  for (const line of payoutResult.payouts) {
+    const walletCreditRm = fromSen(line.walletCredit);
+    const principalRm = fromSen(line.principalEntitlement);
+    ops.push(
+      db_insertPayoutLine(payoutId, line),
+      db_insertPayoutTransaction(facilityId, paymentId, payoutId, line.investorId, walletCreditRm)
+    );
+    const profile = profileByInvestor.get(line.investorId);
+    if (profile) ops.push(db_creditInvestorProfile(profile, walletCreditRm, principalRm));
+  }
+  return { ok: true as const, ops, payoutId, payoutResult };
+
+  // Local closures so `db` (bound below in each route handler) doesn't need
+  // threading through every helper's parameter list.
+  function db_insertInvestorPayout(id: string, facilityId: string, paymentId: string, result: typeof payoutResult) {
+    return db.insert(investorPayouts).values({
+      id,
+      facilityId,
+      paymentId,
+      principalTotal: fromSen(result.principalTotal),
+      grossScheduledReturnTotal: fromSen(result.grossScheduledReturnTotal),
+      grossLateReturnTotal: fromSen(result.grossLateReturnTotal),
+      platformFeeTotal: fromSen(result.platformFeeTotal),
+      sstTotal: fromSen(result.sstTotal),
+      walletCreditTotal: fromSen(result.walletCreditTotal),
+      status: "COMPLETED",
+    });
+  }
+  function db_completePayment(paymentId: string) {
+    return db.update(facilityPayments).set({ payoutStatus: "COMPLETED" }).where(eq(facilityPayments.id, paymentId));
+  }
+  function db_insertPayoutLine(payoutId: string, line: (typeof payoutResult.payouts)[number]) {
+    return db.insert(investorPayoutLines).values({
+      id: crypto.randomUUID(),
+      payoutId,
+      investorId: line.investorId,
+      principalEntitlement: fromSen(line.principalEntitlement),
+      grossScheduledReturn: fromSen(line.grossScheduledReturn),
+      grossLateReturn: fromSen(line.grossLateReturn),
+      platformFee: fromSen(line.platformFee),
+      sst: fromSen(line.sst),
+      netReturn: fromSen(line.netReturn),
+      walletCredit: fromSen(line.walletCredit),
+      status: "PAID",
+    });
+  }
+  function db_insertPayoutTransaction(facilityId: string, paymentId: string, payoutId: string, investorId: string, walletCreditRm: number) {
+    return db.insert(transactions).values({
+      id: crypto.randomUUID(),
+      accountId: investorId,
+      type: "Repayment Payout",
+      amount: walletCreditRm,
+      status: "Confirmed",
+      referenceJson: JSON.stringify({ facilityId, paymentId, payoutId }),
+    });
+  }
+  function db_creditInvestorProfile(profile: typeof investorProfiles.$inferSelect, walletCreditRm: number, principalRm: number) {
+    return db.update(investorProfiles).set({ cashBalance: profile.cashBalance + walletCreditRm, outstanding: Math.max(0, profile.outstanding - principalRm) }).where(eq(investorProfiles.userId, profile.userId));
+  }
+}
+
 adminRepayments.get("/", async (c) => {
   const db = drizzle(c.env.DB);
   const rows = await db.select().from(financingFacilities).where(inArray(financingFacilities.status, [...NOTE_STATUSES])).orderBy(desc(financingFacilities.createdAt));
@@ -127,6 +288,8 @@ adminRepayments.get("/:id", async (c) => {
   const schedule = await db.select().from(repaymentInstallments).where(eq(repaymentInstallments.facilityId, id)).orderBy(repaymentInstallments.installmentNo);
   const config = resolveFacilityServicingConfig(facility);
   const recalc = recalculateFacility(config, schedule.map(toInstallmentRow), today());
+  const adjustments = await db.select().from(chargeAdjustments).where(eq(chargeAdjustments.facilityId, id));
+  const servicingSchedule = buildServicingSchedule(schedule, recalc, adjustments);
 
   const positions = await db
     .select({ investorId: holdings.investorId, amount: holdings.amountInvested, createdAt: holdings.createdAt, email: users.email, name: users.displayName })
@@ -137,17 +300,22 @@ adminRepayments.get("/:id", async (c) => {
 
   const payments = await db.select().from(facilityPayments).where(eq(facilityPayments.facilityId, id)).orderBy(desc(facilityPayments.createdAt));
   const payouts = await db.select().from(investorPayouts).where(eq(investorPayouts.facilityId, id)).orderBy(desc(investorPayouts.createdAt));
+  const heldFundsRows = await db.select().from(heldFunds).where(eq(heldFunds.facilityId, id)).orderBy(desc(heldFunds.createdAt));
+  const scheduleVersionRows = await db.select().from(scheduleVersions).where(eq(scheduleVersions.facilityId, id)).orderBy(desc(scheduleVersions.version));
 
   return c.json({
     facility,
     schedule,
-    servicingSchedule: getFacilitySchedule(schedule.map(toInstallmentRow), recalc),
-    issuerSummary: getIssuerSummary(schedule.map(toInstallmentRow), recalc),
+    servicingSchedule,
+    issuerSummary: buildIssuerSummary(servicingSchedule, recalc.activeInstallmentId),
     positions,
     fundedAmount,
     uniqueInvestors: new Set(positions.map((p) => p.investorId)).size,
     payments,
     payouts,
+    chargeAdjustments: adjustments,
+    heldFunds: heldFundsRows,
+    scheduleVersions: scheduleVersionRows,
   });
 });
 
@@ -226,11 +394,24 @@ adminRepayments.patch("/:id/payments/:paymentId/allocate", async (c) => {
   const instalmentIds: string[] = JSON.parse(payment.instalmentIdsJson);
   const allInstallments = await db.select().from(repaymentInstallments).where(eq(repaymentInstallments.facilityId, facilityId)).orderBy(repaymentInstallments.installmentNo);
   const selected = allInstallments.filter((row) => instalmentIds.includes(row.id));
+  const adjustments = await db.select().from(chargeAdjustments).where(eq(chargeAdjustments.facilityId, facilityId));
 
   const config = resolveFacilityServicingConfig(facility);
   const recalc = recalculateFacility(config, allInstallments.map(toInstallmentRow), today());
   const updatesById = new Map(recalc.updates.map((u) => [u.id, u]));
-  const outstanding = outstandingForSelection(config.structure, selected, updatesById);
+  const outstanding: Record<string, number> = Object.fromEntries(WATERFALL_ORDER[config.structure].map((key) => [key, 0]));
+  for (const row of selected) {
+    const remaining = installmentRemainingSen(row, updatesById.get(row.id), adjustments);
+    outstanding.fees += remaining.fees;
+    outstanding.profit += remaining.profit;
+    outstanding.principal += remaining.principal;
+    if (config.structure === "Islamic") {
+      outstanding.tawidh += remaining.tawidh;
+      outstanding.deferredProfit += remaining.deferredProfit;
+    } else {
+      outstanding.lateInterest += remaining.lateInterest;
+    }
+  }
   const paymentSen = toSen(payment.amount);
 
   let result;
@@ -248,7 +429,7 @@ adminRepayments.patch("/:id/payments/:paymentId/allocate", async (c) => {
   for (const row of selected) deltasByInstallment.set(row.id, { principalPaid: 0, profitPaid: 0, feesPaid: 0, deferredProfitPaid: 0, tawidhPaid: 0, lateInterestPaid: 0 });
   const componentField = { fees: "feesPaid", profit: "profitPaid", principal: "principalPaid", tawidh: "tawidhPaid", deferredProfit: "deferredProfitPaid", lateInterest: "lateInterestPaid" } as const;
   for (const component of WATERFALL_ORDER[config.structure]) {
-    const rowsForComponent = selected.map((row) => ({ id: row.id, remainingSen: installmentRemainingSen(row, updatesById.get(row.id))[component as keyof ReturnType<typeof installmentRemainingSen>] }));
+    const rowsForComponent = selected.map((row) => ({ id: row.id, remainingSen: installmentRemainingSen(row, updatesById.get(row.id), adjustments)[component as keyof ReturnType<typeof installmentRemainingSen>] }));
     const applied = distributeAcrossInstallments(result.allocation[component] ?? 0, rowsForComponent);
     for (const [installmentId, sen] of applied) {
       const delta = deltasByInstallment.get(installmentId)!;
@@ -287,11 +468,19 @@ adminRepayments.patch("/:id/payments/:paymentId/allocate", async (c) => {
     ok: true,
     allocation: allocationRm,
     unallocated: fromSen(result.unallocatedPayment),
-    schedule: getFacilitySchedule(refreshedInstallments.map(toInstallmentRow), postAllocationRecalc),
+    schedule: buildServicingSchedule(refreshedInstallments, postAllocationRecalc, adjustments),
   });
 });
 
+const payoutSchema = z.object({
+  holdAmount: z.number().positive().optional(),
+  holdType: z.enum(["SINKING_FUND", "PENDING_INSTRUCTION", "OTHER"]).optional(),
+  holdReason: z.string().optional(),
+});
+
 adminRepayments.post("/:id/payments/:paymentId/payout", async (c) => {
+  const parsed = payoutSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
   const db = drizzle(c.env.DB);
   const facilityId = c.req.param("id");
   const paymentId = c.req.param("paymentId");
@@ -307,71 +496,35 @@ adminRepayments.post("/:id/payments/:paymentId/payout", async (c) => {
   const investors = groupHoldingsByInvestor(facilityHoldings);
   const investedPoolSen = getInvestedPoolSen(investors);
 
-  const structure: FacilityStructure = facility.islamicConventional === "Islamic" ? "Islamic" : "Conventional";
   const allocationRm: Record<string, number> = JSON.parse(payment.allocationJson);
-  const allocationSen = Object.fromEntries(Object.entries(allocationRm).map(([k, v]) => [k, toSen(v)]));
-  // Not on FacilityServicingConfig - resolved here with the same defaults the
-  // Module 5 prototype's demo fixtures used (20% platform fee, 8% SST on fee).
-  const platformFeeBps = facility.platformFeeBps ?? 2000;
-  const sstRateBps = facility.sstRateBps ?? 800;
+  const holdAmount = parsed.data.holdAmount ?? 0;
+  if (holdAmount > (allocationRm.principal ?? 0)) return c.json({ error: "hold_exceeds_allocated_principal" }, 400);
+  const distributableAllocationRm = holdAmount > 0 ? { ...allocationRm, principal: (allocationRm.principal ?? 0) - holdAmount } : allocationRm;
 
-  const payoutResult = calculateInvestorPayouts({ allocation: allocationSen, investors, investedPoolSen, structure, platformFeeBps, sstRateBps });
-  if (!payoutResult.reconciled) return c.json({ error: "payout_not_reconciled" }, 500);
-
-  const payoutId = crypto.randomUUID();
-  const profileRows = await db.select().from(investorProfiles).where(inArray(investorProfiles.userId, payoutResult.payouts.map((p) => p.investorId)));
+  const profileRows = await db.select().from(investorProfiles).where(inArray(investorProfiles.userId, investors.map((i) => i.id)));
   const profileByInvestor = new Map(profileRows.map((p) => [p.userId, p]));
 
-  const ops: BatchItem[] = [
-    db.insert(investorPayouts).values({
-      id: payoutId,
-      facilityId,
-      paymentId,
-      principalTotal: fromSen(payoutResult.principalTotal),
-      grossScheduledReturnTotal: fromSen(payoutResult.grossScheduledReturnTotal),
-      grossLateReturnTotal: fromSen(payoutResult.grossLateReturnTotal),
-      platformFeeTotal: fromSen(payoutResult.platformFeeTotal),
-      sstTotal: fromSen(payoutResult.sstTotal),
-      walletCreditTotal: fromSen(payoutResult.walletCreditTotal),
-      status: "COMPLETED",
-    }),
-    db.update(facilityPayments).set({ payoutStatus: "COMPLETED" }).where(eq(facilityPayments.id, paymentId)),
-  ];
-  for (const line of payoutResult.payouts) {
-    const walletCreditRm = fromSen(line.walletCredit);
-    const principalRm = fromSen(line.principalEntitlement);
+  const batch = buildPayoutBatch(db, { facility, paymentId, facilityId, allocationRm: distributableAllocationRm, investors, investedPoolSen, profileByInvestor });
+  if (!batch.ok) return c.json({ error: batch.error }, 500);
+
+  const ops = [...batch.ops];
+  let heldFundId: string | null = null;
+  if (holdAmount > 0) {
+    heldFundId = crypto.randomUUID();
     ops.push(
-      db.insert(investorPayoutLines).values({
-        id: crypto.randomUUID(),
-        payoutId,
-        investorId: line.investorId,
-        principalEntitlement: principalRm,
-        grossScheduledReturn: fromSen(line.grossScheduledReturn),
-        grossLateReturn: fromSen(line.grossLateReturn),
-        platformFee: fromSen(line.platformFee),
-        sst: fromSen(line.sst),
-        netReturn: fromSen(line.netReturn),
-        walletCredit: walletCreditRm,
-        status: "PAID",
-      }),
-      db.insert(transactions).values({
-        id: crypto.randomUUID(),
-        accountId: line.investorId,
-        type: "Repayment Payout",
-        amount: walletCreditRm,
-        status: "Confirmed",
-        referenceJson: JSON.stringify({ facilityId, paymentId, payoutId }),
+      db.insert(heldFunds).values({
+        id: heldFundId,
+        facilityId,
+        sourcePaymentId: paymentId,
+        holdType: parsed.data.holdType ?? "OTHER",
+        originalAmount: holdAmount,
+        usedAmount: 0,
+        refundedAmount: 0,
+        reason: parsed.data.holdReason ?? null,
+        status: "HELD",
+        approvedBy: c.get("user").id,
       })
     );
-    const profile = profileByInvestor.get(line.investorId);
-    if (profile) {
-      ops.push(
-        db
-          .update(investorProfiles)
-          .set({ cashBalance: profile.cashBalance + walletCreditRm, outstanding: Math.max(0, profile.outstanding - principalRm) })
-          .where(eq(investorProfiles.userId, line.investorId))
-      );
-    }
   }
   await db.batch(ops as unknown as [BatchItem, ...BatchItem[]]);
 
@@ -379,15 +532,299 @@ adminRepayments.post("/:id/payments/:paymentId/payout", async (c) => {
 
   return c.json({
     ok: true,
-    payout: { id: payoutId, walletCreditTotal: fromSen(payoutResult.walletCreditTotal), platformFeeTotal: fromSen(payoutResult.platformFeeTotal), sstTotal: fromSen(payoutResult.sstTotal) },
-    payouts: payoutResult.payouts.map((line) => ({
+    payout: { id: batch.payoutId, walletCreditTotal: fromSen(batch.payoutResult.walletCreditTotal), platformFeeTotal: fromSen(batch.payoutResult.platformFeeTotal), sstTotal: fromSen(batch.payoutResult.sstTotal) },
+    payouts: batch.payoutResult.payouts.map((line) => ({
       investorId: line.investorId,
       principalEntitlement: fromSen(line.principalEntitlement),
       netReturn: fromSen(line.netReturn),
       walletCredit: fromSen(line.walletCredit),
     })),
+    heldFundId,
     facilityCompleted: completed,
   });
+});
+
+const chargeAdjustmentSchema = z.object({
+  component: z.enum(["fees", "tawidh", "deferredProfit", "lateInterest", "profit", "principal"]),
+  type: z.enum(["FULL_WAIVER", "PARTIAL_WAIVER", "REPLACE_AMOUNT", "INCREASE", "CORRECTION", "RESET"]),
+  amount: z.number().min(0).optional(),
+  reason: z.string().min(1),
+  effectiveDate: z.string().min(1),
+});
+
+adminRepayments.post("/:id/installments/:instId/charge-adjustments", async (c) => {
+  const parsed = chargeAdjustmentSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
+  const db = drizzle(c.env.DB);
+  const facilityId = c.req.param("id");
+  const installmentId = c.req.param("instId");
+
+  const [facility] = await db.select().from(financingFacilities).where(eq(financingFacilities.id, facilityId)).limit(1);
+  if (!facility) return c.json({ error: "not_found" }, 404);
+  const [row] = await db.select().from(repaymentInstallments).where(and(eq(repaymentInstallments.id, installmentId), eq(repaymentInstallments.facilityId, facilityId))).limit(1);
+  if (!row) return c.json({ error: "not_found" }, 404);
+
+  const allInstallments = await db.select().from(repaymentInstallments).where(eq(repaymentInstallments.facilityId, facilityId)).orderBy(repaymentInstallments.installmentNo);
+  const config = resolveFacilityServicingConfig(facility);
+  const recalc = recalculateFacility(config, allInstallments.map(toInstallmentRow), today());
+  const update = recalc.updates.find((u) => u.id === installmentId);
+
+  const calculatedSenByComponent: Record<string, number> = {
+    fees: toSen(row.feeDue),
+    profit: toSen(row.profitDue),
+    principal: toSen(row.principalDue),
+    tawidh: update?.tawidhAccruedSen ?? 0,
+    deferredProfit: update?.deferredProfitAccruedSen ?? 0,
+    lateInterest: update?.lateInterestAccruedSen ?? 0,
+  };
+  const calculatedSen = calculatedSenByComponent[parsed.data.component];
+  const effectiveSen = effectiveAmount(calculatedSen, parsed.data.type, toSen(parsed.data.amount ?? 0));
+
+  const record = {
+    id: crypto.randomUUID(),
+    facilityId,
+    installmentId,
+    component: parsed.data.component,
+    type: parsed.data.type,
+    amount: parsed.data.amount ?? 0,
+    calculatedAmount: fromSen(calculatedSen),
+    effectiveAmount: fromSen(effectiveSen),
+    reason: parsed.data.reason,
+    effectiveDate: parsed.data.effectiveDate,
+    approvedBy: c.get("user").id,
+    status: "APPROVED" as const,
+  };
+  await db.insert(chargeAdjustments).values(record);
+
+  // A charge adjustment can move an installment straight to PAID (e.g. a full
+  // waiver of the last outstanding component) - resync so the legacy status
+  // and any facility-completion side effect stay correct immediately.
+  const adjustments = await db.select().from(chargeAdjustments).where(eq(chargeAdjustments.facilityId, facilityId));
+  const refreshedInstallments = await db.select().from(repaymentInstallments).where(eq(repaymentInstallments.facilityId, facilityId)).orderBy(repaymentInstallments.installmentNo);
+  const schedule = buildServicingSchedule(refreshedInstallments, recalc, adjustments);
+  for (const scheduleRow of schedule) {
+    const legacyStatus = mapServicingStatusToLegacyStatus(scheduleRow.status);
+    await db
+      .update(repaymentInstallments)
+      .set({ status: legacyStatus, ...(legacyStatus === "Paid" ? { paidAt: new Date() } : {}) })
+      .where(eq(repaymentInstallments.id, scheduleRow.id));
+  }
+  const completed = await maybeCompleteFacility(db, facilityId);
+
+  return c.json({ ok: true, adjustment: record, schedule, facilityCompleted: completed }, 201);
+});
+
+const scheduleVersionSchema = z.object({
+  reason: z.string().min(1),
+  effectiveDate: z.string().min(1),
+  rows: z
+    .array(
+      z.object({
+        installmentNo: z.number().int().positive(),
+        dueDate: z.string().min(1),
+        principalDue: z.number().min(0),
+        profitDue: z.number().min(0),
+        feeDue: z.number().min(0).optional(),
+      })
+    )
+    .min(1),
+});
+
+adminRepayments.post("/:id/schedule/versions", async (c) => {
+  const parsed = scheduleVersionSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
+  const db = drizzle(c.env.DB);
+  const facilityId = c.req.param("id");
+
+  const [facility] = await db.select().from(financingFacilities).where(eq(financingFacilities.id, facilityId)).limit(1);
+  if (!facility) return c.json({ error: "not_found" }, 404);
+
+  const currentInstallments = await db.select().from(repaymentInstallments).where(and(eq(repaymentInstallments.facilityId, facilityId), eq(repaymentInstallments.superseded, false))).orderBy(repaymentInstallments.installmentNo);
+  const byInstallmentNo = new Map(currentInstallments.map((row) => [row.installmentNo, row]));
+
+  // Reconciliation guard: the edited schedule's total principal must still
+  // equal the facility's principal, and any installment with a payment
+  // against it is locked (position, due date and amounts must be unchanged).
+  const submittedTotalPrincipal = parsed.data.rows.reduce((sum, row) => sum + row.principalDue, 0);
+  if (Math.abs(submittedTotalPrincipal - facility.principalAmount) > 0.01) {
+    return c.json({ error: "principal_mismatch", details: { submitted: submittedTotalPrincipal, expected: facility.principalAmount } }, 400);
+  }
+  for (const row of parsed.data.rows) {
+    const existing = byInstallmentNo.get(row.installmentNo);
+    if (!existing) continue;
+    const isPaid = existing.principalPaid > 0 || existing.profitPaid > 0 || existing.feesPaid > 0;
+    if (isPaid && (existing.dueDate !== row.dueDate || existing.principalDue !== row.principalDue || existing.profitDue !== row.profitDue)) {
+      return c.json({ error: "installment_locked", details: { installmentNo: row.installmentNo } }, 409);
+    }
+  }
+  const submittedNos = new Set(parsed.data.rows.map((row) => row.installmentNo));
+  for (const existing of currentInstallments) {
+    const isPaid = existing.principalPaid > 0 || existing.profitPaid > 0 || existing.feesPaid > 0;
+    if (isPaid && !submittedNos.has(existing.installmentNo)) return c.json({ error: "cannot_remove_paid_installment" }, 409);
+  }
+
+  const nextVersion = ((await db.select().from(scheduleVersions).where(eq(scheduleVersions.facilityId, facilityId))).length) + 1;
+  await db.insert(scheduleVersions).values({
+    id: crypto.randomUUID(),
+    facilityId,
+    version: nextVersion,
+    type: "DIRECT_EDIT",
+    effectiveDate: parsed.data.effectiveDate,
+    reason: parsed.data.reason,
+    approvedBy: c.get("user").id,
+    installmentsJson: JSON.stringify(currentInstallments),
+  });
+
+  for (const existing of currentInstallments) {
+    if (!submittedNos.has(existing.installmentNo)) {
+      await db.update(repaymentInstallments).set({ superseded: true }).where(eq(repaymentInstallments.id, existing.id));
+    }
+  }
+  for (const row of parsed.data.rows) {
+    const existing = byInstallmentNo.get(row.installmentNo);
+    if (existing) {
+      await db
+        .update(repaymentInstallments)
+        .set({ dueDate: row.dueDate, principalDue: row.principalDue, profitDue: row.profitDue, feeDue: row.feeDue ?? existing.feeDue, originalDueDate: existing.originalDueDate ?? existing.dueDate })
+        .where(eq(repaymentInstallments.id, existing.id));
+    } else {
+      await db.insert(repaymentInstallments).values({
+        id: `${facilityId}-${row.installmentNo}`,
+        facilityId,
+        installmentNo: row.installmentNo,
+        dueDate: row.dueDate,
+        principalDue: row.principalDue,
+        profitDue: row.profitDue,
+        feeDue: row.feeDue ?? 0,
+        originalDueDate: row.dueDate,
+      });
+    }
+  }
+
+  const postEditRecalc = await applyRecalculation(db, facilityId, today());
+  await syncLegacyInstallmentStatus(db, postEditRecalc.updates);
+  const refreshed = await db.select().from(repaymentInstallments).where(eq(repaymentInstallments.facilityId, facilityId)).orderBy(repaymentInstallments.installmentNo);
+  const adjustments = await db.select().from(chargeAdjustments).where(eq(chargeAdjustments.facilityId, facilityId));
+
+  return c.json({ ok: true, version: nextVersion, schedule: buildServicingSchedule(refreshed, postEditRecalc, adjustments) }, 201);
+});
+
+const applyHeldFundsSchema = z.object({
+  instalmentIds: z.array(z.string()).min(1),
+  amount: z.number().positive(),
+  reason: z.string().min(1),
+});
+
+adminRepayments.post("/:id/held-funds/:holdId/apply", async (c) => {
+  const parsed = applyHeldFundsSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
+  const db = drizzle(c.env.DB);
+  const facilityId = c.req.param("id");
+  const holdId = c.req.param("holdId");
+
+  const [facility] = await db.select().from(financingFacilities).where(eq(financingFacilities.id, facilityId)).limit(1);
+  if (!facility) return c.json({ error: "not_found" }, 404);
+  const [hold] = await db.select().from(heldFunds).where(and(eq(heldFunds.id, holdId), eq(heldFunds.facilityId, facilityId))).limit(1);
+  if (!hold) return c.json({ error: "not_found" }, 404);
+  const remaining = hold.originalAmount - hold.usedAmount - hold.refundedAmount;
+  if (parsed.data.amount > remaining + 0.01) return c.json({ error: "amount_exceeds_held_balance" }, 400);
+
+  const selected = await db
+    .select()
+    .from(repaymentInstallments)
+    .where(and(eq(repaymentInstallments.facilityId, facilityId), inArray(repaymentInstallments.id, parsed.data.instalmentIds)));
+  if (selected.length !== parsed.data.instalmentIds.length) return c.json({ error: "installment_not_found" }, 404);
+
+  const adjustments = await db.select().from(chargeAdjustments).where(eq(chargeAdjustments.facilityId, facilityId));
+  const allInstallments = await db.select().from(repaymentInstallments).where(eq(repaymentInstallments.facilityId, facilityId)).orderBy(repaymentInstallments.installmentNo);
+  const config = resolveFacilityServicingConfig(facility);
+  const recalc = recalculateFacility(config, allInstallments.map(toInstallmentRow), today());
+  const updatesById = new Map(recalc.updates.map((u) => [u.id, u]));
+
+  const outstanding: Record<string, number> = Object.fromEntries(WATERFALL_ORDER[config.structure].map((key) => [key, 0]));
+  for (const row of selected) {
+    const rem = installmentRemainingSen(row, updatesById.get(row.id), adjustments);
+    outstanding.fees += rem.fees;
+    outstanding.profit += rem.profit;
+    outstanding.principal += rem.principal;
+    if (config.structure === "Islamic") {
+      outstanding.tawidh += rem.tawidh;
+      outstanding.deferredProfit += rem.deferredProfit;
+    } else {
+      outstanding.lateInterest += rem.lateInterest;
+    }
+  }
+  const amountSen = toSen(parsed.data.amount);
+  const result = allocateByWaterfall(amountSen, outstanding, WATERFALL_ORDER[config.structure]);
+
+  // A held-funds application is recorded as its own facility_payments row
+  // (method "Held Funds") so it reuses the same allocation/payout audit
+  // trail without a second issuer receipt or colliding with the unique
+  // one-payout-per-payment constraint on the original payment.
+  const heldPaymentId = crypto.randomUUID();
+  const allocationRm = Object.fromEntries(Object.entries(result.allocation).map(([k, v]) => [k, fromSen(v)]));
+  await db.insert(facilityPayments).values({
+    id: heldPaymentId,
+    facilityId,
+    paymentReference: `HELD-${holdId}-${Date.now()}`,
+    paymentDate: today(),
+    method: "Held Funds",
+    receivedFrom: `Held funds ${holdId}`,
+    amount: parsed.data.amount,
+    allocationJson: JSON.stringify(allocationRm),
+    instalmentIdsJson: JSON.stringify(parsed.data.instalmentIds),
+    allocationStatus: "ALLOCATED",
+    payoutStatus: "PENDING",
+    recordedBy: c.get("user").id,
+  });
+
+  const deltasByInstallment = new Map<string, { principalPaid: number; profitPaid: number; feesPaid: number; deferredProfitPaid: number; tawidhPaid: number; lateInterestPaid: number }>();
+  for (const row of selected) deltasByInstallment.set(row.id, { principalPaid: 0, profitPaid: 0, feesPaid: 0, deferredProfitPaid: 0, tawidhPaid: 0, lateInterestPaid: 0 });
+  const componentField = { fees: "feesPaid", profit: "profitPaid", principal: "principalPaid", tawidh: "tawidhPaid", deferredProfit: "deferredProfitPaid", lateInterest: "lateInterestPaid" } as const;
+  for (const component of WATERFALL_ORDER[config.structure]) {
+    const rowsForComponent = selected.map((row) => ({ id: row.id, remainingSen: installmentRemainingSen(row, updatesById.get(row.id), adjustments)[component as keyof ReturnType<typeof installmentRemainingSen>] }));
+    const applied = distributeAcrossInstallments(result.allocation[component] ?? 0, rowsForComponent);
+    for (const [installmentId, sen] of applied) {
+      const delta = deltasByInstallment.get(installmentId)!;
+      delta[componentField[component as keyof typeof componentField]] += sen;
+    }
+  }
+  let principalAppliedSen = 0;
+  for (const row of selected) {
+    const delta = deltasByInstallment.get(row.id)!;
+    principalAppliedSen += delta.principalPaid;
+    await db
+      .update(repaymentInstallments)
+      .set({
+        principalPaid: row.principalPaid + fromSen(delta.principalPaid),
+        profitPaid: row.profitPaid + fromSen(delta.profitPaid),
+        feesPaid: row.feesPaid + fromSen(delta.feesPaid),
+        deferredProfitPaid: row.deferredProfitPaid + fromSen(delta.deferredProfitPaid),
+        tawidhPaid: row.tawidhPaid + fromSen(delta.tawidhPaid),
+        lateInterestPaid: row.lateInterestPaid + fromSen(delta.lateInterestPaid),
+      })
+      .where(eq(repaymentInstallments.id, row.id));
+  }
+  const newOutstanding = Math.max(0, (facility.facilityPrincipalOutstanding ?? facility.principalAmount) - fromSen(principalAppliedSen));
+  await db.update(financingFacilities).set({ facilityPrincipalOutstanding: newOutstanding }).where(eq(financingFacilities.id, facilityId));
+
+  const facilityHoldings = await db.select({ investorId: holdings.investorId, amountInvested: holdings.amountInvested }).from(holdings).where(eq(holdings.facilityId, facilityId));
+  const investors = groupHoldingsByInvestor(facilityHoldings);
+  const investedPoolSen = getInvestedPoolSen(investors);
+  const profileRows = await db.select().from(investorProfiles).where(inArray(investorProfiles.userId, investors.map((i) => i.id)));
+  const profileByInvestor = new Map(profileRows.map((p) => [p.userId, p]));
+
+  const batch = buildPayoutBatch(db, { facility, paymentId: heldPaymentId, facilityId, allocationRm, investors, investedPoolSen, profileByInvestor });
+  if (!batch.ok) return c.json({ error: batch.error }, 500);
+  const usedAmount = hold.usedAmount + parsed.data.amount;
+  const newHoldStatus = usedAmount + hold.refundedAmount >= hold.originalAmount - 0.01 ? "APPLIED" : "PARTIALLY_APPLIED";
+  await db.batch([...batch.ops, db.update(heldFunds).set({ usedAmount, status: newHoldStatus }).where(eq(heldFunds.id, holdId))] as unknown as [BatchItem, ...BatchItem[]]);
+
+  const postApplyRecalc = await applyRecalculation(db, facilityId, today());
+  await syncLegacyInstallmentStatus(db, postApplyRecalc.updates);
+  const completed = await maybeCompleteFacility(db, facilityId);
+
+  return c.json({ ok: true, payout: { id: batch.payoutId, walletCreditTotal: fromSen(batch.payoutResult.walletCreditTotal) }, facilityCompleted: completed });
 });
 
 export default adminRepayments;

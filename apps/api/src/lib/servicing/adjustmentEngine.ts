@@ -50,6 +50,33 @@ export function adjustedComponent(calculatedSen: number, adjustments: ChargeAdju
   return effectiveAmount(calculatedSen, latest.type, latest.amount);
 }
 
+/** The six waterfall components a charge adjustment can target - matches `chargeAdjustments.component`'s enum. */
+export interface EffectiveInstallmentComponents {
+  fees: number;
+  tawidh: number;
+  deferredProfit: number;
+  lateInterest: number;
+  profit: number;
+  principal: number;
+}
+
+/**
+ * Applies each component's latest approved adjustment (if any) on top of the
+ * engine-calculated gross amount, leaving components with no adjustment
+ * untouched. Stage 2a's `recalculateFacility` doesn't know about
+ * `chargeAdjustments` at all - callers apply this to its output (the
+ * `*AccruedSen` fields, not the already-net `*DueSen` ones) before
+ * subtracting what's been paid.
+ */
+export function applyChargeAdjustments(calculated: EffectiveInstallmentComponents, adjustmentsByComponent: Partial<Record<keyof EffectiveInstallmentComponents, ChargeAdjustmentRecord[]>>): EffectiveInstallmentComponents {
+  const result = { ...calculated };
+  (Object.keys(calculated) as Array<keyof EffectiveInstallmentComponents>).forEach((component) => {
+    const adjustments = adjustmentsByComponent[component];
+    if (adjustments && adjustments.length > 0) result[component] = adjustedComponent(calculated[component], adjustments);
+  });
+  return result;
+}
+
 export interface SettlementScheduleRow {
   dueDate: string;
   /** Start of this row's accrual period - the prior unpaid row's due date, or the facility's disbursement/issue date for the first row. */

@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { apiGet } from "../../lib/api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiGet, apiPost } from "../../lib/api";
 import { money } from "../../lib/money";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { useToast } from "../../components/Toast";
 import { DataTable, type Column } from "../../components/data/DataTable";
 import { SkeletonPage, QueryError } from "../../components/QueryState";
 
@@ -67,6 +68,15 @@ interface PayoutRecord {
   status: string;
   createdAt: string;
 }
+interface HeldFundRow {
+  id: string;
+  originalAmount: number;
+  usedAmount: number;
+  refundedAmount: number;
+  holdType: string;
+  reason: string | null;
+  status: string;
+}
 interface NoteDetail {
   facility: Note;
   servicingSchedule: ServicingScheduleRow[];
@@ -76,6 +86,7 @@ interface NoteDetail {
   uniqueInvestors: number;
   payments: PaymentRecord[];
   payouts: PayoutRecord[];
+  heldFunds: HeldFundRow[];
 }
 
 function statusClass(status: string) {
@@ -87,12 +98,36 @@ function statusClass(status: string) {
 export default function AdminRepayments() {
   const [openId, setOpenId] = useState<string | null>(null);
   const navigate = useNavigate();
+  const toast = useToast();
+  const qc = useQueryClient();
 
   const { data, isLoading, isError, refetch: refetchNotes } = useQuery({ queryKey: ["admin", "repayments"], queryFn: () => apiGet<{ notes: Note[] }>("/api/admin/repayments") });
   const { data: detail } = useQuery({
     queryKey: ["admin", "repayment", openId],
     queryFn: () => apiGet<NoteDetail>(`/api/admin/repayments/${openId}`),
     enabled: !!openId,
+  });
+
+  const [applyHoldId, setApplyHoldId] = useState<string | null>(null);
+  const [applyAmount, setApplyAmount] = useState("");
+  const [applyInstallmentIds, setApplyInstallmentIds] = useState<string[]>([]);
+  const [applyReason, setApplyReason] = useState("");
+  const applyHeldFundsMutation = useMutation({
+    mutationFn: () =>
+      apiPost(`/api/admin/repayments/${openId}/held-funds/${applyHoldId}/apply`, {
+        instalmentIds: applyInstallmentIds,
+        amount: Number(applyAmount),
+        reason: applyReason,
+      }),
+    onSuccess: () => {
+      toast("Held funds applied.");
+      setApplyHoldId(null);
+      setApplyAmount("");
+      setApplyInstallmentIds([]);
+      setApplyReason("");
+      qc.invalidateQueries({ queryKey: ["admin", "repayment", openId] });
+    },
+    onError: (e: Error) => toast(e.message),
   });
 
   const columns: Column<Note>[] = [
@@ -107,7 +142,7 @@ export default function AdminRepayments() {
   if (isError) return <QueryError onRetry={() => refetchNotes()} />;
 
   if (openId && detail) {
-    const { facility, servicingSchedule, issuerSummary, positions, fundedAmount, uniqueInvestors, payments, payouts } = detail;
+    const { facility, servicingSchedule, issuerSummary, positions, fundedAmount, uniqueInvestors, payments, payouts, heldFunds } = detail;
     const isIslamic = facility.islamicConventional === "Islamic";
 
     return (
@@ -146,11 +181,19 @@ export default function AdminRepayments() {
         <div className="card">
           <div className="section-head">
             <h3>Current Position</h3>
-            {facility.status === "Ongoing" && (
-              <button className="btn small primary" onClick={() => navigate(`/app/admin-repayments/${facility.id}/process`)}>
-                Process Payment
+            <div className="row" style={{ gap: 8 }}>
+              <button className="btn small" onClick={() => navigate(`/app/admin-repayments/${facility.id}/adjust-charges`)}>
+                Adjust Charges
               </button>
-            )}
+              <button className="btn small" onClick={() => navigate(`/app/admin-repayments/${facility.id}/adjust-schedule`)}>
+                Adjust Schedule
+              </button>
+              {facility.status === "Ongoing" && (
+                <button className="btn small primary" onClick={() => navigate(`/app/admin-repayments/${facility.id}/process`)}>
+                  Process Payment
+                </button>
+              )}
+            </div>
           </div>
           <div className="grid cols-3">
             <div className="metric">
@@ -281,6 +324,91 @@ export default function AdminRepayments() {
                 ))}
               </tbody>
             </table>
+          )}
+        </div>
+
+        <div className="card">
+          <div className="section-head">
+            <h3>Held Funds</h3>
+          </div>
+          {heldFunds.length === 0 ? (
+            <div className="sub">No held funds.</div>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Original</th>
+                  <th>Used</th>
+                  <th>Remaining</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {heldFunds.map((h) => {
+                  const remaining = h.originalAmount - h.usedAmount - h.refundedAmount;
+                  return (
+                    <tr key={h.id}>
+                      <td>{h.holdType}</td>
+                      <td>{money(h.originalAmount)}</td>
+                      <td>{money(h.usedAmount)}</td>
+                      <td>{money(remaining)}</td>
+                      <td>
+                        <span className={`status ${statusClass(h.status)}`}>{h.status}</span>
+                      </td>
+                      <td>
+                        {remaining > 0 && (
+                          <button className="btn small" onClick={() => setApplyHoldId(applyHoldId === h.id ? null : h.id)}>
+                            {applyHoldId === h.id ? "Cancel" : "Apply"}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+          {applyHoldId && (
+            <div className="stack" style={{ marginTop: 12, borderTop: "1px solid var(--line)", paddingTop: 12 }}>
+              <div className="field">
+                <label>Apply to instalment(s)</label>
+                <div className="list">
+                  {servicingSchedule
+                    .filter((row) => row.remaining > 0)
+                    .map((row) => (
+                      <label key={row.id} className="row" style={{ gap: 8, alignItems: "center" }}>
+                        <input
+                          type="checkbox"
+                          checked={applyInstallmentIds.includes(row.id)}
+                          onChange={(e) => setApplyInstallmentIds((prev) => (e.target.checked ? [...prev, row.id] : prev.filter((x) => x !== row.id)))}
+                        />
+                        <span>
+                          Due {row.dueDate} · {money(row.remaining)} remaining
+                        </span>
+                      </label>
+                    ))}
+                </div>
+              </div>
+              <div className="field">
+                <label htmlFor="applyAmount">Amount to apply (RM)</label>
+                <input id="applyAmount" type="number" min="0" step="0.01" value={applyAmount} onChange={(e) => setApplyAmount(e.target.value)} />
+              </div>
+              <div className="field">
+                <label htmlFor="applyReason">Reason</label>
+                <input id="applyReason" value={applyReason} onChange={(e) => setApplyReason(e.target.value)} />
+              </div>
+              <div className="row" style={{ justifyContent: "flex-end" }}>
+                <button
+                  className="btn primary"
+                  disabled={!applyAmount || applyInstallmentIds.length === 0 || !applyReason || applyHeldFundsMutation.isPending}
+                  onClick={() => applyHeldFundsMutation.mutate()}
+                >
+                  Apply Held Funds &amp; Payout Investors
+                </button>
+              </div>
+            </div>
           )}
         </div>
 

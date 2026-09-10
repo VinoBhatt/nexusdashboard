@@ -164,6 +164,74 @@ test.describe("Admin approvals", () => {
     expect(detailJson.payouts[0].walletCreditTotal).toBeGreaterThan(0);
   });
 
+  test("Admin waives a charge, edits the schedule, and holds back / applies part of a payout (servicing engine Stage 2b)", async ({ page }) => {
+    await login(page, DEMO_ACCOUNTS.admin);
+    await page.getByRole("link", { name: "Record Repayments", exact: true }).click();
+
+    // IIF2200-01082026 is the Islamic Stage 1 fixture, untouched by the
+    // Stage 2a test above (which uses the Conventional WC2200 facility).
+    const scheduleRow = page.locator("tbody tr", { hasText: "IIF2200-01082026" });
+    await expect(scheduleRow).toBeVisible();
+    await scheduleRow.getByRole("button", { name: "View" }).click();
+
+    // --- Charge adjustment: fully waive Ta'widh on the overdue instalment #1 ---
+    await page.getByRole("button", { name: "Adjust Charges" }).click();
+    await page.getByLabel("Charge").selectOption("tawidh");
+    await page.getByLabel("Adjustment type").selectOption("FULL_WAIVER");
+    await page.getByLabel("Reason").fill("Playwright Stage 2b: goodwill waiver");
+    await page.getByRole("button", { name: "Approve Adjustment" }).click();
+    await expect(page.locator("#toast")).toContainText("Charge adjustment approved");
+    await expect(page.locator("table", { hasText: "Reason" }).getByText("Playwright Stage 2b: goodwill waiver")).toBeVisible();
+
+    // --- Schedule adjustment: push instalment #3's due date out, principal/profit unchanged so it still reconciles ---
+    await page.goto("/app/admin-repayments");
+    await page.locator("tbody tr", { hasText: "IIF2200-01082026" }).getByRole("button", { name: "View" }).click();
+    await page.getByRole("button", { name: "Adjust Schedule" }).click();
+    const dueDateInputs = page.locator('input[type="date"]');
+    await dueDateInputs.nth(2).fill("2026-10-23"); // instalment #3 was 2026-09-23
+    await expect(page.getByText("Difference")).toBeVisible();
+    await page.getByLabel("Reason").fill("Playwright Stage 2b: push final instalment out one month");
+    await page.getByRole("button", { name: "Confirm Adjustment" }).click();
+    await expect(page.locator("#toast")).toContainText("Schedule adjustment confirmed");
+    await expect(page.locator("table", { hasText: "Version" }).getByText("DIRECT_EDIT")).toBeVisible();
+
+    // --- Held funds: pay instalment #3 in full, hold back part of the principal, then apply it to instalment #2 ---
+    await page.goto("/app/admin-repayments");
+    await page.locator("tbody tr", { hasText: "IIF2200-01082026" }).getByRole("button", { name: "View" }).click();
+    await page.getByRole("button", { name: "Process Payment" }).click();
+    await page.locator('input[type="checkbox"]').nth(2).check(); // instalment #3 (has the RM16,000 principal)
+    await page.getByRole("button", { name: "Next: Record Payment" }).click();
+    await page.getByLabel("Bank reference").fill(`PW-STAGE2B-${Date.now()}`);
+    await page.getByRole("button", { name: "Next: Allocate Payment" }).click();
+    await page.getByRole("button", { name: "Next: Review" }).click();
+    await page.getByText("Hold part of this payment back").click();
+    await page.getByLabel(/Amount to hold from principal/).fill("100");
+    await page.getByLabel("Reason", { exact: true }).fill("Playwright Stage 2b: sinking fund hold");
+    await page.getByRole("button", { name: "Confirm & Payout Investors" }).click();
+    await expect(page.getByText("Net wallet credits")).toBeVisible();
+    await expect(page.getByText("Part of this payment was held back")).toBeVisible();
+
+    await page.goto("/app/admin-repayments");
+    await page.locator("tbody tr", { hasText: "IIF2200-01082026" }).getByRole("button", { name: "View" }).click();
+    const heldFundsRow = page.locator("tbody tr", { hasText: "SINKING_FUND" });
+    await expect(heldFundsRow).toBeVisible();
+    await expect(heldFundsRow).toContainText("HELD");
+    await heldFundsRow.getByRole("button", { name: "Apply" }).click();
+    await page.locator('input[type="checkbox"]').first().check(); // any instalment still carrying an outstanding balance
+    await page.getByLabel("Amount to apply (RM)").fill("100");
+    await page.locator("#applyReason").fill("Playwright Stage 2b: apply held funds forward");
+    await page.getByRole("button", { name: "Apply Held Funds" }).click();
+    await expect(page.locator("#toast")).toContainText("Held funds applied");
+
+    const detail = await apiFetch(page, "/api/admin/repayments/IIF2200-01082026");
+    const detailJson = JSON.parse(detail.body);
+    expect(detailJson.chargeAdjustments.length).toBeGreaterThan(0);
+    expect(detailJson.chargeAdjustments[0].effectiveAmount).toBe(0);
+    expect(detailJson.scheduleVersions.length).toBeGreaterThan(0);
+    expect(detailJson.heldFunds[0].status).not.toBe("HELD");
+    expect(detailJson.payments.length).toBeGreaterThanOrEqual(2); // the recorded payment + the held-funds application payment
+  });
+
   test("Reports page offers a real PDF platform summary and CSV exports", async ({ page }) => {
     await login(page, DEMO_ACCOUNTS.admin);
     await page.getByRole("link", { name: "Reports", exact: true }).click();

@@ -81,6 +81,17 @@ describe("recalculateFacility", () => {
     expect(update.servicingStatus).toBe("LATE");
     expect(result.activeInstallmentId).toBe("INST-1");
     expect(result.totalDueSen).toBeGreaterThan(10000000 + 167708);
+    // Gross accrued equals net due when nothing has been paid yet.
+    expect(update.deferredProfitAccruedSen).toBe(update.deferredProfitDueSen);
+    expect(update.tawidhAccruedSen).toBe(update.tawidhDueSen);
+  });
+
+  it("exposes gross accrued separately from net due once a partial payment has been made", () => {
+    const row = makeRow({ deferredProfitPaidSen: 100, tawidhPaidSen: 50 });
+    const result = recalculateFacility(makeConfig({ structure: "Islamic" }), [row], "2026-07-31");
+    const update = result.updates[0];
+    expect(update.deferredProfitAccruedSen - update.deferredProfitDueSen).toBe(100);
+    expect(update.tawidhAccruedSen - update.tawidhDueSen).toBe(50);
   });
 
   it("a Conventional installment overdue by 11 days accrues late interest, not deferred profit/ta'widh", () => {

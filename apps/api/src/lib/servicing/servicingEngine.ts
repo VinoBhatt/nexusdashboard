@@ -97,6 +97,10 @@ export interface InstallmentUpdate {
   lateInterestDueSen: number;
   daysPastDue: number;
   servicingStatus: ServicingStatus;
+  /** Gross accrued amount before subtracting `*Paid` - the *DueSen fields above are already net of paid. Charge adjustments (Stage 2b) apply to this, not to the net figure. */
+  deferredProfitAccruedSen: number;
+  tawidhAccruedSen: number;
+  lateInterestAccruedSen: number;
 }
 
 export interface RecalculateFacilityResult {
@@ -123,10 +127,13 @@ export function recalculateFacility(config: FacilityServicingConfig, installment
         lateInterestDueSen: 0,
         daysPastDue: 0,
         servicingStatus: "PAID",
+        deferredProfitAccruedSen: 0,
+        tawidhAccruedSen: 0,
+        lateInterestAccruedSen: 0,
       };
     }
     if (row.dueDate > asOfDate) {
-      return { id: row.id, deferredProfitDueSen: 0, tawidhDueSen: 0, lateInterestDueSen: 0, daysPastDue: 0, servicingStatus: "UPCOMING" };
+      return { id: row.id, deferredProfitDueSen: 0, tawidhDueSen: 0, lateInterestDueSen: 0, daysPastDue: 0, servicingStatus: "UPCOMING", deferredProfitAccruedSen: 0, tawidhAccruedSen: 0, lateInterestAccruedSen: 0 };
     }
 
     if (config.structure === "Islamic") {
@@ -141,10 +148,12 @@ export function recalculateFacility(config: FacilityServicingConfig, installment
         tawidhRateBps: config.tawidhRateBps,
         dayCountBasis: config.dayCountBasis,
       });
-      const deferredProfitDueSen = Math.max(0, (result.components.deferredProfit ?? 0) - row.deferredProfitPaidSen);
-      const tawidhDueSen = Math.max(0, (result.components.tawidh ?? 0) - row.tawidhPaidSen);
+      const deferredProfitAccruedSen = result.components.deferredProfit ?? 0;
+      const tawidhAccruedSen = result.components.tawidh ?? 0;
+      const deferredProfitDueSen = Math.max(0, deferredProfitAccruedSen - row.deferredProfitPaidSen);
+      const tawidhDueSen = Math.max(0, tawidhAccruedSen - row.tawidhPaidSen);
       const status = deriveServicingStatus({ remainingSen: remaining, daysPastDue: result.daysPastDue, delinquentDays: config.delinquentDays, defaultDays: config.defaultDays, dueDate: row.dueDate, asOfDate });
-      return { id: row.id, deferredProfitDueSen, tawidhDueSen, lateInterestDueSen: 0, daysPastDue: result.daysPastDue, servicingStatus: status };
+      return { id: row.id, deferredProfitDueSen, tawidhDueSen, lateInterestDueSen: 0, daysPastDue: result.daysPastDue, servicingStatus: status, deferredProfitAccruedSen, tawidhAccruedSen, lateInterestAccruedSen: 0 };
     }
 
     const result = calculateConventionalCurrentDue({
@@ -155,9 +164,10 @@ export function recalculateFacility(config: FacilityServicingConfig, installment
       lateInterestRateBps: config.lateInterestRateBps,
       dayCountBasis: config.dayCountBasis,
     });
-    const lateInterestDueSen = Math.max(0, (result.components.lateInterest ?? 0) - row.lateInterestPaidSen);
+    const lateInterestAccruedSen = result.components.lateInterest ?? 0;
+    const lateInterestDueSen = Math.max(0, lateInterestAccruedSen - row.lateInterestPaidSen);
     const status = deriveServicingStatus({ remainingSen: remaining, daysPastDue: result.daysPastDue, delinquentDays: config.delinquentDays, defaultDays: config.defaultDays, dueDate: row.dueDate, asOfDate });
-    return { id: row.id, deferredProfitDueSen: 0, tawidhDueSen: 0, lateInterestDueSen, daysPastDue: result.daysPastDue, servicingStatus: status };
+    return { id: row.id, deferredProfitDueSen: 0, tawidhDueSen: 0, lateInterestDueSen, daysPastDue: result.daysPastDue, servicingStatus: status, deferredProfitAccruedSen: 0, tawidhAccruedSen: 0, lateInterestAccruedSen };
   });
 
   const byId = new Map(active.map((row) => [row.id, row]));

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { effectiveAmount, adjustedComponent, settlementPreview, type ChargeAdjustmentRecord } from "./adjustmentEngine";
+import { effectiveAmount, adjustedComponent, applyChargeAdjustments, settlementPreview, type ChargeAdjustmentRecord } from "./adjustmentEngine";
 
 describe("effectiveAmount", () => {
   it("FULL_WAIVER always reduces to zero", () => {
@@ -39,6 +39,32 @@ describe("adjustedComponent", () => {
   });
   it("a RESET adjustment reverts to the calculated amount", () => {
     expect(adjustedComponent(5000, [approved("PARTIAL_WAIVER", 1000, 1), approved("RESET", 0, 2)])).toBe(5000);
+  });
+});
+
+describe("applyChargeAdjustments", () => {
+  const approved = (type: ChargeAdjustmentRecord["type"], amount: number, createdAt: number): ChargeAdjustmentRecord => ({ type, amount, createdAt, status: "APPROVED" });
+  const calculated = { fees: 0, tawidh: 5000, deferredProfit: 10000, lateInterest: 0, profit: 20000, principal: 100000 };
+
+  it("leaves components with no adjustment untouched", () => {
+    const result = applyChargeAdjustments(calculated, {});
+    expect(result).toEqual(calculated);
+  });
+  it("applies an adjustment only to its own component", () => {
+    const result = applyChargeAdjustments(calculated, { tawidh: [approved("FULL_WAIVER", 0, 1)] });
+    expect(result.tawidh).toBe(0);
+    expect(result.deferredProfit).toBe(10000);
+    expect(result.profit).toBe(20000);
+    expect(result.principal).toBe(100000);
+  });
+  it("applies independent adjustments to multiple components at once", () => {
+    const result = applyChargeAdjustments(calculated, {
+      deferredProfit: [approved("PARTIAL_WAIVER", 4000, 1)],
+      principal: [approved("CORRECTION", 95000, 1)],
+    });
+    expect(result.deferredProfit).toBe(6000);
+    expect(result.principal).toBe(95000);
+    expect(result.tawidh).toBe(5000);
   });
 });
 

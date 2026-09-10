@@ -51,6 +51,7 @@ interface PayoutResponse {
   ok: true;
   payout: { id: string; walletCreditTotal: number; platformFeeTotal: number; sstTotal: number };
   payouts: PayoutLine[];
+  heldFundId: string | null;
   facilityCompleted: boolean;
 }
 
@@ -92,6 +93,9 @@ export default function AdminProcessPayment() {
   const [manualAllocation, setManualAllocation] = useState<Record<string, string>>({});
   const [allocateResult, setAllocateResult] = useState<AllocateResponse | null>(null);
   const [payoutResult, setPayoutResult] = useState<PayoutResponse | null>(null);
+  const [holdAmount, setHoldAmount] = useState("");
+  const [holdType, setHoldType] = useState<"SINKING_FUND" | "PENDING_INSTRUCTION" | "OTHER">("SINKING_FUND");
+  const [holdReason, setHoldReason] = useState("");
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["admin", "repayment", id],
@@ -154,7 +158,12 @@ export default function AdminProcessPayment() {
   });
 
   const payoutMutation = useMutation({
-    mutationFn: () => apiPost<PayoutResponse>(`/api/admin/repayments/${id}/payments/${payment!.id}/payout`, {}),
+    mutationFn: () =>
+      apiPost<PayoutResponse>(`/api/admin/repayments/${id}/payments/${payment!.id}/payout`, {
+        holdAmount: holdAmount ? Number(holdAmount) : undefined,
+        holdType: holdAmount ? holdType : undefined,
+        holdReason: holdAmount ? holdReason || undefined : undefined,
+      }),
     onSuccess: (res) => {
       setPayoutResult(res);
       setStep("complete");
@@ -342,6 +351,33 @@ export default function AdminProcessPayment() {
               </tbody>
             </table>
             {allocateResult.unallocated > 0 && <div className="sub">Unallocated / excess: {money(allocateResult.unallocated)}</div>}
+            {(allocateResult.allocation.principal ?? 0) > 0 && (
+              <details>
+                <summary className="sub">Hold part of this payment back (sinking fund / pending instruction)</summary>
+                <div className="stack" style={{ marginTop: 10 }}>
+                  <div className="field">
+                    <label htmlFor="ppHoldAmount">Amount to hold from principal (RM, up to {money(allocateResult.allocation.principal)})</label>
+                    <input id="ppHoldAmount" type="number" min="0" step="0.01" max={allocateResult.allocation.principal} value={holdAmount} onChange={(e) => setHoldAmount(e.target.value)} />
+                  </div>
+                  {holdAmount && (
+                    <>
+                      <div className="field">
+                        <label htmlFor="ppHoldType">Hold type</label>
+                        <select id="ppHoldType" value={holdType} onChange={(e) => setHoldType(e.target.value as typeof holdType)}>
+                          <option value="SINKING_FUND">Sinking Fund</option>
+                          <option value="PENDING_INSTRUCTION">Pending Instruction</option>
+                          <option value="OTHER">Other</option>
+                        </select>
+                      </div>
+                      <div className="field">
+                        <label htmlFor="ppHoldReason">Reason</label>
+                        <input id="ppHoldReason" value={holdReason} onChange={(e) => setHoldReason(e.target.value)} />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </details>
+            )}
             <p className="sub">Confirming will credit investor wallets for this payment's allocation. This cannot be undone.</p>
             <div className="row" style={{ justifyContent: "space-between", marginTop: 16 }}>
               <button type="button" className="btn" onClick={() => setStep("allocate")}>
@@ -390,6 +426,7 @@ export default function AdminProcessPayment() {
                 ))}
               </tbody>
             </table>
+            {payoutResult.heldFundId && <div className="sub">Part of this payment was held back and can be applied later from the note's Held Funds section.</div>}
             {payoutResult.facilityCompleted && <div className="sub">This note has no remaining outstanding instalments and is now marked Completed.</div>}
             <div className="row" style={{ justifyContent: "flex-end", marginTop: 16 }}>
               <button type="button" className="btn primary" onClick={() => navigate(`/app/admin-repayments`)}>
