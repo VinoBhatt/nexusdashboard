@@ -7,6 +7,7 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { useToast } from "../../components/Toast";
 import { DataTable, type Column } from "../../components/data/DataTable";
 import { SkeletonPage, QueryError } from "../../components/QueryState";
+import { CalculationInspectorModal } from "./CalculationInspectorModal";
 
 interface Note {
   id: string;
@@ -97,6 +98,7 @@ function statusClass(status: string) {
 
 export default function AdminRepayments() {
   const [openId, setOpenId] = useState<string | null>(null);
+  const [inspectInstallmentId, setInspectInstallmentId] = useState<string | null>(null);
   const navigate = useNavigate();
   const toast = useToast();
   const qc = useQueryClient();
@@ -246,6 +248,7 @@ export default function AdminRepayments() {
                 <th>Total Due</th>
                 <th>Paid</th>
                 <th>Status</th>
+                <th>Calculation</th>
               </tr>
             </thead>
             <tbody>
@@ -261,11 +264,20 @@ export default function AdminRepayments() {
                   <td>
                     <span className={`status ${statusClass(row.status)}`}>{row.status}</span>
                   </td>
+                  <td>
+                    <button type="button" className="btn small" onClick={() => setInspectInstallmentId(row.id)}>
+                      Inspect
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+
+        {inspectInstallmentId && (
+          <CalculationInspectorModal facilityId={facility.id} installmentId={inspectInstallmentId} onClose={() => setInspectInstallmentId(null)} />
+        )}
 
         <div className="card">
           <div className="section-head">

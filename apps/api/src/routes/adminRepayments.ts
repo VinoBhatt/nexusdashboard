@@ -26,7 +26,19 @@ import {
 } from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
-import { WATERFALL_ORDER, allocateByWaterfall, validateManualAllocation, calculateInvestorPayouts, toSen, fromSen, mapServicingStatusToLegacyStatus, type FacilityStructure } from "../lib/servicing/calculationEngine";
+import {
+  WATERFALL_ORDER,
+  allocateByWaterfall,
+  validateManualAllocation,
+  calculateInvestorPayouts,
+  calculateIslamicCurrentDue,
+  calculateConventionalCurrentDue,
+  toSen,
+  fromSen,
+  mapServicingStatusToLegacyStatus,
+  type FacilityStructure,
+  type CurrentDueResult,
+} from "../lib/servicing/calculationEngine";
 import { resolveFacilityServicingConfig, recalculateFacility, applyRecalculation, type InstallmentRow, type InstallmentUpdate, type RecalculateFacilityResult } from "../lib/servicing/servicingEngine";
 import { groupHoldingsByInvestor, getInvestedPoolSen } from "../lib/servicing/projections";
 import { applyChargeAdjustments, effectiveAmount, settlementPreview, type EffectiveInstallmentComponents, type ChargeAdjustmentRecord, type ChargeAdjustmentType, type SettlementScheduleRow } from "../lib/servicing/adjustmentEngine";
@@ -1022,6 +1034,99 @@ adminRepayments.post("/:id/fee-policy", async (c) => {
   await db.update(financingFacilities).set({ platformFeeBps: newRateBps }).where(eq(financingFacilities.id, facilityId));
 
   return c.json({ ok: true, previousRateBps, newRateBps }, 201);
+});
+
+// Calculation Inspector (Stage 2e) - the deliberate, plan-documented
+// replacement for the Module 5 prototype's fake-data QA/simulation panel.
+// Re-derives the *same* live engine call recalculateFacility makes for this
+// installment (calculateIslamicCurrentDue/calculateConventionalCurrentDue),
+// exposing the intermediate cap/daily/basis figures it doesn't return, plus
+// the adjustment-aware effective remaining from installmentRemainingSen. No
+// fake dates, no scenario fixtures - every figure here is real.
+adminRepayments.get("/:id/installments/:instId/inspect", async (c) => {
+  const db = drizzle(c.env.DB);
+  const facilityId = c.req.param("id");
+  const instId = c.req.param("instId");
+
+  const [facility] = await db.select().from(financingFacilities).where(eq(financingFacilities.id, facilityId)).limit(1);
+  if (!facility) return c.json({ error: "not_found" }, 404);
+  const schedule = await db.select().from(repaymentInstallments).where(eq(repaymentInstallments.facilityId, facilityId)).orderBy(repaymentInstallments.installmentNo);
+  const row = schedule.find((r) => r.id === instId);
+  if (!row) return c.json({ error: "not_found" }, 404);
+
+  const config = resolveFacilityServicingConfig(facility);
+  const asOfDate = today();
+  const recalc = recalculateFacility(config, schedule.map(toInstallmentRow), asOfDate);
+  const update = recalc.updates.find((u) => u.id === instId);
+
+  const adjustments = await db.select().from(chargeAdjustments).where(eq(chargeAdjustments.facilityId, facilityId));
+  const remaining = installmentRemainingSen(row, update, adjustments);
+
+  const principalRemainingSen = Math.max(0, toSen(row.principalDue) - toSen(row.principalPaid));
+  const profitRemainingSen = Math.max(0, toSen(row.profitDue) - toSen(row.profitPaid));
+
+  let liveCalculation: CurrentDueResult | null = null;
+  if (update && update.servicingStatus !== "PAID" && update.servicingStatus !== "UPCOMING") {
+    liveCalculation =
+      config.structure === "Islamic"
+        ? calculateIslamicCurrentDue({
+            financingAmountSen: config.financingAmountSen,
+            principalDueSen: principalRemainingSen,
+            profitDueSen: profitRemainingSen,
+            dueDate: row.dueDate,
+            asOfDate,
+            deferredProfitCapRateBps: config.deferredProfitCapRateBps,
+            deferredProfitMaximumDays: config.deferredProfitMaximumDays,
+            tawidhRateBps: config.tawidhRateBps,
+            dayCountBasis: config.dayCountBasis,
+          })
+        : calculateConventionalCurrentDue({
+            principalDueSen: principalRemainingSen,
+            profitDueSen: profitRemainingSen,
+            dueDate: row.dueDate,
+            asOfDate,
+            lateInterestRateBps: config.lateInterestRateBps,
+            dayCountBasis: config.dayCountBasis,
+          });
+  }
+
+  return c.json({
+    installmentId: instId,
+    dueDate: row.dueDate,
+    asOfDate,
+    structure: config.structure,
+    status: update?.servicingStatus ?? "PAID",
+    daysPastDue: update?.daysPastDue ?? 0,
+    principalRemaining: fromSen(principalRemainingSen),
+    profitRemaining: fromSen(profitRemainingSen),
+    config: {
+      deferredProfitCapRateBps: config.deferredProfitCapRateBps,
+      deferredProfitMaximumDays: config.deferredProfitMaximumDays,
+      tawidhRateBps: config.tawidhRateBps,
+      lateInterestRateBps: config.lateInterestRateBps,
+      dayCountBasis: config.dayCountBasis,
+    },
+    liveCalculation: liveCalculation
+      ? {
+          daysPastDue: liveCalculation.daysPastDue,
+          components: Object.fromEntries(Object.entries(liveCalculation.components).map(([k, v]) => [k, fromSen(v as number)])),
+          totalDue: fromSen(liveCalculation.totalDueSen),
+          deferredProfitCap: liveCalculation.deferredProfitCapSen != null ? fromSen(liveCalculation.deferredProfitCapSen) : undefined,
+          deferredProfitDaily: liveCalculation.deferredProfitDailySen != null ? fromSen(liveCalculation.deferredProfitDailySen) : undefined,
+          deferredProfitRemaining: liveCalculation.deferredProfitRemainingSen != null ? fromSen(liveCalculation.deferredProfitRemainingSen) : undefined,
+          tawidhBasis: liveCalculation.tawidhBasisSen != null ? fromSen(liveCalculation.tawidhBasisSen) : undefined,
+        }
+      : null,
+    chargeAdjustments: adjustments.filter((a) => a.installmentId === instId && a.status === "APPROVED"),
+    effectiveRemaining: {
+      principal: fromSen(remaining.principal),
+      profit: fromSen(remaining.profit),
+      fees: fromSen(remaining.fees),
+      tawidh: fromSen(remaining.tawidh),
+      deferredProfit: fromSen(remaining.deferredProfit),
+      lateInterest: fromSen(remaining.lateInterest),
+    },
+  });
 });
 
 export default adminRepayments;

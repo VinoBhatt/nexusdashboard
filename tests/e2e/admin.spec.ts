@@ -316,6 +316,38 @@ test.describe("Admin approvals", () => {
     expect(commsJson.communications[0].audience).toBe("SPECIFIC_INVESTOR");
   });
 
+  test("Admin inspects an installment's live charge calculation (servicing engine Stage 2e)", async ({ page }) => {
+    await login(page, DEMO_ACCOUNTS.admin);
+    await page.getByRole("link", { name: "Record Repayments", exact: true }).click();
+
+    // IIF2200-01082026's instalment #1 is due 2026-07-23 (seeded overdue) -
+    // its exact paid/unpaid status depends on whether the Stage 2b test ran
+    // first in the same DB, so this test only asserts things that hold
+    // either way (due date, days-past-due sign, that the panel renders).
+    await page.locator("tbody tr", { hasText: "IIF2200-01082026" }).getByRole("button", { name: "View" }).click();
+    await page.locator("tbody tr", { hasText: "2026-07-23" }).getByRole("button", { name: "Inspect" }).click();
+    await expect(page.getByRole("heading", { name: "Calculation Inspector" })).toBeVisible();
+    await expect(page.locator(".modal-card")).toContainText("2026-07-23");
+    await expect(page.locator(".modal-card")).toContainText("Effective remaining");
+    await page.getByLabel("Close").click();
+    await expect(page.getByRole("heading", { name: "Calculation Inspector" })).not.toBeVisible();
+
+    const inspect = await apiFetch(page, "/api/admin/repayments/IIF2200-01082026/installments/IIF2200-01082026-1/inspect");
+    const inspectJson = JSON.parse(inspect.body);
+    expect(inspectJson.dueDate).toBe("2026-07-23");
+    expect(inspectJson.structure).toBe("Islamic");
+    expect(inspectJson.daysPastDue).toBeGreaterThanOrEqual(0);
+    expect(inspectJson.effectiveRemaining).toBeDefined();
+    // Whichever branch this installment is in, the response must be internally
+    // consistent: PAID/UPCOMING carry no live calculation, anything accruing does.
+    if (inspectJson.status === "PAID" || inspectJson.status === "UPCOMING") {
+      expect(inspectJson.liveCalculation).toBeNull();
+    } else {
+      expect(inspectJson.liveCalculation).not.toBeNull();
+      expect(inspectJson.liveCalculation.components.tawidh).toBeGreaterThanOrEqual(0);
+    }
+  });
+
   test("Reports page offers a real PDF platform summary and CSV exports", async ({ page }) => {
     await login(page, DEMO_ACCOUNTS.admin);
     await page.getByRole("link", { name: "Reports", exact: true }).click();
