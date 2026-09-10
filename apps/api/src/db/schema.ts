@@ -441,6 +441,51 @@ export const feePolicyHistory = sqliteTable("fee_policy_history", {
   ...timestamps,
 });
 
+// One row per admin-issued goodwill/compensation credit - mirrors the
+// prototype's bonusCredits, but always posts a real wallet-crediting
+// transaction (see adminBonusCredits.ts) rather than a fake ledger line.
+export const bonusCredits = sqliteTable("bonus_credits", {
+  id: id(),
+  investorId: text("investor_id")
+    .notNull()
+    .references(() => users.id),
+  bonusType: text("bonus_type", {
+    enum: ["REFERRAL", "GOODWILL", "COMPENSATION", "PROMOTIONAL", "OTHER"],
+  }).notNull(),
+  amount: real("amount").notNull(),
+  effectiveDate: text("effective_date").notNull(),
+  reference: text("reference"),
+  relatedInvestorId: text("related_investor_id").references(() => users.id),
+  facilityId: text("facility_id").references(() => financingFacilities.id),
+  reason: text("reason").notNull(),
+  approvedBy: text("approved_by")
+    .notNull()
+    .references(() => users.id),
+  transactionId: text("transaction_id").references(() => transactions.id),
+  ...timestamps,
+});
+
+// One row per admin broadcast - recipientIdsJson snapshots exactly who was
+// resolved as the audience at send time, mirroring the *Json convention used
+// elsewhere (allocationJson, installmentsJson).
+export const communications = sqliteTable("communications", {
+  id: id(),
+  facilityId: text("facility_id").references(() => financingFacilities.id),
+  audience: text("audience", {
+    enum: ["ALL_INVESTORS", "FACILITY_INVESTORS", "SPECIFIC_INVESTOR"],
+  }).notNull(),
+  specificInvestorId: text("specific_investor_id").references(() => users.id),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  sendDate: text("send_date").notNull(),
+  sender: text("sender")
+    .notNull()
+    .references(() => users.id),
+  recipientIdsJson: text("recipient_ids_json").notNull(),
+  recipientCount: integer("recipient_count").notNull().default(0),
+  ...timestamps,
+});
+
 // ---- Investor positions ----
 
 export const holdings = sqliteTable("holdings", {

@@ -40,6 +40,8 @@ import AdminAdjustCharges from "./pages/admin/AdjustCharges";
 import AdminAdjustSchedule from "./pages/admin/AdjustSchedule";
 import AdminEarlySettlement from "./pages/admin/EarlySettlement";
 import AdminPlatformFee from "./pages/admin/PlatformFee";
+import AdminBonusCredits from "./pages/admin/BonusCredits";
+import AdminCommunications from "./pages/admin/Communications";
 import Financing from "./pages/issuer/Financing";
 import IssuerProposals from "./pages/issuer/Proposals";
 import Repayments from "./pages/issuer/Repayments";
@@ -95,6 +97,8 @@ export default function App() {
             <Route path="admin-repayments/:id/adjust-schedule" element={<AdminAdjustSchedule />} />
             <Route path="admin-repayments/:id/early-settlement" element={<AdminEarlySettlement />} />
             <Route path="admin-repayments/:id/platform-fee" element={<AdminPlatformFee />} />
+            <Route path="admin-bonus-credits" element={<AdminBonusCredits />} />
+            <Route path="admin-communications" element={<AdminCommunications />} />
             <Route path="financing" element={<Financing />} />
             <Route path="issuer-proposals" element={<IssuerProposals />} />
             <Route path="repayments" element={<Repayments />} />

@@ -274,6 +274,48 @@ test.describe("Admin approvals", () => {
     expect(activeSchedule.filter((row) => row.status !== "PAID")).toHaveLength(1);
   });
 
+  test("Admin issues a bonus credit, sends a communication, and reaches the audit trail (servicing engine Stage 2d)", async ({ page }) => {
+    await login(page, DEMO_ACCOUNTS.admin);
+
+    // --- Bonus credit: targets "Retail Investor" (user-seed-seller), never
+    // user-retail-demo, since retail.spec.ts's deposit-persistence test
+    // depends on that account's wallet balance staying untouched by other
+    // specs (see servicing_engine_migration memory). ---
+    await page.getByRole("link", { name: "Bonus Credits", exact: true }).click();
+    await page.getByLabel("Investor").selectOption({ label: "Retail Investor" });
+    await page.getByLabel("Bonus type").selectOption("GOODWILL");
+    await page.getByLabel("Amount (RM)").fill("25");
+    await page.getByLabel("Reason", { exact: true }).fill("Playwright Stage 2d: goodwill credit");
+    await page.getByRole("button", { name: "Apply Bonus Credit" }).click();
+    await expect(page.locator("#toast")).toContainText("Bonus credit applied");
+    await expect(page.locator("tbody tr", { hasText: "Retail Investor" }).first()).toContainText("RM 25.00");
+
+    // --- Communications: a specific-investor send, so the recipient count
+    // assertion is deterministic regardless of how many retail users the
+    // seed data happens to contain. ---
+    await page.getByRole("link", { name: "Communications", exact: true }).click();
+    await page.getByLabel("Audience").selectOption("SPECIFIC_INVESTOR");
+    await page.getByLabel("Investor").selectOption({ label: "Retail Investor" });
+    await page.getByLabel("Title").fill("Playwright Stage 2d notice");
+    await page.getByLabel("Message").fill("This is a test communication sent by the Stage 2d e2e test.");
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(page.locator("#toast")).toContainText("Sent to 1 recipient");
+
+    // --- Audit trail: the existing Activity Log, now linked from Admin's nav too. ---
+    await page.getByRole("link", { name: "Audit Trail", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Activity Log" })).toBeVisible();
+
+    const bonusList = await apiFetch(page, "/api/admin/bonus-credits");
+    const bonusJson = JSON.parse(bonusList.body);
+    expect(bonusJson.bonusCredits[0].amount).toBe(25);
+    expect(bonusJson.bonusCredits[0].bonusType).toBe("GOODWILL");
+
+    const commsList = await apiFetch(page, "/api/admin/communications");
+    const commsJson = JSON.parse(commsList.body);
+    expect(commsJson.communications[0].recipientCount).toBe(1);
+    expect(commsJson.communications[0].audience).toBe("SPECIFIC_INVESTOR");
+  });
+
   test("Reports page offers a real PDF platform summary and CSV exports", async ({ page }) => {
     await login(page, DEMO_ACCOUNTS.admin);
     await page.getByRole("link", { name: "Reports", exact: true }).click();
