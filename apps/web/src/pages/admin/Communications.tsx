@@ -21,6 +21,7 @@ interface CommunicationRow {
   audience: string;
   facilityId: string | null;
   specificInvestorId: string | null;
+  specificCorporateAccountId: string | null;
   title: string;
   message: string;
   sendDate: string;
@@ -32,6 +33,7 @@ const AUDIENCE_LABEL: Record<string, string> = {
   ALL_INVESTORS: "All Investors",
   FACILITY_INVESTORS: "Investors in a Note",
   SPECIFIC_INVESTOR: "Specific Investor",
+  SPECIFIC_CORPORATE_ACCOUNT: "Specific Corporate Account",
 };
 
 export default function AdminCommunications() {
@@ -43,6 +45,7 @@ export default function AdminCommunications() {
     queryFn: () => apiGet<{ investors: InvestorOption[] }>("/api/admin/investors"),
   });
   const retailInvestors = useMemo(() => (investorsData?.investors ?? []).filter((i) => i.type === "Retail"), [investorsData]);
+  const corporateAccounts = useMemo(() => (investorsData?.investors ?? []).filter((i) => i.type === "Corporate"), [investorsData]);
 
   const { data: notesData } = useQuery({
     queryKey: ["admin", "repayments"],
@@ -57,6 +60,7 @@ export default function AdminCommunications() {
   const [audience, setAudience] = useState("ALL_INVESTORS");
   const [facilityId, setFacilityId] = useState("");
   const [specificInvestorId, setSpecificInvestorId] = useState("");
+  const [specificCorporateAccountId, setSpecificCorporateAccountId] = useState("");
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [sendDate, setSendDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -67,6 +71,7 @@ export default function AdminCommunications() {
         audience,
         facilityId: audience === "FACILITY_INVESTORS" ? facilityId : undefined,
         specificInvestorId: audience === "SPECIFIC_INVESTOR" ? specificInvestorId : undefined,
+        specificCorporateAccountId: audience === "SPECIFIC_CORPORATE_ACCOUNT" ? specificCorporateAccountId : undefined,
         title,
         message,
         sendDate,
@@ -89,7 +94,11 @@ export default function AdminCommunications() {
   ];
 
   const canSubmit =
-    !!title && !!message && (audience !== "FACILITY_INVESTORS" || !!facilityId) && (audience !== "SPECIFIC_INVESTOR" || !!specificInvestorId);
+    !!title &&
+    !!message &&
+    (audience !== "FACILITY_INVESTORS" || !!facilityId) &&
+    (audience !== "SPECIFIC_INVESTOR" || !!specificInvestorId) &&
+    (audience !== "SPECIFIC_CORPORATE_ACCOUNT" || !!specificCorporateAccountId);
 
   if (isLoading) return <SkeletonPage />;
   if (isError || !data) return <QueryError onRetry={() => refetch()} />;
@@ -128,6 +137,19 @@ export default function AdminCommunications() {
               <select id="cmInvestor" value={specificInvestorId} onChange={(e) => setSpecificInvestorId(e.target.value)}>
                 <option value="">Select an investor…</option>
                 {retailInvestors.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {audience === "SPECIFIC_CORPORATE_ACCOUNT" && (
+            <div className="field">
+              <label htmlFor="cmCorporateAccount">Corporate Account</label>
+              <select id="cmCorporateAccount" value={specificCorporateAccountId} onChange={(e) => setSpecificCorporateAccountId(e.target.value)}>
+                <option value="">Select a corporate account…</option>
+                {corporateAccounts.map((i) => (
                   <option key={i.id} value={i.id}>
                     {i.name}
                   </option>

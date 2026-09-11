@@ -6,7 +6,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { drizzle } from "drizzle-orm/d1";
 import { eq, desc } from "drizzle-orm";
-import { communications, users, holdings, financingFacilities } from "../db/schema";
+import { communications, users, holdings, financingFacilities, corporateAccounts, corporateUsers } from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
 import { insertNotification } from "../lib/notifications";
@@ -15,9 +15,10 @@ const adminCommunications = new Hono<AuthedEnv>();
 adminCommunications.use("*", requireAuth, requireRole("admin"));
 
 const createSchema = z.object({
-  audience: z.enum(["ALL_INVESTORS", "FACILITY_INVESTORS", "SPECIFIC_INVESTOR"]),
+  audience: z.enum(["ALL_INVESTORS", "FACILITY_INVESTORS", "SPECIFIC_INVESTOR", "SPECIFIC_CORPORATE_ACCOUNT"]),
   facilityId: z.string().optional(),
   specificInvestorId: z.string().optional(),
+  specificCorporateAccountId: z.string().optional(),
   title: z.string().min(1),
   message: z.string().min(1),
   sendDate: z.string().min(1),
@@ -32,7 +33,7 @@ adminCommunications.get("/", async (c) => {
 adminCommunications.post("/", async (c) => {
   const parsed = createSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) return c.json({ error: "invalid_input", details: parsed.error.flatten() }, 400);
-  const { audience, facilityId, specificInvestorId, title, message, sendDate } = parsed.data;
+  const { audience, facilityId, specificInvestorId, specificCorporateAccountId, title, message, sendDate } = parsed.data;
   const db = drizzle(c.env.DB);
 
   let recipientIds: string[];
@@ -45,6 +46,15 @@ adminCommunications.post("/", async (c) => {
     if (!facility) return c.json({ error: "facility_not_found" }, 404);
     const rows = await db.select({ id: holdings.investorId }).from(holdings).where(eq(holdings.facilityId, facilityId));
     recipientIds = [...new Set(rows.map((r) => r.id))];
+  } else if (audience === "SPECIFIC_CORPORATE_ACCOUNT") {
+    if (!specificCorporateAccountId) return c.json({ error: "corporate_account_required" }, 400);
+    const [account] = await db.select({ id: corporateAccounts.id }).from(corporateAccounts).where(eq(corporateAccounts.id, specificCorporateAccountId)).limit(1);
+    if (!account) return c.json({ error: "corporate_account_not_found" }, 404);
+    // Informational only (recipientIdsJson/count) - every maker/checker on
+    // the account. The notifications row itself stays one shared row keyed
+    // by corporateAccountId, resolved back to these same users on read.
+    const rows = await db.select({ id: corporateUsers.userId }).from(corporateUsers).where(eq(corporateUsers.corporateAccountId, specificCorporateAccountId));
+    recipientIds = rows.map((r) => r.id);
   } else {
     if (!specificInvestorId) return c.json({ error: "investor_required" }, 400);
     const [investor] = await db.select({ id: users.id }).from(users).where(eq(users.id, specificInvestorId)).limit(1);
@@ -58,6 +68,7 @@ adminCommunications.post("/", async (c) => {
     facilityId: audience === "FACILITY_INVESTORS" ? facilityId : null,
     audience,
     specificInvestorId: audience === "SPECIFIC_INVESTOR" ? specificInvestorId : null,
+    specificCorporateAccountId: audience === "SPECIFIC_CORPORATE_ACCOUNT" ? specificCorporateAccountId : null,
     title,
     message,
     sendDate,
@@ -69,6 +80,7 @@ adminCommunications.post("/", async (c) => {
   await insertNotification(db, {
     facilityId: audience === "FACILITY_INVESTORS" ? facilityId : null,
     investorId: audience === "SPECIFIC_INVESTOR" ? specificInvestorId : null,
+    corporateAccountId: audience === "SPECIFIC_CORPORATE_ACCOUNT" ? specificCorporateAccountId : null,
     type: "COMMUNICATION_SENT",
     title,
     message: `Sent to ${recipientIds.length} recipient${recipientIds.length === 1 ? "" : "s"}.`,

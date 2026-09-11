@@ -453,9 +453,12 @@ export const feePolicyHistory = sqliteTable("fee_policy_history", {
 // transaction (see adminBonusCredits.ts) rather than a fake ledger line.
 export const bonusCredits = sqliteTable("bonus_credits", {
   id: id(),
-  investorId: text("investor_id")
-    .notNull()
-    .references(() => users.id),
+  // Exactly one of investorId/corporateAccountId is set per row (enforced at
+  // the route layer, same convention notifications.facilityId/investorId
+  // already uses) - a corporate-targeted credit has no natural single
+  // investor_id since corporateAccounts.cashBalance is a shared treasury.
+  investorId: text("investor_id").references(() => users.id),
+  corporateAccountId: text("corporate_account_id").references(() => corporateAccounts.id),
   bonusType: text("bonus_type", {
     enum: ["REFERRAL", "GOODWILL", "COMPENSATION", "PROMOTIONAL", "OTHER"],
   }).notNull(),
@@ -479,9 +482,10 @@ export const communications = sqliteTable("communications", {
   id: id(),
   facilityId: text("facility_id").references(() => financingFacilities.id),
   audience: text("audience", {
-    enum: ["ALL_INVESTORS", "FACILITY_INVESTORS", "SPECIFIC_INVESTOR"],
+    enum: ["ALL_INVESTORS", "FACILITY_INVESTORS", "SPECIFIC_INVESTOR", "SPECIFIC_CORPORATE_ACCOUNT"],
   }).notNull(),
   specificInvestorId: text("specific_investor_id").references(() => users.id),
+  specificCorporateAccountId: text("specific_corporate_account_id").references(() => corporateAccounts.id),
   title: text("title").notNull(),
   message: text("message").notNull(),
   sendDate: text("send_date").notNull(),
@@ -501,6 +505,10 @@ export const notifications = sqliteTable("notifications", {
   id: id(),
   facilityId: text("facility_id").references(() => financingFacilities.id),
   investorId: text("investor_id").references(() => users.id),
+  // Stage 5: a row targeted at a shared corporate treasury, not a single
+  // retail user - resolved to every maker/checker on the account via
+  // corporateUsers on read, not fanned out into one row each.
+  corporateAccountId: text("corporate_account_id").references(() => corporateAccounts.id),
   type: text("type", {
     enum: [
       "PAYMENT_RECORDED",

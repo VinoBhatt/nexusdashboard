@@ -4,6 +4,8 @@ export interface NotificationRow {
   issuerName: string | null;
   investorId: string | null;
   investorName: string | null;
+  corporateAccountId: string | null;
+  companyName: string | null;
   type: string;
   title: string;
   message: string;
@@ -42,7 +44,7 @@ export function NotificationList({ rows }: { rows: NotificationRow[] }) {
             <div className="sub">{NOTIFICATION_TYPE_LABEL[row.type] ?? row.type}</div>
             <div>{row.message}</div>
             <div className="sub">
-              {[row.facilityId, row.issuerName].filter(Boolean).join(" · ")} · {new Date(row.createdAt).toLocaleString()}
+              {[row.facilityId, row.issuerName, row.companyName].filter(Boolean).join(" · ")} · {new Date(row.createdAt).toLocaleString()}
             </div>
           </div>
         </div>

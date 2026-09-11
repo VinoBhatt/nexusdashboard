@@ -14,9 +14,11 @@ interface InvestorOption {
 }
 interface BonusCreditRow {
   id: string;
-  investorId: string;
-  investorName: string;
-  investorEmail: string;
+  investorId: string | null;
+  investorName: string | null;
+  investorEmail: string | null;
+  corporateAccountId: string | null;
+  companyName: string | null;
   bonusType: string;
   amount: number;
   effectiveDate: string;
@@ -42,13 +44,17 @@ export default function AdminBonusCredits() {
     queryFn: () => apiGet<{ investors: InvestorOption[] }>("/api/admin/investors"),
   });
   const retailInvestors = useMemo(() => (investorsData?.investors ?? []).filter((i) => i.type === "Retail"), [investorsData]);
+  const corporateAccounts = useMemo(() => (investorsData?.investors ?? []).filter((i) => i.type === "Corporate"), [investorsData]);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["admin", "bonus-credits"],
     queryFn: () => apiGet<{ bonusCredits: BonusCreditRow[] }>("/api/admin/bonus-credits"),
   });
 
-  const [investorId, setInvestorId] = useState("");
+  // Type-prefixed value ("retail:<usersId>" / "corporate:<corporateAccountsId>")
+  // since retail and corporate recipients live in different id namespaces -
+  // split on submit to populate the right field in the POST body.
+  const [recipient, setRecipient] = useState("");
   const [bonusType, setBonusType] = useState("GOODWILL");
   const [amount, setAmount] = useState("");
   const [effectiveDate, setEffectiveDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -56,17 +62,20 @@ export default function AdminBonusCredits() {
   const [reason, setReason] = useState("");
 
   const submitMutation = useMutation({
-    mutationFn: () =>
-      apiPost("/api/admin/bonus-credits", {
-        investorId,
+    mutationFn: () => {
+      const [kind, id] = recipient.split(":");
+      return apiPost("/api/admin/bonus-credits", {
+        investorId: kind === "retail" ? id : undefined,
+        corporateAccountId: kind === "corporate" ? id : undefined,
         bonusType,
         amount: Number(amount),
         effectiveDate,
         reference: reference || undefined,
         reason,
-      }),
+      });
+    },
     onSuccess: () => {
-      toast("Bonus credit applied to investor's wallet.");
+      toast("Bonus credit applied to the recipient's wallet.");
       setAmount("");
       setReference("");
       setReason("");
@@ -77,7 +86,12 @@ export default function AdminBonusCredits() {
   });
 
   const columns: Column<BonusCreditRow>[] = [
-    { key: "investorName", label: "Investor", sortable: true, render: (r) => `${r.investorName} (${r.investorEmail})` },
+    {
+      key: "investorName",
+      label: "Recipient",
+      sortable: true,
+      render: (r) => (r.investorName ? `${r.investorName} (${r.investorEmail})` : (r.companyName ?? "—")),
+    },
     { key: "bonusType", label: "Type", sortable: true, render: (r) => BONUS_TYPE_LABEL[r.bonusType] ?? r.bonusType },
     { key: "amount", label: "Amount", sortable: true, render: (r) => money(r.amount) },
     { key: "effectiveDate", label: "Effective Date", sortable: true },
@@ -93,14 +107,23 @@ export default function AdminBonusCredits() {
       <div className="card">
         <div className="stack">
           <div className="field">
-            <label htmlFor="bcInvestor">Investor</label>
-            <select id="bcInvestor" value={investorId} onChange={(e) => setInvestorId(e.target.value)}>
-              <option value="">Select an investor…</option>
-              {retailInvestors.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.name}
-                </option>
-              ))}
+            <label htmlFor="bcInvestor">Recipient</label>
+            <select id="bcInvestor" value={recipient} onChange={(e) => setRecipient(e.target.value)}>
+              <option value="">Select a recipient…</option>
+              <optgroup label="Retail Investors">
+                {retailInvestors.map((i) => (
+                  <option key={i.id} value={`retail:${i.id}`}>
+                    {i.name}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Corporate Accounts">
+                {corporateAccounts.map((i) => (
+                  <option key={i.id} value={`corporate:${i.id}`}>
+                    {i.name}
+                  </option>
+                ))}
+              </optgroup>
             </select>
           </div>
           <div className="field">
@@ -133,7 +156,7 @@ export default function AdminBonusCredits() {
             <button
               type="button"
               className="btn primary"
-              disabled={!investorId || !amount || !reason || submitMutation.isPending}
+              disabled={!recipient || !amount || !reason || submitMutation.isPending}
               onClick={() => submitMutation.mutate()}
             >
               Apply Bonus Credit

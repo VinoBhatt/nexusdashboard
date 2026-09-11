@@ -56,4 +56,32 @@ test.describe("Cross-role notification visibility", () => {
     // issued - never another issuer's facility.
     rows.forEach((row) => expect(row.facilityId).not.toBeNull());
   });
+
+  test("a bonus credit to a corporate account reaches both its maker and checker (servicing engine Stage 5)", async ({ page }) => {
+    // holdings.investorId records only the maker who proposed an investment,
+    // never the currently logged-in user - the real test here is that BOTH
+    // identities on the account see the same account-wide notification via
+    // the corporateAccountId -> corporateUsers fan-out, not just whichever
+    // one happened to act.
+    await login(page, DEMO_ACCOUNTS.admin);
+    await page.getByRole("link", { name: "Bonus Credits", exact: true }).click();
+    await page.getByLabel("Recipient").selectOption({ label: "ABC Treasury Sdn Bhd" });
+    await page.getByLabel("Bonus type").selectOption("GOODWILL");
+    await page.getByLabel("Amount (RM)").fill("500");
+    await page.getByLabel("Reason", { exact: true }).fill("Playwright Stage 5: corporate account notification visibility check");
+    await page.getByRole("button", { name: "Apply Bonus Credit" }).click();
+    await expect(page.locator("#toast")).toContainText("Bonus credit applied");
+
+    for (const email of [DEMO_ACCOUNTS.corporateMaker, DEMO_ACCOUNTS.corporateChecker]) {
+      await login(page, email);
+      await page.getByRole("link", { name: "Notifications", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "Notifications" })).toBeVisible();
+      await expect(page.locator(".list-item", { hasText: "Bonus Credit Issued" }).first()).toBeVisible();
+      await expect(page.locator(".list-item", { hasText: "ABC Treasury Sdn Bhd" }).first()).toBeVisible();
+
+      const notifications = await apiFetch(page, "/api/notifications");
+      const rows = JSON.parse(notifications.body).notifications as Array<{ corporateAccountId: string | null; type: string }>;
+      expect(rows.some((row) => row.corporateAccountId === "corp-abc-treasury" && row.type === "BONUS_CREDIT_ISSUED")).toBe(true);
+    }
+  });
 });

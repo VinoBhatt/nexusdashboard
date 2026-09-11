@@ -20,6 +20,8 @@ interface NotificationRow {
   issuerName: string | null;
   investorId: string | null;
   investorName: string | null;
+  corporateAccountId: string | null;
+  companyName: string | null;
   type: string;
   title: string;
   message: string;
@@ -179,7 +181,7 @@ export default function AdminNotifications() {
                   <div className="sub">{TYPE_LABEL[row.type] ?? row.type}</div>
                   <div>{row.message}</div>
                   <div className="sub">
-                    {[row.facilityId, row.issuerName, row.investorName].filter(Boolean).join(" · ")} · {new Date(row.createdAt).toLocaleString()}
+                    {[row.facilityId, row.issuerName, row.investorName, row.companyName].filter(Boolean).join(" · ")} · {new Date(row.createdAt).toLocaleString()}
                   </div>
                 </div>
               </div>

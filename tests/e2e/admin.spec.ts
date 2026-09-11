@@ -282,7 +282,7 @@ test.describe("Admin approvals", () => {
     // depends on that account's wallet balance staying untouched by other
     // specs (see servicing_engine_migration memory). ---
     await page.getByRole("link", { name: "Bonus Credits", exact: true }).click();
-    await page.getByLabel("Investor").selectOption({ label: "Retail Investor" });
+    await page.getByLabel("Recipient").selectOption({ label: "Retail Investor" });
     await page.getByLabel("Bonus type").selectOption("GOODWILL");
     await page.getByLabel("Amount (RM)").fill("25");
     await page.getByLabel("Reason", { exact: true }).fill("Playwright Stage 2d: goodwill credit");

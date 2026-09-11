@@ -6,7 +6,7 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
 import { desc, eq } from "drizzle-orm";
-import { notifications, financingFacilities, users } from "../db/schema";
+import { notifications, financingFacilities, users, corporateAccounts } from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
 
@@ -29,6 +29,8 @@ adminNotifications.get("/", async (c) => {
       issuerName: financingFacilities.issuerName,
       investorId: notifications.investorId,
       investorName: users.displayName,
+      corporateAccountId: notifications.corporateAccountId,
+      companyName: corporateAccounts.companyName,
       type: notifications.type,
       title: notifications.title,
       message: notifications.message,
@@ -38,6 +40,7 @@ adminNotifications.get("/", async (c) => {
     .from(notifications)
     .leftJoin(financingFacilities, eq(notifications.facilityId, financingFacilities.id))
     .leftJoin(users, eq(notifications.investorId, users.id))
+    .leftJoin(corporateAccounts, eq(notifications.corporateAccountId, corporateAccounts.id))
     .orderBy(desc(notifications.createdAt))
     .limit(500);
 
