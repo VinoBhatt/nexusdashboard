@@ -153,6 +153,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
       { to: "overview", label: "Overview", icon: "grid" },
       { to: "account-balance", label: "Account Balance", icon: "balance" },
       { to: "alerts", label: "Alerts", icon: "alerts" },
+      { to: "notifications", label: "Notifications", icon: "alerts" },
     ] },
     { label: "Invest", items: [
       { to: "activate", label: "Start Investing", icon: "risk" },
@@ -177,6 +178,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
       { to: "overview", label: "Overview", icon: "grid" },
       { to: "account-balance", label: "Account Balance", icon: "balance" },
       { to: "alerts", label: "Alerts", icon: "alerts" },
+      { to: "notifications", label: "Notifications", icon: "alerts" },
       { to: "activity-log", label: "Activity Log", icon: "documents" },
     ] },
     { label: "Invest", items: [
@@ -237,6 +239,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
   issuer: [
     { label: "Overview", items: [
       { to: "overview", label: "Overview", icon: "grid" },
+      { to: "notifications", label: "Notifications", icon: "alerts" },
     ] },
     { label: "Financing", items: [
       { to: "financing", label: "Financing", icon: "financing" },

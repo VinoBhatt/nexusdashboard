@@ -17,6 +17,7 @@ import AccountBalance from "./pages/retail/AccountBalance";
 import Alerts from "./pages/retail/Alerts";
 import Statements from "./pages/retail/Statements";
 import Account from "./pages/retail/Account";
+import RoleAwareNotifications from "./pages/RoleAwareNotifications";
 import Investors from "./pages/admin/Investors";
 import InvestorDetail from "./pages/admin/InvestorDetail";
 import Issuers from "./pages/admin/Issuers";
@@ -76,6 +77,7 @@ export default function App() {
             <Route path="withdrawal" element={<RoleAwareWithdrawal />} />
             <Route path="statements" element={<Statements />} />
             <Route path="account" element={<Account />} />
+            <Route path="notifications" element={<RoleAwareNotifications />} />
             <Route path="investors" element={<Investors />} />
             <Route path="investors/:investorId" element={<InvestorDetail />} />
             <Route path="issuers" element={<Issuers />} />
