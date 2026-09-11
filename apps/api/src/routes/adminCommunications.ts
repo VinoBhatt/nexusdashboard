@@ -9,6 +9,7 @@ import { eq, desc } from "drizzle-orm";
 import { communications, users, holdings, financingFacilities } from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
+import { insertNotification } from "../lib/notifications";
 
 const adminCommunications = new Hono<AuthedEnv>();
 adminCommunications.use("*", requireAuth, requireRole("admin"));
@@ -63,6 +64,14 @@ adminCommunications.post("/", async (c) => {
     sender: c.get("user").id,
     recipientIdsJson: JSON.stringify(recipientIds),
     recipientCount: recipientIds.length,
+  });
+
+  await insertNotification(db, {
+    facilityId: audience === "FACILITY_INVESTORS" ? facilityId : null,
+    investorId: audience === "SPECIFIC_INVESTOR" ? specificInvestorId : null,
+    type: "COMMUNICATION_SENT",
+    title,
+    message: `Sent to ${recipientIds.length} recipient${recipientIds.length === 1 ? "" : "s"}.`,
   });
 
   return c.json({ ok: true, id, recipientCount: recipientIds.length }, 201);

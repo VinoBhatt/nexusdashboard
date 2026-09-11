@@ -486,6 +486,35 @@ export const communications = sqliteTable("communications", {
   ...timestamps,
 });
 
+// One row per operational event worth surfacing in the admin Notification
+// Centre (Stage 3b) - mirrors the prototype's notification feed, but derived
+// from real mutating actions (payment recorded, payout completed, charge
+// adjustment approved, etc.) rather than emitted by a fake-data simulation.
+export const notifications = sqliteTable("notifications", {
+  id: id(),
+  facilityId: text("facility_id").references(() => financingFacilities.id),
+  investorId: text("investor_id").references(() => users.id),
+  type: text("type", {
+    enum: [
+      "PAYMENT_RECORDED",
+      "PAYMENT_ALLOCATED",
+      "PAYOUT_COMPLETED",
+      "CHARGE_ADJUSTMENT_APPROVED",
+      "SCHEDULE_ADJUSTED",
+      "HELD_FUNDS_CREATED",
+      "HELD_FUNDS_APPLIED",
+      "EARLY_SETTLEMENT_APPROVED",
+      "PLATFORM_FEE_POLICY_UPDATED",
+      "BONUS_CREDIT_ISSUED",
+      "COMMUNICATION_SENT",
+    ],
+  }).notNull(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  read: integer("read", { mode: "boolean" }).notNull().default(false),
+  ...timestamps,
+});
+
 // ---- Investor positions ----
 
 export const holdings = sqliteTable("holdings", {

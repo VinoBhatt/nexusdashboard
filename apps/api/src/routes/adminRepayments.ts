@@ -42,6 +42,7 @@ import {
 import { resolveFacilityServicingConfig, recalculateFacility, applyRecalculation, type InstallmentRow, type InstallmentUpdate, type RecalculateFacilityResult } from "../lib/servicing/servicingEngine";
 import { groupHoldingsByInvestor, getInvestedPoolSen } from "../lib/servicing/projections";
 import { applyChargeAdjustments, effectiveAmount, settlementPreview, type EffectiveInstallmentComponents, type ChargeAdjustmentRecord, type ChargeAdjustmentType, type SettlementScheduleRow } from "../lib/servicing/adjustmentEngine";
+import { insertNotification } from "../lib/notifications";
 
 const adminRepayments = new Hono<AuthedEnv>();
 adminRepayments.use("*", requireAuth, requireRole("admin"));
@@ -410,6 +411,12 @@ adminRepayments.post("/:id/payments", async (c) => {
     if (String(err).includes("UNIQUE")) return c.json({ error: "duplicate_reference" }, 409);
     throw err;
   }
+  await insertNotification(db, {
+    facilityId,
+    type: "PAYMENT_RECORDED",
+    title: "Payment recorded",
+    message: `${facilityId} · ${parsed.data.reference} · ${payment.amount} recorded and awaiting allocation.`,
+  });
 
   return c.json({ ok: true, payment }, 201);
 });
@@ -506,6 +513,13 @@ adminRepayments.patch("/:id/payments/:paymentId/allocate", async (c) => {
   const postAllocationRecalc = await applyRecalculation(db, facilityId, today());
   await syncLegacyInstallmentStatus(db, postAllocationRecalc.updates);
 
+  await insertNotification(db, {
+    facilityId,
+    type: "PAYMENT_ALLOCATED",
+    title: "Payment allocated",
+    message: `${facilityId} · ${payment.paymentReference} · payment allocated using ${parsed.data.mode.toLowerCase()} allocation.`,
+  });
+
   const refreshedInstallments = await db.select().from(repaymentInstallments).where(eq(repaymentInstallments.facilityId, facilityId)).orderBy(repaymentInstallments.installmentNo);
   return c.json({
     ok: true,
@@ -572,6 +586,21 @@ adminRepayments.post("/:id/payments/:paymentId/payout", async (c) => {
   await db.batch(ops as unknown as [BatchItem, ...BatchItem[]]);
 
   const completed = await maybeCompleteFacility(db, facilityId);
+
+  await insertNotification(db, {
+    facilityId,
+    type: "PAYOUT_COMPLETED",
+    title: "Investor payout completed",
+    message: `${facilityId} · ${payment.paymentReference} · ${fromSen(batch.payoutResult.walletCreditTotal)} credited to investor wallets.`,
+  });
+  if (heldFundId) {
+    await insertNotification(db, {
+      facilityId,
+      type: "HELD_FUNDS_CREATED",
+      title: "Funds held",
+      message: `${facilityId} · ${holdAmount} retained as ${parsed.data.holdType ?? "OTHER"} from payment ${payment.paymentReference}.`,
+    });
+  }
 
   return c.json({
     ok: true,
@@ -653,6 +682,13 @@ adminRepayments.post("/:id/installments/:instId/charge-adjustments", async (c) =
       .where(eq(repaymentInstallments.id, scheduleRow.id));
   }
   const completed = await maybeCompleteFacility(db, facilityId);
+
+  await insertNotification(db, {
+    facilityId,
+    type: "CHARGE_ADJUSTMENT_APPROVED",
+    title: "Charge adjustment approved",
+    message: `${facilityId} · ${parsed.data.component} adjusted (${parsed.data.type}) on installment ${installmentId}.`,
+  });
 
   return c.json({ ok: true, adjustment: record, schedule, facilityCompleted: completed }, 201);
 });
@@ -748,6 +784,13 @@ adminRepayments.post("/:id/schedule/versions", async (c) => {
   await syncLegacyInstallmentStatus(db, postEditRecalc.updates);
   const refreshed = await db.select().from(repaymentInstallments).where(eq(repaymentInstallments.facilityId, facilityId)).orderBy(repaymentInstallments.installmentNo);
   const adjustments = await db.select().from(chargeAdjustments).where(eq(chargeAdjustments.facilityId, facilityId));
+
+  await insertNotification(db, {
+    facilityId,
+    type: "SCHEDULE_ADJUSTED",
+    title: "Schedule adjusted",
+    message: `${facilityId} · Schedule Version ${nextVersion} approved.`,
+  });
 
   return c.json({ ok: true, version: nextVersion, schedule: buildServicingSchedule(refreshed, postEditRecalc, adjustments) }, 201);
 });
@@ -866,6 +909,13 @@ adminRepayments.post("/:id/held-funds/:holdId/apply", async (c) => {
   const postApplyRecalc = await applyRecalculation(db, facilityId, today());
   await syncLegacyInstallmentStatus(db, postApplyRecalc.updates);
   const completed = await maybeCompleteFacility(db, facilityId);
+
+  await insertNotification(db, {
+    facilityId,
+    type: "HELD_FUNDS_APPLIED",
+    title: "Held funds applied",
+    message: `${facilityId} · ${parsed.data.amount} applied from ${holdId} to the confirmed allocation.`,
+  });
 
   return c.json({ ok: true, payout: { id: batch.payoutId, walletCreditTotal: fromSen(batch.payoutResult.walletCreditTotal) }, facilityCompleted: completed });
 });
@@ -998,6 +1048,13 @@ adminRepayments.post("/:id/early-settlement/approve", async (c) => {
   const postSettlementRecalc = await applyRecalculation(db, facilityId, today());
   await syncLegacyInstallmentStatus(db, postSettlementRecalc.updates);
 
+  await insertNotification(db, {
+    facilityId,
+    type: "EARLY_SETTLEMENT_APPROVED",
+    title: "Early settlement approved",
+    message: `${facilityId} · Early settlement approved for ${parsed.data.settlementDate} · final amount ${finalSettlementAmount}.`,
+  });
+
   return c.json({ ok: true, settlementId, finalSettlementAmount, settlementInstallmentId: `${facilityId}-${nextInstallmentNo}` }, 201);
 });
 
@@ -1032,6 +1089,13 @@ adminRepayments.post("/:id/fee-policy", async (c) => {
     approvedBy: c.get("user").id,
   });
   await db.update(financingFacilities).set({ platformFeeBps: newRateBps }).where(eq(financingFacilities.id, facilityId));
+
+  await insertNotification(db, {
+    facilityId,
+    type: "PLATFORM_FEE_POLICY_UPDATED",
+    title: "Platform fee policy updated",
+    message: `${facilityId} · Platform fee changed from ${previousRateBps / 100}% to ${newRateBps / 100}%.`,
+  });
 
   return c.json({ ok: true, previousRateBps, newRateBps }, 201);
 });

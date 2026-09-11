@@ -225,6 +225,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
       { to: "admin-transactions", label: "Transactions", icon: "statements" },
       { to: "admin-bonus-credits", label: "Bonus Credits", icon: "balance" },
       { to: "admin-communications", label: "Communications", icon: "documents" },
+      { to: "admin-notifications", label: "Notifications", icon: "alerts" },
       { to: "admin-activity-log", label: "Audit Trail", icon: "documents" },
     ] },
     { label: "System Reference", items: [

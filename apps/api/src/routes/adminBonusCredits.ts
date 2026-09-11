@@ -9,6 +9,7 @@ import { eq, desc } from "drizzle-orm";
 import { bonusCredits, users, investorProfiles, transactions, financingFacilities } from "../db/schema";
 import { requireAuth, type AuthedEnv } from "../middleware/requireAuth";
 import { requireRole } from "../middleware/requireRole";
+import { insertNotification } from "../lib/notifications";
 
 const adminBonusCredits = new Hono<AuthedEnv>();
 adminBonusCredits.use("*", requireAuth, requireRole("admin"));
@@ -84,6 +85,14 @@ adminBonusCredits.post("/", async (c) => {
     reason,
     approvedBy: c.get("user").id,
     transactionId,
+  });
+
+  await insertNotification(db, {
+    facilityId: facilityId ?? null,
+    investorId,
+    type: "BONUS_CREDIT_ISSUED",
+    title: "Bonus credit issued",
+    message: `${bonusType} · ${amount} credited to investor wallet.`,
   });
 
   return c.json({ ok: true, id: bonusId, transactionId }, 201);

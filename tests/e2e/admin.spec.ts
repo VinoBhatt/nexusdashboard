@@ -372,6 +372,37 @@ test.describe("Admin approvals", () => {
     });
   });
 
+  test("Admin sees a real event in the Notification Centre and can mark it read (servicing engine Stage 3b)", async ({ page }) => {
+    await login(page, DEMO_ACCOUNTS.admin);
+
+    // Sends its own communication (rather than relying on another test's
+    // action running first) so this stays order-independent - a distinctive
+    // title makes it findable regardless of what else is in the DB.
+    const marker = `Playwright Stage 3b ${Date.now()}`;
+    await page.getByRole("link", { name: "Communications", exact: true }).click();
+    await page.getByLabel("Title").fill(marker);
+    await page.getByLabel("Message").fill("Notification Centre smoke-test communication.");
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(page.locator("#toast")).toContainText("Sent to");
+
+    await page.getByRole("link", { name: "Notifications", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Notification Centre" })).toBeVisible();
+    await page.getByLabel("Notification Type").selectOption("COMMUNICATION_SENT");
+    await expect(page.locator(".list-item", { hasText: marker })).toBeVisible();
+
+    const beforeRead = await apiFetch(page, "/api/admin/notifications?type=COMMUNICATION_SENT&status=UNREAD");
+    const beforeJson = JSON.parse(beforeRead.body).notifications as Array<{ title: string; read: boolean }>;
+    expect(beforeJson.some((n) => n.title === marker && !n.read)).toBe(true);
+
+    await page.getByRole("button", { name: "Mark all read" }).click();
+    await expect(page.locator("#toast")).toContainText("marked read");
+
+    const afterRead = await apiFetch(page, "/api/admin/notifications?type=COMMUNICATION_SENT");
+    const afterJson = JSON.parse(afterRead.body).notifications as Array<{ title: string; read: boolean }>;
+    const marked = afterJson.find((n) => n.title === marker);
+    expect(marked?.read).toBe(true);
+  });
+
   test("Reports page offers a real PDF platform summary and CSV exports", async ({ page }) => {
     await login(page, DEMO_ACCOUNTS.admin);
     await page.getByRole("link", { name: "Reports", exact: true }).click();

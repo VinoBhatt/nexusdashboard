@@ -43,6 +43,7 @@ import AdminPlatformFee from "./pages/admin/PlatformFee";
 import AdminBonusCredits from "./pages/admin/BonusCredits";
 import AdminCommunications from "./pages/admin/Communications";
 import AdminTransactions from "./pages/admin/Transactions";
+import AdminNotifications from "./pages/admin/Notifications";
 import Financing from "./pages/issuer/Financing";
 import IssuerProposals from "./pages/issuer/Proposals";
 import Repayments from "./pages/issuer/Repayments";
@@ -101,6 +102,7 @@ export default function App() {
             <Route path="admin-bonus-credits" element={<AdminBonusCredits />} />
             <Route path="admin-communications" element={<AdminCommunications />} />
             <Route path="admin-transactions" element={<AdminTransactions />} />
+            <Route path="admin-notifications" element={<AdminNotifications />} />
             <Route path="financing" element={<Financing />} />
             <Route path="issuer-proposals" element={<IssuerProposals />} />
             <Route path="repayments" element={<Repayments />} />
