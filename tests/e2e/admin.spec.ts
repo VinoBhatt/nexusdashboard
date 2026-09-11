@@ -403,6 +403,46 @@ test.describe("Admin approvals", () => {
     expect(marked?.read).toBe(true);
   });
 
+  test("Early settlement preview shows a separate deferred-profit/ta'widh breakdown (servicing engine Stage 3c)", async ({ page }) => {
+    await login(page, DEMO_ACCOUNTS.admin);
+
+    // IIF2200-01082026 has never had an early settlement approved by any
+    // other test in this file, so this is safe to run either standalone or
+    // as part of the full suite.
+    await page.getByRole("link", { name: "Record Repayments", exact: true }).click();
+    await page.locator("tbody tr", { hasText: "IIF2200-01082026" }).getByRole("button", { name: "View" }).click();
+    await page.getByRole("button", { name: "Early Settlement" }).click();
+    await page.getByRole("button", { name: "Preview Settlement" }).click();
+    await expect(page.getByText("Final settlement amount")).toBeVisible();
+    await expect(page.locator(".summary-list").getByText("Deferred profit", { exact: true })).toBeVisible();
+    await expect(page.locator(".summary-list").getByText("Ta'widh", { exact: true })).toBeVisible();
+
+    const preview = await apiFetch(page, "/api/admin/repayments/IIF2200-01082026/early-settlement/preview");
+    const previewJson = JSON.parse(preview.body);
+    expect(previewJson.policy.method).toBe("ISLAMIC_FLAT_DAILY");
+    expect(previewJson.deferredProfitCharges + previewJson.tawidhCharges + previewJson.lateInterestCharges).toBeCloseTo(previewJson.lateCharges, 2);
+    expect(previewJson.finalSettlementAmount).toBeGreaterThan(0);
+    expect(Array.isArray(previewJson.returnAccrualBreakdown)).toBe(true);
+    expect(Array.isArray(previewJson.lateChargeBreakdown)).toBe(true);
+    previewJson.lateChargeBreakdown.forEach((row: { deferredProfit: number; tawidh: number; lateInterest: number; total: number }) => {
+      expect(row.deferredProfit + row.tawidh + row.lateInterest).toBeCloseTo(row.total, 2);
+    });
+
+    await page.getByLabel("Reason", { exact: true }).fill("Playwright Stage 3c: full settlement breakdown check");
+    await page.getByRole("button", { name: "Approve & Continue to Payment" }).click();
+    await expect(page.locator("#toast")).toContainText("Early settlement approved");
+    await expect(page.getByText("Approved Settlement")).toBeVisible();
+
+    const detail = await apiFetch(page, "/api/admin/repayments/IIF2200-01082026");
+    const detailJson = JSON.parse(detail.body);
+    expect(detailJson.earlySettlement.deferredProfitCharges).toBeGreaterThanOrEqual(0);
+    expect(detailJson.earlySettlement.tawidhCharges).toBeGreaterThanOrEqual(0);
+    expect(detailJson.earlySettlement.deferredProfitCharges + detailJson.earlySettlement.tawidhCharges + detailJson.earlySettlement.lateInterestCharges).toBeCloseTo(
+      detailJson.earlySettlement.lateCharges,
+      2
+    );
+  });
+
   test("Reports page offers a real PDF platform summary and CSV exports", async ({ page }) => {
     await login(page, DEMO_ACCOUNTS.admin);
     await page.getByRole("link", { name: "Reports", exact: true }).click();

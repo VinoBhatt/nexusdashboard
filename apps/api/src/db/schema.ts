@@ -407,7 +407,14 @@ export const earlySettlements = sqliteTable("early_settlements", {
   actualPaymentDate: text("actual_payment_date").notNull(),
   principalOutstanding: real("principal_outstanding").notNull(),
   accruedReturn: real("accrued_return").notNull(),
+  // Sum of the three columns below - kept as-is for anything already
+  // reading a single lump late-charge figure.
   lateCharges: real("late_charges").notNull().default(0),
+  // Stage 3c: full settlementPreview breakdown - separate components rather
+  // than only the lump total above.
+  deferredProfitCharges: real("deferred_profit_charges").notNull().default(0),
+  tawidhCharges: real("tawidh_charges").notNull().default(0),
+  lateInterestCharges: real("late_interest_charges").notNull().default(0),
   otherFees: real("other_fees").notNull().default(0),
   waiverAmount: real("waiver_amount").notNull().default(0),
   additionalCharges: real("additional_charges").notNull().default(0),

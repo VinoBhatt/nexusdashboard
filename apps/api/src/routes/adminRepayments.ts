@@ -41,7 +41,7 @@ import {
 } from "../lib/servicing/calculationEngine";
 import { resolveFacilityServicingConfig, recalculateFacility, applyRecalculation, type InstallmentRow, type InstallmentUpdate, type RecalculateFacilityResult } from "../lib/servicing/servicingEngine";
 import { groupHoldingsByInvestor, getInvestedPoolSen } from "../lib/servicing/projections";
-import { applyChargeAdjustments, effectiveAmount, settlementPreview, type EffectiveInstallmentComponents, type ChargeAdjustmentRecord, type ChargeAdjustmentType, type SettlementScheduleRow } from "../lib/servicing/adjustmentEngine";
+import { applyChargeAdjustments, adjustedComponent, effectiveAmount, settlementPreview, type EffectiveInstallmentComponents, type ChargeAdjustmentRecord, type ChargeAdjustmentType, type SettlementScheduleRow, type SettlementComponentAmounts } from "../lib/servicing/adjustmentEngine";
 import { insertNotification } from "../lib/notifications";
 
 const adminRepayments = new Hono<AuthedEnv>();
@@ -210,28 +210,59 @@ async function maybeCompleteFacility(db: ReturnType<typeof drizzle>, facilityId:
   return true;
 }
 
-/** Builds the proration input for `settlementPreview` from the facility's
- * still-outstanding installments. There's no disbursement-date column on
- * `financingFacilities`, so the very first row's period start falls back to
- * the campaign end date (the closest existing proxy) - a reasonable
- * approximation for a preview/settlement calculation, not a schedule-of-record
- * figure. */
-function buildSettlementRows(facility: typeof financingFacilities.$inferSelect, allInstallments: InstallmentDbRow[]): SettlementScheduleRow[] {
+/** Calculated/effective/paid/remaining for one late-charge or fee component
+ * on one installment - reuses the same accrued-figure + charge-adjustment
+ * lookup `installmentRemainingSen` does, but keeps the intermediate
+ * calculated/effective/paid amounts (not just the net remaining) for the
+ * settlement preview's per-installment breakdown. */
+function settlementComponentAmounts(row: InstallmentDbRow, update: InstallmentUpdate | undefined, adjustments: ChargeAdjustmentDbRow[], component: keyof EffectiveInstallmentComponents): SettlementComponentAmounts {
+  const calculatedSenByComponent: Record<keyof EffectiveInstallmentComponents, number> = {
+    fees: toSen(row.feeDue),
+    profit: toSen(row.profitDue),
+    principal: toSen(row.principalDue),
+    tawidh: update?.tawidhAccruedSen ?? 0,
+    deferredProfit: update?.deferredProfitAccruedSen ?? 0,
+    lateInterest: update?.lateInterestAccruedSen ?? 0,
+  };
+  const paidSenByComponent: Record<keyof EffectiveInstallmentComponents, number> = {
+    fees: toSen(row.feesPaid),
+    profit: toSen(row.profitPaid),
+    principal: toSen(row.principalPaid),
+    tawidh: toSen(row.tawidhPaid),
+    deferredProfit: toSen(row.deferredProfitPaid),
+    lateInterest: toSen(row.lateInterestPaid),
+  };
+  const calculatedSen = calculatedSenByComponent[component];
+  const effectiveSen = adjustedComponent(calculatedSen, adjustmentsForComponent(row.id, adjustments, component));
+  const paidSen = paidSenByComponent[component];
+  return { calculatedSen, effectiveSen, paidSen, remainingSen: Math.max(0, effectiveSen - paidSen) };
+}
+
+/** Builds the proration input for `settlementPreview` from every
+ * still-active installment (adjustment-and-paid-aware). There's no
+ * disbursement-date column on `financingFacilities`, so the very first row's
+ * period start falls back to the campaign end date (the closest existing
+ * proxy) - a reasonable approximation for a preview/settlement calculation,
+ * not a schedule-of-record figure. */
+function buildSettlementRows(facility: typeof financingFacilities.$inferSelect, allInstallments: InstallmentDbRow[], updatesById: Map<string, InstallmentUpdate>, adjustments: ChargeAdjustmentDbRow[]): SettlementScheduleRow[] {
   const ordered = [...allInstallments].filter((row) => !row.superseded).sort((a, b) => a.installmentNo - b.installmentNo);
-  const rows: SettlementScheduleRow[] = [];
-  ordered.forEach((row, index) => {
-    const principalRemaining = Math.max(0, row.principalDue - row.principalPaid);
-    const profitRemaining = Math.max(0, row.profitDue - row.profitPaid);
-    if (principalRemaining <= 0 && profitRemaining <= 0) return;
+  return ordered.map((row, index) => {
+    const principalRemaining = Math.max(0, toSen(row.principalDue) - toSen(row.principalPaid));
+    const profitRemaining = Math.max(0, toSen(row.profitDue) - toSen(row.profitPaid));
     const periodStartDate = index > 0 ? ordered[index - 1].dueDate : facility.campaignEnd ?? facility.firstPaymentDate ?? row.dueDate;
-    rows.push({
+    const update = updatesById.get(row.id);
+    return {
+      installmentId: row.id,
       dueDate: row.dueDate,
       periodStartDate,
-      principalRemainingSen: toSen(principalRemaining),
-      scheduledReturnRemainingSen: toSen(profitRemaining),
-    });
+      principalRemainingSen: principalRemaining,
+      scheduledReturnRemainingSen: profitRemaining,
+      deferredProfit: settlementComponentAmounts(row, update, adjustments, "deferredProfit"),
+      tawidh: settlementComponentAmounts(row, update, adjustments, "tawidh"),
+      lateInterest: settlementComponentAmounts(row, update, adjustments, "lateInterest"),
+      fees: settlementComponentAmounts(row, update, adjustments, "fees"),
+    };
   });
-  return rows;
 }
 
 /** Shared by the normal payment payout and held-funds application - splits one payment's allocation across investors and returns the batched writes plus a JSON-safe summary. */
@@ -936,22 +967,31 @@ adminRepayments.get("/:id/early-settlement/preview", async (c) => {
   const recalc = recalculateFacility(config, allInstallments.map(toInstallmentRow), settlementDate);
   const updatesById = new Map(recalc.updates.map((u) => [u.id, u]));
 
-  let outstandingLateChargesSen = 0;
-  let otherFeesSen = 0;
-  for (const row of allInstallments) {
-    if (row.superseded) continue;
-    const remaining = installmentRemainingSen(row, updatesById.get(row.id), adjustments);
-    outstandingLateChargesSen += remaining.tawidh + remaining.deferredProfit + remaining.lateInterest;
-    otherFeesSen += remaining.fees;
-  }
-
-  const preview = settlementPreview({ rows: buildSettlementRows(facility, allInstallments), asOfDate: settlementDate, outstandingLateChargesSen, otherFeesSen });
+  const preview = settlementPreview({
+    rows: buildSettlementRows(facility, allInstallments, updatesById, adjustments),
+    asOfDate: settlementDate,
+    policy: { method: config.structure === "Islamic" ? "ISLAMIC_FLAT_DAILY" : "CONVENTIONAL_DAILY_REST", annualRateBps: Math.round(facility.ratePct * 100), dayCountBasis: config.dayCountBasis },
+  });
   return c.json({
     settlementDate,
+    policy: preview.policy,
     principalOutstanding: fromSen(preview.principalOutstandingSen),
     accruedReturn: fromSen(preview.accruedReturnSen),
     futureReturnWaived: fromSen(preview.futureReturnWaivedSen),
+    returnAccrualBreakdown: preview.returnAccrualBreakdown.map((row) => ({ ...row, scheduledReturn: fromSen(row.scheduledReturnSen), earned: fromSen(row.earnedSen), rebate: fromSen(row.rebateSen) })),
+    deferredProfitCharges: fromSen(preview.deferredProfitSen),
+    tawidhCharges: fromSen(preview.tawidhSen),
+    lateInterestCharges: fromSen(preview.lateInterestSen),
     lateCharges: fromSen(preview.lateChargesSen),
+    lateChargeBreakdown: preview.lateChargeBreakdown.map((row) => ({
+      installmentId: row.installmentId,
+      dueDate: row.dueDate,
+      chargeableDays: row.chargeableDays,
+      deferredProfit: fromSen(row.deferredProfit.remainingSen),
+      tawidh: fromSen(row.tawidh.remainingSen),
+      lateInterest: fromSen(row.lateInterest.remainingSen),
+      total: fromSen(row.totalRemainingSen),
+    })),
     otherFees: fromSen(preview.otherFeesSen),
     finalSettlementAmount: fromSen(preview.finalSettlementAmountSen),
   });
@@ -982,15 +1022,11 @@ adminRepayments.post("/:id/early-settlement/approve", async (c) => {
   const recalc = recalculateFacility(config, allInstallments.map(toInstallmentRow), parsed.data.settlementDate);
   const updatesById = new Map(recalc.updates.map((u) => [u.id, u]));
 
-  let outstandingLateChargesSen = 0;
-  let otherFeesSen = 0;
-  for (const row of allInstallments) {
-    if (row.superseded) continue;
-    const remaining = installmentRemainingSen(row, updatesById.get(row.id), adjustments);
-    outstandingLateChargesSen += remaining.tawidh + remaining.deferredProfit + remaining.lateInterest;
-    otherFeesSen += remaining.fees;
-  }
-  const preview = settlementPreview({ rows: buildSettlementRows(facility, allInstallments), asOfDate: parsed.data.settlementDate, outstandingLateChargesSen, otherFeesSen });
+  const preview = settlementPreview({
+    rows: buildSettlementRows(facility, allInstallments, updatesById, adjustments),
+    asOfDate: parsed.data.settlementDate,
+    policy: { method: config.structure === "Islamic" ? "ISLAMIC_FLAT_DAILY" : "CONVENTIONAL_DAILY_REST", annualRateBps: Math.round(facility.ratePct * 100), dayCountBasis: config.dayCountBasis },
+  });
 
   const waiverAmount = parsed.data.waiverAmount ?? 0;
   const additionalCharges = parsed.data.additionalCharges ?? 0;
@@ -1011,6 +1047,9 @@ adminRepayments.post("/:id/early-settlement/approve", async (c) => {
     principalOutstanding,
     accruedReturn,
     lateCharges: fromSen(preview.lateChargesSen),
+    deferredProfitCharges: fromSen(preview.deferredProfitSen),
+    tawidhCharges: fromSen(preview.tawidhSen),
+    lateInterestCharges: fromSen(preview.lateInterestSen),
     otherFees: fromSen(preview.otherFeesSen),
     waiverAmount,
     additionalCharges,

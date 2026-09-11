@@ -19,6 +19,9 @@ interface EarlySettlementRow {
   principalOutstanding: number;
   accruedReturn: number;
   lateCharges: number;
+  deferredProfitCharges: number;
+  tawidhCharges: number;
+  lateInterestCharges: number;
   otherFees: number;
   waiverAmount: number;
   additionalCharges: number;
@@ -30,11 +33,36 @@ interface NoteDetail {
   facility: Note;
   earlySettlement: EarlySettlementRow | null;
 }
+interface ReturnAccrualRow {
+  installmentId: string;
+  startDate: string;
+  endDate: string;
+  periodDays: number;
+  elapsedDays: number;
+  scheduledReturn: number;
+  earned: number;
+  rebate: number;
+}
+interface LateChargeBreakdownRow {
+  installmentId: string;
+  dueDate: string;
+  chargeableDays: number;
+  deferredProfit: number;
+  tawidh: number;
+  lateInterest: number;
+  total: number;
+}
 interface PreviewResponse {
+  policy: { method: string; annualRateBps: number; dayCountBasis: number };
   principalOutstanding: number;
   accruedReturn: number;
   futureReturnWaived: number;
+  returnAccrualBreakdown: ReturnAccrualRow[];
+  deferredProfitCharges: number;
+  tawidhCharges: number;
+  lateInterestCharges: number;
   lateCharges: number;
+  lateChargeBreakdown: LateChargeBreakdownRow[];
   otherFees: number;
   finalSettlementAmount: number;
 }
@@ -117,9 +145,26 @@ export default function AdminEarlySettlement() {
               <div className="label">Accrued {isIslamic ? "profit" : "interest"}</div>
               <div className="value">{money(data.earlySettlement.accruedReturn)}</div>
             </div>
+            {isIslamic ? (
+              <>
+                <div className="metric">
+                  <div className="label">Deferred profit</div>
+                  <div className="value">{money(data.earlySettlement.deferredProfitCharges)}</div>
+                </div>
+                <div className="metric">
+                  <div className="label">Ta'widh</div>
+                  <div className="value">{money(data.earlySettlement.tawidhCharges)}</div>
+                </div>
+              </>
+            ) : (
+              <div className="metric">
+                <div className="label">Late interest</div>
+                <div className="value">{money(data.earlySettlement.lateInterestCharges)}</div>
+              </div>
+            )}
             <div className="metric">
-              <div className="label">Late charges + other fees</div>
-              <div className="value">{money(data.earlySettlement.lateCharges + data.earlySettlement.otherFees)}</div>
+              <div className="label">Other fees</div>
+              <div className="value">{money(data.earlySettlement.otherFees)}</div>
             </div>
             <div className="metric">
               <div className="label">Waiver / Additional</div>
@@ -170,10 +215,23 @@ export default function AdminEarlySettlement() {
                   <span>Future {isIslamic ? "profit" : "interest"} waived</span>
                   <strong>-{money(preview.futureReturnWaived)}</strong>
                 </div>
-                <div className="summary-row">
-                  <span>Late charges</span>
-                  <strong>{money(preview.lateCharges)}</strong>
-                </div>
+                {isIslamic ? (
+                  <>
+                    <div className="summary-row">
+                      <span>Deferred profit</span>
+                      <strong>{money(preview.deferredProfitCharges)}</strong>
+                    </div>
+                    <div className="summary-row">
+                      <span>Ta'widh</span>
+                      <strong>{money(preview.tawidhCharges)}</strong>
+                    </div>
+                  </>
+                ) : (
+                  <div className="summary-row">
+                    <span>Late interest</span>
+                    <strong>{money(preview.lateInterestCharges)}</strong>
+                  </div>
+                )}
                 <div className="summary-row">
                   <span>Other fees</span>
                   <strong>{money(preview.otherFees)}</strong>
@@ -183,6 +241,78 @@ export default function AdminEarlySettlement() {
                   <strong>{money(preview.finalSettlementAmount)}</strong>
                 </div>
               </div>
+
+              {preview.lateChargeBreakdown.length > 0 && (
+                <div className="field" style={{ marginTop: 14 }}>
+                  <label>Outstanding late-charge breakdown</label>
+                  <div className="table-wrap">
+                    <table className="table" style={{ minWidth: 0 }}>
+                      <tbody>
+                        <tr>
+                          <th>Due Date</th>
+                          <th>Days Late</th>
+                          {isIslamic ? (
+                            <>
+                              <th>Deferred Profit</th>
+                              <th>Ta'widh</th>
+                            </>
+                          ) : (
+                            <th>Late Interest</th>
+                          )}
+                          <th>Total</th>
+                        </tr>
+                        {preview.lateChargeBreakdown.map((row) => (
+                          <tr key={row.installmentId}>
+                            <td>{row.dueDate}</td>
+                            <td>{row.chargeableDays}</td>
+                            {isIslamic ? (
+                              <>
+                                <td>{money(row.deferredProfit)}</td>
+                                <td>{money(row.tawidh)}</td>
+                              </>
+                            ) : (
+                              <td>{money(row.lateInterest)}</td>
+                            )}
+                            <td>{money(row.total)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {preview.returnAccrualBreakdown.length > 0 && (
+                <div className="field" style={{ marginTop: 14 }}>
+                  <label>Proration detail ({isIslamic ? "profit" : "interest"} earned per remaining period)</label>
+                  <div className="table-wrap">
+                    <table className="table" style={{ minWidth: 0 }}>
+                      <tbody>
+                        <tr>
+                          <th>Period</th>
+                          <th>Elapsed / Period Days</th>
+                          <th>Scheduled</th>
+                          <th>Earned</th>
+                          <th>Rebated</th>
+                        </tr>
+                        {preview.returnAccrualBreakdown.map((row) => (
+                          <tr key={row.installmentId}>
+                            <td>
+                              {row.startDate} → {row.endDate}
+                            </td>
+                            <td>
+                              {row.elapsedDays} / {row.periodDays}
+                            </td>
+                            <td>{money(row.scheduledReturn)}</td>
+                            <td>{money(row.earned)}</td>
+                            <td>{money(row.rebate)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               <div className="stack" style={{ marginTop: 16 }}>
                 <div className="field">

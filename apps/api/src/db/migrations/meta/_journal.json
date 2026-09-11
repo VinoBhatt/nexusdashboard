@@ -134,6 +134,13 @@
       "when": 1789098809262,
       "tag": "0018_common_risque",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1789100628491,
+      "tag": "0019_tired_tomorrow_man",
+      "breakpoints": true
     }
   ]
 }

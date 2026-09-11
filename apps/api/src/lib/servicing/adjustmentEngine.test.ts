@@ -1,5 +1,22 @@
 import { describe, it, expect } from "vitest";
-import { effectiveAmount, adjustedComponent, applyChargeAdjustments, settlementPreview, type ChargeAdjustmentRecord } from "./adjustmentEngine";
+import { effectiveAmount, adjustedComponent, applyChargeAdjustments, settlementPreview, type ChargeAdjustmentRecord, type SettlementComponentAmounts, type SettlementScheduleRow } from "./adjustmentEngine";
+
+const POLICY = { method: "CONVENTIONAL_DAILY_REST", annualRateBps: 1800, dayCountBasis: 360 };
+const zeroComponent = (remainingSen = 0): SettlementComponentAmounts => ({ calculatedSen: remainingSen, effectiveSen: remainingSen, paidSen: 0, remainingSen });
+function settlementRow(overrides: Partial<SettlementScheduleRow>): SettlementScheduleRow {
+  return {
+    installmentId: "inst-1",
+    dueDate: "2026-09-07",
+    periodStartDate: "2026-08-07",
+    principalRemainingSen: 0,
+    scheduledReturnRemainingSen: 0,
+    deferredProfit: zeroComponent(),
+    tawidh: zeroComponent(),
+    lateInterest: zeroComponent(),
+    fees: zeroComponent(),
+    ...overrides,
+  };
+}
 
 describe("effectiveAmount", () => {
   it("FULL_WAIVER always reduces to zero", () => {
@@ -71,26 +88,63 @@ describe("applyChargeAdjustments", () => {
 describe("settlementPreview", () => {
   it("prorates a half-elapsed period and sums remaining principal", () => {
     const result = settlementPreview({
-      rows: [{ dueDate: "2026-09-07", periodStartDate: "2026-08-07", principalRemainingSen: 100000, scheduledReturnRemainingSen: 2000 }],
+      rows: [settlementRow({ principalRemainingSen: 100000, scheduledReturnRemainingSen: 2000 })],
       asOfDate: "2026-08-22", // 15 of 31 days elapsed
-      outstandingLateChargesSen: 0,
-      otherFeesSen: 0,
+      policy: POLICY,
     });
     expect(result.principalOutstandingSen).toBe(100000);
     expect(result.accruedReturnSen).toBeGreaterThan(0);
     expect(result.accruedReturnSen).toBeLessThan(2000);
     expect(result.futureReturnWaivedSen).toBe(2000 - result.accruedReturnSen);
+    expect(result.returnAccrualBreakdown).toHaveLength(1);
+    expect(result.returnAccrualBreakdown[0].elapsedDays).toBe(15);
+    expect(result.returnAccrualBreakdown[0].periodDays).toBe(31);
     expect(result.finalSettlementAmountSen).toBe(result.principalOutstandingSen + result.accruedReturnSen);
+    expect(result.policy).toEqual(POLICY);
   });
   it("never credits more than 100% of a period, and folds in late charges/fees", () => {
     const result = settlementPreview({
-      rows: [{ dueDate: "2026-09-07", periodStartDate: "2026-08-07", principalRemainingSen: 0, scheduledReturnRemainingSen: 2000 }],
+      rows: [settlementRow({ scheduledReturnRemainingSen: 2000, lateInterest: zeroComponent(500), fees: zeroComponent(100) })],
       asOfDate: "2026-12-01",
-      outstandingLateChargesSen: 500,
-      otherFeesSen: 100,
+      policy: POLICY,
     });
     expect(result.accruedReturnSen).toBe(2000);
     expect(result.futureReturnWaivedSen).toBe(0);
+    expect(result.lateInterestSen).toBe(500);
+    expect(result.lateChargesSen).toBe(500);
+    expect(result.otherFeesSen).toBe(100);
     expect(result.finalSettlementAmountSen).toBe(2000 + 500 + 100);
+  });
+  it("keeps deferred-profit, ta'widh and late-interest as separate totals, never lumped", () => {
+    const result = settlementPreview({
+      rows: [settlementRow({ deferredProfit: zeroComponent(300), tawidh: zeroComponent(50), lateInterest: zeroComponent(0) })],
+      asOfDate: "2026-09-07",
+      policy: POLICY,
+    });
+    expect(result.deferredProfitSen).toBe(300);
+    expect(result.tawidhSen).toBe(50);
+    expect(result.lateInterestSen).toBe(0);
+    expect(result.lateChargesSen).toBe(350);
+    expect(result.lateChargeBreakdown).toHaveLength(1);
+    expect(result.lateChargeBreakdown[0].totalRemainingSen).toBe(350);
+  });
+  it("excludes an installment from the late-charge breakdown once every component is fully paid", () => {
+    const result = settlementPreview({
+      rows: [settlementRow({ installmentId: "inst-paid", lateInterest: { calculatedSen: 500, effectiveSen: 500, paidSen: 500, remainingSen: 0 } })],
+      asOfDate: "2026-09-07",
+      policy: POLICY,
+    });
+    expect(result.lateChargeBreakdown).toHaveLength(0);
+    expect(result.lateInterestSen).toBe(0);
+  });
+  it("excludes a fully-settled installment (no principal/return remaining) from the return-accrual breakdown", () => {
+    const result = settlementPreview({
+      rows: [settlementRow({ installmentId: "inst-done", principalRemainingSen: 0, scheduledReturnRemainingSen: 0 }), settlementRow({ installmentId: "inst-open", principalRemainingSen: 50000, scheduledReturnRemainingSen: 1000 })],
+      asOfDate: "2026-09-07",
+      policy: POLICY,
+    });
+    expect(result.returnAccrualBreakdown).toHaveLength(1);
+    expect(result.returnAccrualBreakdown[0].installmentId).toBe("inst-open");
+    expect(result.principalOutstandingSen).toBe(50000);
   });
 });
