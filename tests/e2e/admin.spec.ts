@@ -348,6 +348,30 @@ test.describe("Admin approvals", () => {
     }
   });
 
+  test("Admin views the platform-wide transactions ledger (servicing engine Stage 3a)", async ({ page }) => {
+    await login(page, DEMO_ACCOUNTS.admin);
+    await page.getByRole("link", { name: "Transactions", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Transactions", exact: true })).toBeVisible();
+
+    // Content is order-dependent (depends on which other tests ran first in
+    // this DB), so this only asserts the page/API structure, not row content.
+    await page.getByRole("tab", { name: "Platform Fees & SST" }).click();
+    await expect(page.getByRole("tab", { name: "Platform Fees & SST" })).toHaveAttribute("aria-selected", "true");
+    await page.getByRole("tab", { name: "Investor Transactions" }).click();
+    await expect(page.getByRole("tab", { name: "Investor Transactions" })).toHaveAttribute("aria-selected", "true");
+
+    const allRows = await apiFetch(page, "/api/admin/transactions?tab=ALL");
+    expect(allRows.status).toBe(200);
+    expect(Array.isArray(JSON.parse(allRows.body).rows)).toBe(true);
+
+    const feesRows = await apiFetch(page, "/api/admin/transactions?tab=FEES");
+    const feesJson = JSON.parse(feesRows.body).rows as Array<{ scope: string; platformFee: number; sst: number }>;
+    feesJson.forEach((row) => {
+      expect(row.scope).toBe("FEES");
+      expect(row.platformFee + row.sst).toBeGreaterThan(0);
+    });
+  });
+
   test("Reports page offers a real PDF platform summary and CSV exports", async ({ page }) => {
     await login(page, DEMO_ACCOUNTS.admin);
     await page.getByRole("link", { name: "Reports", exact: true }).click();

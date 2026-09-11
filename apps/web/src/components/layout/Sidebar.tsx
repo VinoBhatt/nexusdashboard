@@ -222,6 +222,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
     ] },
     { label: "Repayments", items: [
       { to: "admin-repayments", label: "Record Repayments", icon: "repayments" },
+      { to: "admin-transactions", label: "Transactions", icon: "statements" },
       { to: "admin-bonus-credits", label: "Bonus Credits", icon: "balance" },
       { to: "admin-communications", label: "Communications", icon: "documents" },
       { to: "admin-activity-log", label: "Audit Trail", icon: "documents" },

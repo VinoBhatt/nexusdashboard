@@ -20,6 +20,7 @@ import mycifReporting from "./routes/mycifReporting";
 import adminRepayments from "./routes/adminRepayments";
 import adminBonusCredits from "./routes/adminBonusCredits";
 import adminCommunications from "./routes/adminCommunications";
+import adminTransactions from "./routes/adminTransactions";
 import { handleScheduled } from "./scheduled";
 
 export interface Env {
@@ -50,6 +51,7 @@ app.route("/api/admin/mycif", mycifReporting);
 app.route("/api/admin/repayments", adminRepayments);
 app.route("/api/admin/bonus-credits", adminBonusCredits);
 app.route("/api/admin/communications", adminCommunications);
+app.route("/api/admin/transactions", adminTransactions);
 
 app.notFound((c) => c.json({ error: "not_found" }, 404));
 
